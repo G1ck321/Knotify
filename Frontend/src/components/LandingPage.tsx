@@ -421,6 +421,7 @@ export default function LandingPage({
               <div className="flex items-center gap-3 shrink-0 sm:w-1/3">
                 <span className="font-display italic text-xs font-bold text-brand-secondary border border-brand-secondary/35 px-2.5 py-1 rounded-sm bg-brand-card shadow-sm select-none">№ II</span>
                 <h4 className="font-display font-black text-sm text-brand-primary uppercase tracking-wider">
+                  {/*May soon be removed */}
                   Sourced from Seniors
                 </h4>
               </div>
@@ -651,7 +652,7 @@ export default function LandingPage({
                       Notify Charge
                     </h3>
                     <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Connect directly with graduating seniors and fellow scholars. Negotiate deals and schedule 5-minute lobby meetings inside Daniel, Peter, PG, Esther, or Lydia hall.
+                      Connect directly with current students and fellow scholars. Get the latest updates on premium tie deals and other clothings.
                     </p>
                   </div>
                   
