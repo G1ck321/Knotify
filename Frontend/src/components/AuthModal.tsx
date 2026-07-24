@@ -108,7 +108,7 @@ export default function AuthModal({
         {/* Dynamic Context Message */}
         <div className="relative z-10 max-w-md my-auto">
           <p className="font-display italic text-2xl lg:text-3xl text-[#FFFEF2]/90 leading-relaxed font-light">
-            "We pass on smart confidence. Dressing for chapel should be premium, rules-compliant, and passed down from student to student."
+            "We pass on smart confidence. Dressing for chapel should be premium, rules-compliant, at affordable rates."
           </p>
           <div className="flex items-center gap-2 mt-4 text-[10px] font-mono uppercase tracking-wider text-[#FFFEF2]/65">
             <span>† CHAPTER II SEC 4</span>
@@ -157,7 +157,7 @@ export default function AuthModal({
               {isLogin ? 'SECURE LOGIN' : 'CREATE ACCOUNT'}
             </h2>
             <p className="text-xs text-neutral-500 font-sans">
-              {isLogin ? 'New to the exchange? ' : 'Already listed ties with us? '}
+              {isLogin ? 'New to Knotify? ' : 'Already knotted ties with us? '}
               <button
                 onClick={handleToggleMode}
                 className="text-brand-secondary hover:underline font-bold transition-all cursor-pointer inline-flex items-center gap-1"
@@ -263,7 +263,7 @@ export default function AuthModal({
 
                 <div>
                   <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    COVENANT EMAIL ADDRESS *
+                    EMAIL ADDRESS *
                   </label>
                   <input
                     type="email"
