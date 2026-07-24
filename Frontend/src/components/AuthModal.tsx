@@ -37,6 +37,17 @@ async function requestJson<T>(path: string, body: unknown): Promise<T> {
   return payload as T;
 }
 
+function normalizeUser(user: any) {
+  if (!user) return user;
+
+  const name = user.name ?? user.full_name ?? user.fullName ?? '';
+  return {
+    ...user,
+    name,
+    full_name: user.full_name ?? name,
+  };
+}
+
 export default function AuthModal({
   isOpen,
   onClose,
@@ -78,9 +89,10 @@ export default function AuthModal({
         }
       );
 
+      const normalizedUser = normalizeUser(response.user);
       localStorage.setItem('knotify_access_token', response.access_token);
-      localStorage.setItem('knotify_current_user', JSON.stringify(response.user));
-      onSuccess(response.user);
+      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
+      onSuccess(normalizedUser);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not sign in');
     }
@@ -103,8 +115,9 @@ export default function AuthModal({
         }
       );
 
-      localStorage.setItem('knotify_current_user', JSON.stringify(response.user));
-      onSuccess(response.user);
+      const normalizedUser = normalizeUser(response.user);
+      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
+      onSuccess(normalizedUser);
       setIsLogin(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account');
@@ -311,14 +324,13 @@ export default function AuthModal({
                   <input
                     type="password"
                     required
-                    placeholder="Min 6 characters"
+                      placeholder="Min 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                      maxLength={72}
                     className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
                   />
                     <p className="mt-1 text-[9px] text-neutral-400 font-sans">
-                      Passwords are limited to 72 bytes for bcrypt compatibility.
+                      Set something strong you can remember.
                     </p>
                 </div>
 

@@ -21,6 +21,17 @@ interface Toast {
   type: 'cart' | 'wishlist' | 'success';
 }
 
+function normalizeUser(user: any) {
+  if (!user) return null;
+
+  const name = user.name ?? user.full_name ?? user.fullName ?? '';
+  return {
+    ...user,
+    name,
+    full_name: user.full_name ?? name,
+  };
+}
+
 export default function App() {
   // Page routing state
   const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist'>('home');
@@ -28,7 +39,7 @@ export default function App() {
   // User Authentication State
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const saved = localStorage.getItem('knotify_current_user');
-    return saved ? JSON.parse(saved) : null;
+    return saved ? normalizeUser(JSON.parse(saved)) : null;
   });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
@@ -53,9 +64,10 @@ export default function App() {
   };
 
   const handleAuthSuccess = (user: any) => {
-    setCurrentUser(user);
+    const normalizedUser = normalizeUser(user);
+    setCurrentUser(normalizedUser);
     setIsAuthOpen(false);
-    addToast(`Successfully signed in as ${user.name}!`, 'success');
+    addToast(`Successfully signed in as ${normalizedUser?.name || 'user'}!`, 'success');
 
     // Resume the pending buying action if it was intercepted
     if (pendingAction) {
@@ -73,6 +85,7 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('knotify_current_user');
+    localStorage.removeItem('knotify_access_token');
     addToast('Logged out successfully', 'success');
   };
 
