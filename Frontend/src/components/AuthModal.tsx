@@ -15,6 +15,28 @@ interface AuthModalProps {
   pendingActionName?: string; // Optional context
 }
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '');
+
+async function requestJson<T>(path: string, body: unknown): Promise<T> {
+  // Keep all auth requests consistent and surface backend errors clearly.
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const message = payload?.detail || payload?.message || 'Authentication request failed';
+    throw new Error(message);
+  }
+
+  return payload as T;
+}
+
 export default function AuthModal({
   isOpen,
   onClose,
@@ -43,43 +65,50 @@ export default function AuthModal({
     setError('');
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const nameToUse = loginUsername.trim() || 'Covenant Student';
-    const mockUser = {
-      id: `USR-${Math.floor(10000 + Math.random() * 90000)}`,
-      name: nameToUse,
-      email: nameToUse.toLowerCase().includes('@') ? nameToUse : `${nameToUse.replace(/\s+/g, '').toLowerCase()}@student.covenant.edu.ng`,
-      telegramPhone: '08012345678',
-      parentsNumber: '08023456789',
-      createdAt: new Date().toISOString()
-    };
+    try {
+      const response = await requestJson<{ access_token: string; token_type: string; user: any }>(
+        '/api/auth/login',
+        {
+          email: loginUsername.trim(),
+          password: loginPassword,
+        }
+      );
 
-    localStorage.setItem('knotify_current_user', JSON.stringify(mockUser));
-    onSuccess(mockUser);
+      localStorage.setItem('knotify_access_token', response.access_token);
+      localStorage.setItem('knotify_current_user', JSON.stringify(response.user));
+      onSuccess(response.user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not sign in');
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const nameToUse = name.trim() || 'New Student';
-    const emailToUse = email.trim() || 'newstudent@student.covenant.edu.ng';
+    try {
+      const response = await requestJson<{ message: string; user: any }>(
+        '/api/auth/signup',
+        {
+          name: name.trim(),
+          email: email.trim(),
+          password,
+          telegramPhone,
+          parentsNumber,
+          whatsApp: whatsApp.trim() || undefined,
+        }
+      );
 
-    const newUser = {
-      id: `USR-${Math.floor(10000 + Math.random() * 90000)}`,
-      name: nameToUse,
-      email: emailToUse,
-      telegramPhone: telegramPhone || '08012345678',
-      whatsApp: whatsApp || undefined,
-      parentsNumber: parentsNumber || '08023456789',
-      createdAt: new Date().toISOString()
-    };
-
-    localStorage.setItem('knotify_current_user', JSON.stringify(newUser));
-    onSuccess(newUser);
+      localStorage.setItem('knotify_current_user', JSON.stringify(response.user));
+      onSuccess(response.user);
+      setIsLogin(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create account');
+    }
   };
 
   return (
@@ -285,8 +314,12 @@ export default function AuthModal({
                     placeholder="Min 6 characters"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                      maxLength={72}
                     className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
                   />
+                    <p className="mt-1 text-[9px] text-neutral-400 font-sans">
+                      Passwords are limited to 72 bytes for bcrypt compatibility.
+                    </p>
                 </div>
 
                 <div>
