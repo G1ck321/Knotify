@@ -4,8 +4,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 import uvicorn
-from routers import orders
-# , webhooks, auth
+from routers import auth, orders
+# , webhooks
 
 app = FastAPI(title="Knotify COvenant University", version="2026.1.0")
 
@@ -28,9 +28,9 @@ app.add_middleware(
     allow_origins=["*"],
 )
 
-# app.include_router(auth)
+app.include_router(auth.router)
 app.include_router(orders.router)
 # app.include_router(webhooks)
 
 if __name__ =="__main__":
-    uvicorn.run("main:app", port=5500, host="0.0.0.0", debug=True, reload=True)
+    uvicorn.run("main:app", port=5500, host="0.0.0.0", reload=True)

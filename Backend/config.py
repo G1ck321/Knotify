@@ -10,12 +10,17 @@ class Settings(BaseSettings):
     SUPABASE_KEY: str
 
     # Flutterwave configuration for payment creation and webhook verification.
-    FLW_SECRET_HASH: str
-    FW_SECRET_KEY: str
+    FLW_SECRET_HASH: str = ""
+    FW_SECRET_KEY: str = ""
+
+    # Auth tokens should ideally use their own secret; fall back to the payment key only if needed.
+    AUTH_SECRET_KEY: str | None = None
+    AUTH_ALGORITHM: str = "HS256"
+    AUTH_TOKEN_EXPIRES_MINUTES: int = 60
 
     # Telegram and email settings for admin notifications.
-    TELEGRAM_BOT_TOKEN: str
-    TELEGRAM_CHAT_ID: str
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_CHAT_ID: str = ""
     # RESEND_API_KEY: str
     # OWNER_EMAIL_ADDRESS: str
 
