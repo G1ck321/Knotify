@@ -7,6 +7,7 @@ class Settings(BaseSettings):
 
     # Supabase connection details used by the database client.
     SUPABASE_URL: str
+    #This is the service role key, it can bypass RLS, should never be given to the frontend/client
     SUPABASE_KEY: str
 
     # Flutterwave configuration for payment creation and webhook verification.

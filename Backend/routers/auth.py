@@ -2,7 +2,7 @@ from uuid import uuid4
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field
 
 from config import settings
 from database import supabase
@@ -60,7 +60,10 @@ class SupabaseUserRepository:
             "email": payload.email.strip().lower(),
             "phone": payload.telegramPhone.strip(),
             "password_hash": hashed_password,
-            "is_active": True,
+            "parentsNumber":payload.parentsNumber.strip(),
+            "telegramPhone":payload.telegramPhone.strip(),
+            "whatsApp":payload.whatsApp.strip(),
+            "is_active": True
         }
 
         response = self.client.table("users").insert(user_row).execute()
@@ -80,14 +83,6 @@ class SignupRequest(BaseModel):
     telegramPhone: str = Field(..., min_length=7)
     parentsNumber: str = Field(..., min_length=7)
     whatsApp: Optional[str] = None
-
-    @field_validator("password")
-    @classmethod
-    def password_must_fit_bcrypt(cls, value: str) -> str:
-        # Prevent bcrypt from throwing a runtime error after the form is submitted.
-        if len(value.encode("utf-8")) > 72:
-            raise ValueError("Password cannot be longer than 72 bytes")
-        return value
 
 
 class LoginRequest(BaseModel):

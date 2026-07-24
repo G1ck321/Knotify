@@ -5,7 +5,6 @@ supabase
 typing
 uvicorn
 pydantic-settings
-passlib[bcrypt]
-bcrypt==4.0.1
+pwdlib[argon2]
 python-jose[cryptography]
 email-validator
