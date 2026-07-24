@@ -20,13 +20,13 @@ const FAQ_DATA: FAQItem[] = [
     id: 'delivery',
     category: 'HOW IT WORKS',
     question: 'How does the lobby delivery work?',
-    answer: 'Once you reserve a tie, you will immediately get the seller’s residence hall, wing, room number, and phone number. Then, you can simply meet up in your lobby (like Daniel, Peter, PG, Esther, or Lydia Hall) to grab your tie.'
+    answer: 'Once you reserve a tie, you join the community, to join others to get updates about CU and your purchased tie. Before you resume, you simply add your hall/room number to your dashboard and it comes to your hall.'
   },
   {
     id: 'pricing',
     category: 'PRICING',
     question: 'How much do ties on Knotify cost?',
-    answer: 'Prices are very cheap and student-friendly, usually between ₦500 and ₦2,500. Knotify is built by students for students, so you get great ties without paying expensive off-campus prices.'
+    answer: 'Prices are very cheap and student-friendly, usually between ₦2000 and ₦5500. Knotify is built by students for students, so you get great ties without paying expensive off-campus prices.'
   },
   {
     id: 'selling',
@@ -38,7 +38,7 @@ const FAQ_DATA: FAQItem[] = [
     id: 'payment',
     category: 'PAYMENT',
     question: 'How do I pay the seller?',
-    answer: 'To keep things simple and secure, you pay the seller directly when you meet them in the lobby. You can pay with cash or do a quick bank transfer on your phone.'
+    answer: 'To keep things simple and secure, you pay the seller through the app, the seller gets it within 24 hours.'
   },
   {
     id: 'returns',
