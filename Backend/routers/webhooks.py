@@ -16,3 +16,15 @@ async def system_check():
             "message": "KnotifyCU"
         }
     )
+
+@router.get("/health", status_code=status.HTTP_200_OK, tags=["System Health"])
+async def system_check():
+    """Light weight system function to check, and keep Render up"""
+
+    return JSONResponse(
+        content={
+            "status": "running",
+            "environment":"development",
+            "message": "KnotifyCU"
+        }
+    )
