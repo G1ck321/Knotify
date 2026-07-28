@@ -1,4 +1,6 @@
-import traceback
+from email import message
+import traceback, httpx
+from urllib import response
 
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -60,22 +62,45 @@ async def initialize_payment(
                 "email":payload.email
             },
             "meta":{
-
+                "roomNumber": payload.roomNumber
+            },
+            "payment_options":"card, ussd, banktransfer, opay",
+            "customizations":{
+                "title":"KnotifyCu",
+                "description": f"Ties NGN {payload.amount} | Delivery & Development Fee: NGN 200"
             }
-
         }
 
+        #Ask flutterwave for the checkout link
+        print("Reaching out to Flutterwave..")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(flutterwave_api_url, json=flutter_payload, headers=headers)
+            flw_data = response.json()
+
+            if response.status_code == 200 and flw_data.get("status") == "success":
+                hosted_checkout_url = flw_data.get("data",{}).get("link")
+                print("Checkout Link generated successfully")
+                return {"checkout_url": hosted_checkout_url}
+
+            else:
+                print(f"Flutterwave rejected request with status {response.status_code}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Gateway Error {flw_data.get("message")}"
+                )
+
     except Exception as e: 
+    
         print("!! Look Out Error Occured Mehn!!")
         traceback.print_exc()
         print("!!!!!!!!!!!!!!!!!!!!!!!! \n")
 
         #Return 500 to client
 
-        raise HTTPException(
+    raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Crash details: {str(e)}"
-        )
+    )
 
 
     return JSONResponse(content={"message": "Payment initialized", "tx_ref": tx_ref, "order": db_payload})
