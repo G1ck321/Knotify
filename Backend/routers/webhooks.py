@@ -127,7 +127,9 @@ async def handle_telegram_requests(
             print("E work")
 
             async with httpx.AsyncClient() as client:
-                client.post(telegram_api_url, json= response_payload)
+                response = await client.post(telegram_api_url, json= response_payload)
+                print(response.status_code)
+                print(response.text)
 
             return {"status":"okay"}
         
