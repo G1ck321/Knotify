@@ -38,9 +38,7 @@ async def initialize_payment(
             "item_count": len(payload.items),
             "currency": "NGN",
             "order_details": payload.order_summary,
-            # "delivery_address": payload.address,
             "room_number": payload.roomNumber,
-            "matric_number": payload.matricNumber,
             "email": payload.email,
             "telegramPhone": payload.telegramPhone,
         }
