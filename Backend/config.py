@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     #This is the service role key, it can bypass RLS, should never be given to the frontend/client
     SUPABASE_KEY: str
 
+    # Local PostgreSQL connection string, used when you switch the app off Supabase.
+    # Example: postgresql+psycopg://postgres:password@localhost:5432/knotify
+    DATABASE_URL: str = ""
+
     # Flutterwave configuration for payment creation and webhook verification.
     FLW_SECRET_HASH: str = ""
     FW_SECRET_KEY: str = ""

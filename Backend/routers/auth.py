@@ -53,17 +53,17 @@ class SupabaseUserRepository:
         return UserRecord(rows[0])
 
     def create_user(self, payload, hashed_password: str):
-        # Map the frontend's telegram phone into the backend's primary phone column.
+        # Keep the row aligned with the actual users table shape.
         user_row = {
             "id": str(uuid4()),
             "full_name": payload.name.strip(),
             "email": payload.email.strip().lower(),
-            "phone": payload.telegramPhone.strip(),
+            "phone": payload.phone.strip() if payload.phone else None,
             "password_hash": hashed_password,
-            "parentsNumber":payload.parentsNumber.strip(),
-            "telegramPhone":payload.telegramPhone.strip(),
-            "whatsApp":payload.whatsApp.strip(),
-            "is_active": True
+            "parentsNumber": payload.parentsNumber.strip(),
+            "telegramPhone": payload.telegramPhone.strip(),
+            "whatsApp": payload.whatsApp.strip() if payload.whatsApp else None,
+            "is_active": True,
         }
 
         response = self.client.table("users").insert(user_row).execute()
@@ -79,6 +79,7 @@ def _user_repo() -> SupabaseUserRepository:
 class SignupRequest(BaseModel):
     name: str = Field(..., min_length=2)
     email: EmailStr
+    phone: Optional[str] = None
     password: str = Field(..., min_length=6)
     telegramPhone: str = Field(..., min_length=7)
     parentsNumber: str = Field(..., min_length=7)

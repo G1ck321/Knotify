@@ -10,8 +10,11 @@ class FrontendPayRequest(BaseModel):
 
     name:str = Field(..., min_length=2)
     email:str
+    user_id:str
     telegramPhone:str
     parentsNumber:str
     whatsApp:Optional[str]= None
-    order:str
-    amount:
+    order_details:str
+    amount:float = Field(..., gt=0)
+    room_number:str
+    parentsNumber: str = Field(..., min_length=7)
