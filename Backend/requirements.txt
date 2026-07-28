@@ -1,0 +1,10 @@
+gunicorn
+sqlalchemy
+fastapi
+supabase
+typing
+uvicorn
+pydantic-settings
+pwdlib[argon2]
+python-jose[cryptography]
+email-validator
