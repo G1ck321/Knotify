@@ -13,6 +13,8 @@ class Order(Base):
     tx_ref = Column(String, unique=True, nullable=False)
     status = Column(String, nullable=False, default="pending")
     amountpaid = Column(Numeric(12, 2), nullable=False)
+    items_total = Column(Numeric(12, 2), nullable=False)
+    item_count = Column(Integer, nullable=False)
     currency = Column(String, nullable=False, default="NGN")
     order_details = Column(Text, nullable=False)
     delivery_address = Column(Text)

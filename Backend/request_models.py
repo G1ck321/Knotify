@@ -8,7 +8,7 @@ all at once.
 import re
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class OrderItemInput(BaseModel):
@@ -33,15 +33,18 @@ class CheckoutRequest(BaseModel):
     """Normalized checkout payload for one payment session."""
 
     name: str = Field(..., min_length=1)
+    email: EmailStr
     telegramPhone: str
+    parentsNumber: str
+    whatsApp: Optional[str] = None
     matricNumber: Optional[str] = None
     address: str
-    email: str
     roomNumber: str
     items: list[OrderItemInput] = Field(default_factory=list, min_length=1)
-    order_details: Optional[str] = None
+    order_details: Optional[str] = Field(default=None, alias="orderDetails")
     amount: float = Field(..., gt=0)
-    status:str
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
     @field_validator("items", mode="before")
@@ -54,7 +57,7 @@ class CheckoutRequest(BaseModel):
             return [value]
         return value
 
-    @field_validator("orderDetails", mode="before")
+    @field_validator("order_details", mode="before")
     @classmethod
     def normalize_order_details(cls, value):
         # Keep a readable snapshot field for receipts and webhook payloads.
@@ -80,8 +83,8 @@ class CheckoutRequest(BaseModel):
     @property
     def order_summary(self) -> str:
         """Build a human-readable order summary from the normalized line items."""
-        if self.orderDetails:
-            return self.orderDetails
+        if self.order_details:
+            return self.order_details
         if not self.items:
             return ""
 
@@ -102,8 +105,11 @@ class UserCreateRequest(BaseModel):
 
     full_name: str = Field(..., min_length=1)
     email: EmailStr
-    phone: str = Field(..., min_length=1)
+    phone: Optional[str] = None
     password: str = Field(..., min_length=8)
+    parentsNumber: str = Field(..., min_length=1)
+    telegramPhone: str = Field(..., min_length=1)
+    whatsApp: Optional[str] = None
 
 
 class UserLoginRequest(BaseModel):
@@ -113,17 +119,9 @@ class UserLoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
-class SignupRequest(BaseModel):
+class SignupRequest(UserCreateRequest):
     """Signup payload for account creation."""
 
-    full_name: str = Field(..., min_length=1)
-    email: str = Field(..., min_length=1)
-    phone: str = Field(..., min_length=1)
-    password: str = Field(..., min_length=8)
 
-
-class LoginRequest(BaseModel):
+class LoginRequest(UserLoginRequest):
     """Login payload for authentication."""
-
-    email: str = Field(..., min_length=1)
-    password: str = Field(..., min_length=1)
