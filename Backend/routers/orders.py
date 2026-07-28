@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from database import supabase
 from config import settings
 
-from dependencies import get_current_user
+from typing import Optional
+from dependencies import get_optional_current_user
 from request_models import OrderCreateRequest
 from utils.tokens import generate_tx_ref
 
@@ -18,16 +19,18 @@ router = APIRouter(prefix="/api", tags=["Payment Initiaion pipeline"])
 @router.post("/pay")
 async def initialize_payment(
     payload: OrderCreateRequest,
-    current_user: dict = Depends(get_current_user),
+    current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
     try:
         # Add delivery fee of 200 on the server so the frontend cannot alter it.
         calculated_total = float(payload.amount) + 200
         tx_ref = generate_tx_ref("order")
 
-        # The frontend never supplies user_id; the backend injects it from the JWT.
+        # Use authenticated user ID if present; fallback to guest identifier
+        user_id = current_user["id"] if (current_user and "id" in current_user) else f"guest_{payload.email}"
+
         db_payload = {
-            "user_id": current_user["id"],
+            "user_id": user_id,
             "tx_ref": tx_ref,
             "status": "pending",
             "amountpaid": calculated_total,
@@ -64,7 +67,7 @@ async def initialize_payment(
                 "email":payload.email
             },
             "meta":{
-                "user_id": current_user["id"],
+                "user_id": user_id,
                 "item_count": len(payload.items),
                 "roomNumber": payload.roomNumber
             },
