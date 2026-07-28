@@ -19,6 +19,29 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5500').replace(/\/$/, '');
+
+async function createCheckoutSession(payload: unknown) {
+  const token = localStorage.getItem('knotify_access_token');
+
+  const response = await fetch(`${API_BASE_URL}/api/pay`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.detail || data?.message || 'Could not create payment session');
+  }
+
+  return data as { checkout_url?: string; tx_ref?: string };
+}
+
 interface CheckoutPageProps {
   cartItems: CartItem[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
@@ -47,6 +70,8 @@ export default function CheckoutPage({
   const [buyerHall, setBuyerHall] = useState(COVENANT_HALLS[0] || 'Daniel Hall');
   const [copiedId, setCopiedId] = useState(false);
   const [generatedId, setGeneratedId] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Pre-fill user details if logged in
   useEffect(() => {
@@ -88,16 +113,44 @@ export default function CheckoutPage({
     }
   };
 
-  const handleConfirmReservation = (e: React.FormEvent) => {
+  const handleConfirmReservation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (buyerName && buyerPhone) {
-      const uniqueId = `KNT-2027-${Math.floor(10000 + Math.random() * 90000)}`;
-      setGeneratedId(uniqueId);
+    if (!buyerName || !buyerPhone) {
+      return;
+    }
 
-      const preferredColor = cartItems.map(item => item.product.color).join(', ');
-      const productNames = cartItems.map(item => `${item.product.name} (x${item.quantity})`).join(', ');
+    setSubmitError('');
+    setIsSubmitting(true);
 
+    try {
+      const orderItems = cartItems.map((item) => ({
+        item_id: item.product.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.product.price,
+        image_url: item.product.image || undefined,
+      }));
+
+      const preferredColor = cartItems.map((item) => item.product.color).join(', ');
+      const productNames = cartItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ');
       const pickupPoint = getAssignedPickupPoint(buyerHall);
+
+      const response = await createCheckoutSession({
+        name: buyerName,
+        email: buyerEmail,
+        telegramPhone: buyerPhone,
+        parentsNumber: currentUser?.parentsNumber || buyerPhone,
+        whatsApp: currentUser?.whatsApp || undefined,
+        matricNumber: currentUser?.matricNumber || undefined,
+        address: pickupPoint,
+        roomNumber: buyerHall,
+        items: orderItems,
+        orderDetails: productNames,
+        amount: totalValue,
+      });
+
+      const uniqueId = response.tx_ref || `KNT-2027-${Math.floor(10000 + Math.random() * 90000)}`;
+      setGeneratedId(uniqueId);
 
       onAddReservation({
         id: uniqueId,
@@ -117,6 +170,14 @@ export default function CheckoutPage({
 
       setCheckoutStep('success');
       window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      if (response.checkout_url) {
+        window.location.href = response.checkout_url;
+      }
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Could not start checkout');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -451,6 +512,12 @@ export default function CheckoutPage({
                       Selecting your hall matches you to your closest campus pickup station (e.g. <strong>{getAssignedPickupPoint(buyerHall)}</strong>) ensuring you skip lines during resumption week completely.
                     </div>
 
+                    {submitError && (
+                      <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-[11px] text-red-700 font-sans">
+                        {submitError}
+                      </div>
+                    )}
+
                     <div className="pt-4 border-t border-brand-border flex flex-col sm:flex-row gap-4 justify-between items-center">
                       <button
                         type="button"
@@ -463,9 +530,10 @@ export default function CheckoutPage({
 
                       <button
                         type="submit"
+                        disabled={isSubmitting}
                         className="w-full sm:w-auto px-8 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                       >
-                        CONFIRM RESERVATION
+                        {isSubmitting ? 'STARTING CHECKOUT...' : 'CONFIRM RESERVATION'}
                         <ArrowRight size={14} />
                       </button>
                     </div>
@@ -638,9 +706,10 @@ export default function CheckoutPage({
                 ) : (
                   <button
                     onClick={handleConfirmReservation}
+                    disabled={isSubmitting}
                     className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
-                    RESERVE FOR ₦{totalDeposit.toLocaleString()}
+                    {isSubmitting ? 'STARTING CHECKOUT...' : `RESERVE FOR ₦${totalDeposit.toLocaleString()}`}
                   </button>
                 )}
 
