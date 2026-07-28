@@ -4,7 +4,7 @@ from urllib import response
 
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status
-from flask import redirect
+# from flask import redirect
 from database import supabase
 from config import settings
 
