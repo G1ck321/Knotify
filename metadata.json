@@ -1,0 +1,6 @@
+{
+  "name": "Covenant University Tie Marketplace",
+  "description": "Knotify — A premium, modern, minimalist marketplace for Covenant University students to buy and sell authentic quality ties at affordable prices.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,3 +1,14 @@
+# Frontend
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Backend (Python)
 *__pycache__/
 *.env
 *.venv
