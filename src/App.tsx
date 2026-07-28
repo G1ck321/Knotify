@@ -487,10 +487,10 @@ export default function App() {
             onSuccess={handleAuthSuccess}
             pendingActionName={
               pendingAction?.type === 'add_to_cart'
-                ? `add "${pendingAction.product?.name}" to your reservation list`
+                ? `add "${pendingAction.product?.name}" to your shopping bag`
                 : pendingAction?.type === 'buy_now'
-                ? `directly reserve "${pendingAction.product?.name}"`
-                : 'proceed to reservation checkout'
+                ? `buy "${pendingAction.product?.name}" directly`
+                : 'proceed to direct payment checkout'
             }
           />
         )}

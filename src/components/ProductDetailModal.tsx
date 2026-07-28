@@ -129,9 +129,9 @@ export default function ProductDetailModal({
                   <div className="flex gap-3 bg-brand-bg p-4 rounded border border-brand-border">
                     <Truck size={16} className="text-brand-secondary shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-primary">1. Secure Reservation</h4>
+                      <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-primary">1. Direct Payment Online</h4>
                       <p className="text-[11px] text-brand-primary/80 mt-1 font-sans leading-relaxed">
-                        Pay a safe deposit of ₦{(product?.deposit ?? 0).toLocaleString()} today. We handle ironed preparation, custom ziplock pouching, and stock assignment.
+                        Pay ₦{(product?.price ?? 0).toLocaleString()} directly via secure Flutterwave checkout (Cards, Bank Transfer, USSD, OPay).
                       </p>
                     </div>
                   </div>
@@ -141,7 +141,7 @@ export default function ProductDetailModal({
                     <div>
                       <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-primary">2. Hall Resumption Delivery</h4>
                       <p className="text-[11px] text-brand-primary/80 mt-1 font-sans leading-relaxed">
-                        Walk to your assigned pickup station near your Residence Hall. Verify your physical tie packaging before paying the outstanding balance.
+                        Walk to your assigned pickup station near your Residence Hall with your transaction reference (`tx_ref`) for instant tie collection.
                       </p>
                     </div>
                   </div>
@@ -149,8 +149,8 @@ export default function ProductDetailModal({
               ) : (
                 <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1" id="faqs-tab-content">
                   <div className="p-3 bg-brand-bg rounded border border-brand-border text-left">
-                    <p className="text-[11px] font-mono text-brand-primary uppercase tracking-wider font-bold">Do I pay the full amount now?</p>
-                    <p className="text-xs text-brand-primary/80 font-sans mt-1">No, pay only the ₦{(product?.deposit ?? 0).toLocaleString()} reservation deposit to secure your tie. The remaining balance is paid upon resumption pickup.</p>
+                    <p className="text-[11px] font-mono text-brand-primary uppercase tracking-wider font-bold">How is payment completed?</p>
+                    <p className="text-xs text-brand-primary/80 font-sans mt-1">Payment is processed directly online at checkout via secure Flutterwave integration (cards, USSD, bank transfer, OPay).</p>
                   </div>
                   <div className="p-3 bg-brand-bg rounded border border-brand-border text-left">
                     <p className="text-[11px] font-mono text-brand-primary uppercase tracking-wider font-bold">Where do I collect my order?</p>
@@ -195,26 +195,26 @@ export default function ProductDetailModal({
             <div className="pt-2 border-t border-brand-border grid grid-cols-2 gap-4">
               <div>
                 <span className="text-[9px] font-mono text-brand-secondary uppercase block tracking-widest mb-1">
-                  RESERVATION DEPOSIT
+                  DIRECT ITEM PRICE
                 </span>
                 <span className="font-sans text-xl font-black text-brand-primary">
-                  ₦{(product?.deposit ?? 0).toLocaleString()}
+                  ₦{(product?.price ?? 0).toLocaleString()}
                 </span>
               </div>
               <div>
                 <span className="text-[9px] font-mono text-brand-secondary uppercase block tracking-widest mb-1">
-                  OUTSTANDING BALANCE
+                  CAMPUS DELIVERY FEE
                 </span>
-                <span className="font-sans text-xl font-semibold text-brand-secondary">
-                  ₦{(outstandingBalance ?? 0).toLocaleString()}
+                <span className="font-sans text-xl font-semibold text-emerald-600">
+                  ₦200
                 </span>
               </div>
             </div>
 
             {/* Total Price Tracker */}
             <div className="bg-brand-card px-4 py-3 rounded border border-brand-border flex justify-between items-center">
-              <span className="text-[9px] font-mono text-brand-secondary uppercase tracking-wider">Total Value</span>
-              <span className="text-xs font-sans font-bold text-brand-primary">₦{(product?.price ?? 0).toLocaleString()}</span>
+              <span className="text-[9px] font-mono text-brand-secondary uppercase tracking-wider">Total Amount</span>
+              <span className="text-xs font-sans font-bold text-brand-primary">₦{((product?.price ?? 0) + 200).toLocaleString()}</span>
             </div>
 
             {/* Minimal Quantity Selector */}
@@ -260,10 +260,10 @@ export default function ProductDetailModal({
                 onDirectBuy(product);
                 onClose();
               }}
-              className="w-full py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-mono tracking-widest uppercase text-xs rounded transition-all flex items-center justify-center gap-1 cursor-pointer font-black shadow"
+              className="w-full py-4 bg-emerald-700 hover:bg-emerald-600 text-white font-mono tracking-widest uppercase text-xs rounded transition-all flex items-center justify-center gap-1 cursor-pointer font-black shadow"
               id="btn-modal-buy-now"
             >
-              RESERVE NOW
+              PAY & CHECKOUT NOW
             </button>
           </div>
 

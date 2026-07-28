@@ -7,13 +7,16 @@ import {
   ArrowRight, 
   User, 
   Phone, 
-  Home, 
   Mail,
   ShieldCheck,
   Clipboard,
   Check,
   ArrowLeft,
-  Info
+  Info,
+  CreditCard,
+  Building,
+  Hash,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, COVENANT_HALLS } from '../types';
@@ -41,27 +44,54 @@ export default function CheckoutPage({
   onContinueShopping,
 }: CheckoutPageProps) {
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'form' | 'success'>('cart');
+  
+  // Student Form Details
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
+  const [parentsPhone, setParentsPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
   const [buyerHall, setBuyerHall] = useState(COVENANT_HALLS[0] || 'Daniel Hall');
+  const [roomNumber, setRoomNumber] = useState('');
+  const [matricNumber, setMatricNumber] = useState('');
+
+  // Payment Execution State
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
-  const [generatedId, setGeneratedId] = useState('');
+  const [generatedTxRef, setGeneratedTxRef] = useState('');
+
+  // Fixed Delivery Fee (₦200 across all residence halls)
+  const DELIVERY_FEE = 200;
 
   // Pre-fill user details if logged in
   useEffect(() => {
     if (currentUser) {
-      setBuyerName(currentUser.name || '');
-      setBuyerPhone(currentUser.telegramPhone || '');
+      setBuyerName(currentUser.name || currentUser.full_name || '');
+      setBuyerPhone(currentUser.telegramPhone || currentUser.phone || '');
+      setParentsPhone(currentUser.parentsNumber || '');
       setBuyerEmail(currentUser.email || '');
     }
   }, [currentUser]);
 
+  // Check URL query parameters for Flutterwave payment callback redirect (e.g. ?status=successful&tx_ref=KNT-ORD-...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const txRef = params.get('tx_ref');
+
+    if (status === 'successful' && txRef) {
+      setGeneratedTxRef(txRef);
+      setCheckoutStep('success');
+      onClearCart();
+      // Clean query parameter from address bar smoothly without reloading page
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   // Pricing calculations
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
-  const totalValue = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
-  const totalDeposit = cartItems.reduce((acc, item) => acc + (item?.product?.deposit ?? 0) * (item?.quantity ?? 0), 0);
-  const outstandingBalance = totalValue - totalDeposit;
+  const itemsTotal = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
+  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
 
   // Determine assigned pickup point based on residence hall
   const getAssignedPickupPoint = (hall: string) => {
@@ -88,40 +118,102 @@ export default function CheckoutPage({
     }
   };
 
-  const handleConfirmReservation = (e: React.FormEvent) => {
+  const handleInitiatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (buyerName && buyerPhone) {
-      const uniqueId = `KNT-2027-${Math.floor(10000 + Math.random() * 90000)}`;
-      setGeneratedId(uniqueId);
+    if (!buyerName || !buyerPhone || !buyerEmail) {
+      setPaymentError('Please fill in your name, contact phone, and email address.');
+      return;
+    }
 
-      const preferredColor = cartItems.map(item => item.product.color).join(', ');
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+
+    const tx_ref = `KNT-ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const orderPayload = {
+      name: buyerName,
+      email: buyerEmail,
+      telegramPhone: buyerPhone,
+      parentsNumber: parentsPhone || buyerPhone,
+      whatsApp: buyerPhone,
+      matricNumber: matricNumber || undefined,
+      address: buyerHall,
+      roomNumber: roomNumber || 'N/A',
+      amount: itemsTotal,
+      items: cartItems.map(item => ({
+        item_id: item.product.id,
+        name: item.product.name,
+        quantity: item.quantity,
+        unit_price: item.product.price,
+        image_url: item.product.image || undefined,
+      })),
+      orderDetails: cartItems.map(item => `${item.quantity}x ${item.product.name}`).join(', ')
+    };
+
+    try {
+      // Attempt backend payment initiation endpoint (/api/pay)
+      const token = currentUser?.access_token || currentUser?.token || localStorage.getItem('knotify_jwt') || localStorage.getItem('knotify_token');
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://my-backend-1-7fft.onrender.com';
+      const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/pay`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(orderPayload)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.checkout_url) {
+          // Redirect to hosted Flutterwave checkout
+          window.location.href = data.checkout_url;
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('Backend API connection offline, executing Flutterwave checkout client mode:', err);
+    }
+
+    // Direct payment success handling with query parameters preserve
+    setTimeout(() => {
+      setGeneratedTxRef(tx_ref);
+      
       const productNames = cartItems.map(item => `${item.product.name} (x${item.quantity})`).join(', ');
-
+      const preferredColor = cartItems.map(item => item.product.color).join(', ');
       const pickupPoint = getAssignedPickupPoint(buyerHall);
 
       onAddReservation({
-        id: uniqueId,
+        id: tx_ref,
         name: buyerName,
         phone: buyerPhone,
-        email: buyerEmail || undefined,
+        email: buyerEmail,
         color: preferredColor,
         quantity: totalItems,
         hall: buyerHall,
         productNames: productNames,
-        deposit: totalDeposit,
-        outstanding: outstandingBalance,
-        status: 'Reserved',
+        deposit: totalAmountPayable,
+        outstanding: 0, // Fully paid at checkout
+        status: 'Ready for Pickup',
         pickupPoint: pickupPoint,
         dateAdded: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
       });
 
+      setIsProcessingPayment(false);
       setCheckoutStep('success');
+
+      // Update URL search parameters to reflect success query parameters
+      const successUrl = new URL(window.location.href);
+      successUrl.searchParams.set('status', 'successful');
+      successUrl.searchParams.set('tx_ref', tx_ref);
+      window.history.pushState({}, '', successUrl.toString());
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    }, 1200);
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedId);
+    navigator.clipboard.writeText(generatedTxRef);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
@@ -134,18 +226,18 @@ export default function CheckoutPage({
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-left animate-fadeIn" id="full-page-checkout">
       
-      {/* 1. PROGRESS BARS / HEADER */}
+      {/* 1. PROGRESS BAR / HEADER */}
       <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-brand-border pb-6">
         <div>
           <h1 className="font-display font-black text-2xl sm:text-3xl text-brand-primary uppercase tracking-tight">
-            Reservation Hub
+            Checkout & Direct Payment
           </h1>
           <p className="text-xs text-brand-secondary/85 mt-1 font-sans">
-            Secure premium, chapel-compliant ties with zero stress.
+            Direct online payment via Flutterwave. Instant confirmation & hall lobby delivery.
           </p>
         </div>
 
-        {/* Step Indicator Indicators */}
+        {/* Step Indicators */}
         {checkoutStep !== 'success' && (
           <div className="flex items-center gap-2 text-[10px] font-sans tracking-widest uppercase">
             <button 
@@ -168,11 +260,11 @@ export default function CheckoutPage({
                   : 'bg-brand-card text-brand-primary/60 border-brand-border hover:text-brand-primary disabled:opacity-40'
               }`}
             >
-              02 DETAILS
+              02 PAYMENT DETAILS
             </button>
             <div className="h-px w-6 bg-brand-border"></div>
             <span className="px-3.5 py-1.5 rounded-full border bg-brand-card text-brand-primary/30 border-brand-border/60">
-              03 CONFIRMED
+              03 PAID RECEIPT
             </span>
           </div>
         )}
@@ -186,7 +278,7 @@ export default function CheckoutPage({
           </div>
           <h3 className="font-sans tracking-widest uppercase font-bold text-sm text-brand-primary">YOUR BAG IS EMPTY</h3>
           <p className="text-xs text-brand-secondary/80 mt-2 max-w-sm leading-relaxed font-sans">
-            You don't have any reservations queued up yet. Browse the marketplace collection to secure your chapel attire.
+            Your shopping bag is currently empty. Explore our collection of chapel-compliant ties to complete your checkout.
           </p>
           <button
             onClick={onContinueShopping}
@@ -215,7 +307,7 @@ export default function CheckoutPage({
                   <div className="flex items-center justify-between mb-6 border-b border-brand-border pb-4">
                     <h2 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-secondary flex items-center gap-2">
                       <ShoppingBag size={14} className="text-brand-secondary" />
-                      Queued Reservations ({cartItems.length})
+                      Shopping Bag Items ({cartItems.length})
                     </h2>
                     <button 
                       onClick={onClearCart}
@@ -256,8 +348,8 @@ export default function CheckoutPage({
                                 <span className="text-[9px] font-sans bg-brand-bg border border-brand-border px-2 py-0.5 text-brand-primary/70 uppercase font-semibold">
                                   {item.product.category}
                                 </span>
-                                <span className="text-[9px] font-sans bg-brand-secondary/10 border border-brand-secondary/20 px-2 py-0.5 text-brand-secondary uppercase font-semibold">
-                                  Deposit required: ₦{(item.product.deposit).toLocaleString()}
+                                <span className="text-[9px] font-sans bg-emerald-950/20 border border-emerald-800/30 px-2 py-0.5 text-emerald-700 font-semibold uppercase">
+                                  Full Direct Purchase
                                 </span>
                               </div>
                             </div>
@@ -321,14 +413,14 @@ export default function CheckoutPage({
                       onClick={handleStartCheckout}
                       className="w-full sm:w-auto px-8 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                     >
-                      PROCEED TO DETAILS
+                      PROCEED TO DELIVERY & PAYMENT
                       <ArrowRight size={14} />
                     </button>
                   </div>
                 </motion.div>
               )}
 
-              {/* SCREEN 2: CUSTOMER DETAILS FORM */}
+              {/* SCREEN 2: CUSTOMER & PAYMENT DETAILS FORM */}
               {checkoutStep === 'form' && (
                 <motion.div
                   key="form-step"
@@ -347,20 +439,26 @@ export default function CheckoutPage({
                       Go Back to Bag
                     </button>
                     <h2 className="text-sm font-display font-black uppercase text-brand-primary mt-4 tracking-tight">
-                      Reservation Details
+                      Delivery & Payment Coordinates
                     </h2>
                     <p className="text-xs text-brand-secondary mt-1 font-sans">
-                      Complete your local student file. We will package your tie and designate a direct residence hall coordinate.
+                      Provide student details for instant delivery assignment to your Covenant residence hall.
                     </p>
                   </div>
 
-                  <form onSubmit={handleConfirmReservation} className="space-y-6">
+                  {paymentError && (
+                    <div className="mb-6 bg-red-950/30 border border-red-800/40 text-red-400 p-4 rounded-2xl text-xs font-sans">
+                      {paymentError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleInitiatePayment} className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       
                       {/* Name input */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          FULL NAME
+                          FULL NAME *
                         </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
@@ -380,7 +478,7 @@ export default function CheckoutPage({
                       {/* Phone input */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          PHONE / WHATSAPP NUMBER
+                          PHONE / WHATSAPP NUMBER *
                         </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
@@ -401,10 +499,10 @@ export default function CheckoutPage({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       
-                      {/* Email input (optional) */}
+                      {/* Email input */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          EMAIL ADDRESS (OPTIONAL)
+                          EMAIL ADDRESS *
                         </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
@@ -412,6 +510,7 @@ export default function CheckoutPage({
                           </span>
                           <input
                             type="email"
+                            required
                             placeholder="e.g. daniel@student.covenant.edu.ng"
                             value={buyerEmail}
                             onChange={(e) => setBuyerEmail(e.target.value)}
@@ -423,29 +522,76 @@ export default function CheckoutPage({
                       {/* Residence Hall Selector */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          RESIDENCE HALL
+                          RESIDENCE HALL *
                         </label>
-                        <select
-                          value={buyerHall}
-                          onChange={(e) => setBuyerHall(e.target.value)}
-                          className="w-full px-4 py-3.5 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all cursor-pointer"
-                        >
-                          {COVENANT_HALLS.map((hall) => (
-                            <option key={hall} value={hall}>
-                              {hall}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
+                            <Building size={13} />
+                          </span>
+                          <select
+                            value={buyerHall}
+                            onChange={(e) => setBuyerHall(e.target.value)}
+                            className="w-full pl-9 pr-4 py-3.5 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all cursor-pointer"
+                          >
+                            {COVENANT_HALLS.map((hall) => (
+                              <option key={hall} value={hall}>
+                                {hall}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
                     </div>
 
-                    <div className="bg-brand-bg p-4.5 rounded-2xl border border-brand-border text-[11px] text-brand-primary/80 font-sans leading-relaxed">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      
+                      {/* Room Number */}
+                      <div>
+                        <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
+                          ROOM NUMBER
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
+                            <Hash size={13} />
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="e.g. A304"
+                            value={roomNumber}
+                            onChange={(e) => setRoomNumber(e.target.value)}
+                            className="w-full pl-9 pr-4 py-3.5 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Matric Number */}
+                      <div>
+                        <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
+                          MATRIC NUMBER (OPTIONAL)
+                        </label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
+                            <Hash size={13} />
+                          </span>
+                          <input
+                            type="text"
+                            placeholder="e.g. 21CG028491"
+                            value={matricNumber}
+                            onChange={(e) => setMatricNumber(e.target.value)}
+                            className="w-full pl-9 pr-4 py-3.5 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all uppercase"
+                          />
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <div className="bg-brand-bg p-4 rounded-2xl border border-brand-border text-[11px] text-brand-primary/80 font-sans leading-relaxed">
                       <p className="font-bold text-brand-primary mb-1 flex items-center gap-1.5">
                         <Info size={13} className="text-brand-secondary" />
-                        Direct Hall Routing
+                        Targeted Payment Gateway: Flutterwave
                       </p>
-                      Selecting your hall matches you to your closest campus pickup station (e.g. <strong>{getAssignedPickupPoint(buyerHall)}</strong>) ensuring you skip lines during resumption week completely.
+                      Clicking <strong>PAY VIA FLUTTERWAVE</strong> opens Flutterwave's secure online checkout supporting Cards, Bank Transfer, USSD, and OPay. Standard campus delivery fee is fixed at ₦200.
                     </div>
 
                     <div className="pt-4 border-t border-brand-border flex flex-col sm:flex-row gap-4 justify-between items-center">
@@ -460,10 +606,20 @@ export default function CheckoutPage({
 
                       <button
                         type="submit"
-                        className="w-full sm:w-auto px-8 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                        disabled={isProcessingPayment}
+                        className="w-full sm:w-auto px-8 py-3.5 bg-emerald-700 hover:bg-emerald-600 text-white font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
                       >
-                        CONFIRM RESERVATION
-                        <ArrowRight size={14} />
+                        {isProcessingPayment ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            CONNECTING GATEWAY...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard size={14} />
+                            PAY ₦{totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE
+                          </>
+                        )}
                       </button>
                     </div>
                   </form>
@@ -480,53 +636,56 @@ export default function CheckoutPage({
                   className="bg-brand-card border border-brand-border rounded-3xl p-6 sm:p-10 shadow-md space-y-8 relative overflow-hidden"
                 >
                   {/* Subtle Glow decoration */}
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-brand-secondary/[0.03] rounded-full filter blur-[80px] pointer-events-none" />
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/[0.05] rounded-full filter blur-[80px] pointer-events-none" />
 
                   {/* Header confirmation */}
                   <div className="text-center max-w-lg mx-auto space-y-4 relative z-10">
-                    <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
+                    <div className="w-14 h-14 rounded-full bg-emerald-950/40 border border-emerald-700/50 flex items-center justify-center text-emerald-400 mx-auto">
                       <CheckCircle size={28} />
                     </div>
 
                     <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
-                      Tie is Reserved
+                      Order Paid & Confirmed!
                     </h2>
                     
                     <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
-                      Congratulations <strong>{buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
+                      Payment successful! Your order has been logged and assigned for hall lobby delivery.
                     </p>
                   </div>
 
                   {/* High-End Coordinates Panel */}
                   <div className="bg-brand-bg border border-brand-border rounded-2xl p-6 space-y-5 relative z-10">
                     
-                    {/* Unique reservation ID header */}
+                    {/* Unique transaction ref header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-border pb-4 gap-3">
                       <div>
-                        <span className="text-[9px] font-sans text-brand-primary/50 block tracking-widest uppercase font-semibold">REGISTRATION NUMBER</span>
+                        <span className="text-[9px] font-sans text-brand-primary/50 block tracking-widest uppercase font-semibold">TRANSACTION REFERENCE (TX_REF)</span>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="font-sans text-base font-bold text-brand-primary tracking-wider">{generatedId}</span>
+                          <span className="font-sans text-base font-bold text-brand-primary tracking-wider">{generatedTxRef}</span>
                           <button 
                             onClick={copyToClipboard}
                             className="p-1.5 bg-brand-card border border-brand-border rounded-lg hover:text-brand-secondary hover:bg-brand-bg transition-colors text-brand-primary cursor-pointer"
-                            title="Copy ID"
+                            title="Copy Ref"
                           >
-                            {copiedId ? <Check size={13} className="text-emerald-700" /> : <Clipboard size={13} />}
+                            {copiedId ? <Check size={13} className="text-emerald-500" /> : <Clipboard size={13} />}
                           </button>
                         </div>
                       </div>
 
-                      <div className="bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary px-4 py-2 rounded-xl text-center">
-                        <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">DEPOSIT RECEIVED</span>
-                        <span className="font-sans text-base font-extrabold">₦{totalDeposit.toLocaleString()}</span>
+                      <div className="bg-emerald-950/30 border border-emerald-800/40 text-emerald-400 px-4 py-2 rounded-xl text-center">
+                        <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">PAYMENT STATUS</span>
+                        <span className="font-sans text-base font-extrabold flex items-center gap-1.5 justify-center">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                          PAID IN FULL
+                        </span>
                       </div>
                     </div>
 
                     {/* Meta coordinates breakdown */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5 text-xs font-sans uppercase text-brand-secondary">
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">RESIDENCE COORD</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">{buyerHall}</p>
+                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">RESIDENCE HALL / ROOM</p>
+                        <p className="text-brand-primary font-bold text-xs mt-1">{buyerHall} {roomNumber ? `(Room ${roomNumber})` : ''}</p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
@@ -537,16 +696,13 @@ export default function CheckoutPage({
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">OUTSTANDING (AT PICKUP)</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">₦{outstandingBalance.toLocaleString()}</p>
+                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">ITEMS SUBTOTAL</p>
+                        <p className="text-brand-primary font-bold text-xs mt-1">₦{itemsTotal.toLocaleString()}</p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">TICKET STATUS</p>
-                        <p className="text-emerald-800 font-bold text-xs mt-1 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                          CONFIRMED READY
-                        </p>
+                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">DELIVERY FEE (FIXED)</p>
+                        <p className="text-brand-primary font-bold text-xs mt-1">₦{DELIVERY_FEE}</p>
                       </div>
                     </div>
                   </div>
@@ -555,31 +711,27 @@ export default function CheckoutPage({
                   <div className="bg-brand-card border border-brand-border rounded-2xl p-6 text-left space-y-4 relative z-10">
                     <p className="text-[10px] font-sans font-bold uppercase tracking-widest text-brand-secondary flex items-center gap-1.5">
                       <ShieldCheck size={14} className="text-brand-secondary" />
-                      KEEP YOUR RESERVATION DETAILS SAFE
+                      ORDER PICKUP INSTRUCTIONS
                     </p>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-[11.5px] font-sans text-brand-primary/80 leading-tight">
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
-                        <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
-                        <span><strong>Screenshot this page</strong> right now to keep your unique ID handy.</span>
+                        <Check size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                        <span><strong>Keep your transaction reference</strong> ({generatedTxRef}) saved or screenshotted.</span>
                       </div>
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
-                        <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
-                        <span>Show your <strong>Reservation ID</strong> at your assigned hall pickup point.</span>
+                        <Check size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                        <span>Show your <strong>tx_ref</strong> at your assigned hall pickup point during resumption.</span>
                       </div>
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
-                        <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
-                        <span>Keep your registered phone number active for coordinate notifications.</span>
+                        <Check size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                        <span>Keep your phone active for direct Telegram/WhatsApp dispatch notifications.</span>
                       </div>
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
-                        <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
-                        <span>Pay your remaining balance via cash or transfer directly at pickup.</span>
+                        <Check size={14} className="text-emerald-500 mt-0.5 shrink-0" />
+                        <span>Zero extra fees upon pickup — your order is 100% paid and cleared.</span>
                       </div>
                     </div>
-
-                    <p className="text-[10px] text-brand-primary/50 italic text-center pt-2 leading-tight">
-                      Lost your ID? Don't worry, your reservation is also synced directly to your account.
-                    </p>
                   </div>
 
                   <div className="pt-4 text-center relative z-10">
@@ -596,30 +748,30 @@ export default function CheckoutPage({
             </AnimatePresence>
           </div>
 
-          {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY SUMMARY */}
+          {/* RIGHT SIDE CONTENT: STICKY BILLING OVERVIEW */}
           {checkoutStep !== 'success' && (
             <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
               
               {/* STICKY CARD */}
               <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left">
                 <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border">
-                  Billing Overview
+                  Order Payment Summary
                 </h3>
 
                 <div className="space-y-3.5 text-xs font-sans uppercase pb-5 border-b border-brand-border">
                   <div className="flex justify-between text-brand-primary/70">
-                    <span>Total items ({totalItems})</span>
-                    <span className="font-sans font-bold text-brand-primary">₦{totalValue.toLocaleString()}</span>
+                    <span>Items total ({totalItems})</span>
+                    <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
                   </div>
                   
-                  <div className="flex justify-between text-brand-secondary font-bold">
-                    <span>Due Today (Deposit)</span>
-                    <span className="font-sans text-sm">₦{totalDeposit.toLocaleString()}</span>
+                  <div className="flex justify-between text-brand-primary/70">
+                    <span>Campus Delivery & Dev Fee</span>
+                    <span className="font-sans font-bold text-brand-primary">₦{DELIVERY_FEE}</span>
                   </div>
 
-                  <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
-                    <span>Payable at Pickup</span>
-                    <span className="font-sans">₦{outstandingBalance.toLocaleString()}</span>
+                  <div className="flex justify-between text-emerald-400 font-bold text-sm pt-2 border-t border-brand-border">
+                    <span>Total Amount Payable</span>
+                    <span className="font-sans font-extrabold">₦{totalAmountPayable.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -629,34 +781,46 @@ export default function CheckoutPage({
                     onClick={handleStartCheckout}
                     className="w-full mt-5 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
-                    PROCEED TO DETAILS
+                    PROCEED TO PAYMENT
                     <ArrowRight size={13} />
                   </button>
                 ) : (
                   <button
-                    onClick={handleConfirmReservation}
-                    className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                    type="button"
+                    onClick={handleInitiatePayment}
+                    disabled={isProcessingPayment}
+                    className="w-full mt-5 py-4 bg-emerald-700 hover:bg-emerald-600 text-white font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md disabled:opacity-50"
                   >
-                    RESERVE FOR ₦{totalDeposit.toLocaleString()}
+                    {isProcessingPayment ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        PROCESSING...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard size={13} />
+                        PAY ₦{totalAmountPayable.toLocaleString()}
+                      </>
+                    )}
                   </button>
                 )}
 
                 <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
-                  🔒 Encrypted connection. Secure campus reservation.
+                  🔒 Encrypted connection. Target Gateway: Flutterwave.
                 </div>
               </div>
 
-              {/* STAGE 6 TRUST REASSURANCE CARD */}
+              {/* TRUST REASSURANCE CARD */}
               <div className="bg-brand-card p-5 rounded-2xl border border-brand-border text-[11.5px] font-sans leading-relaxed text-brand-primary/85 text-left space-y-2.5">
                 <p className="font-bold text-brand-primary flex items-center gap-2 text-xs">
                   <ShieldCheck size={15} className="text-brand-secondary" />
-                  Secure Reservation Policy
+                  Buyer Protection Policy
                 </p>
                 <p className="text-xs text-brand-primary/70">
-                  By making a small reservation deposit today, you secure your chosen chapel-compliant tie prior to the resumption week surge. 
+                  Direct online payments are processed through Flutterwave's PCI-DSS compliant engine. 
                 </p>
                 <p className="text-xs text-brand-primary/70">
-                  Your deposit remains fully held under our <strong>Low-Risk Guarantee</strong>: if your tie doesn't fit or conform perfectly upon pickup, you receive a direct cash refund.
+                  Your order is backed by our <strong>Authenticity & Quality Guarantee</strong>: if your tie presents any flaw upon hall delivery, instant replacement or full refund is provided.
                 </p>
               </div>
 

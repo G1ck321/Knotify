@@ -50,6 +50,25 @@ export interface CartItem {
   quantity: number;
 }
 
+export interface Order {
+  id?: string;
+  tx_ref: string;
+  user_id?: string;
+  name: string;
+  email: string;
+  phone: string;
+  hall: string;
+  roomNumber?: string;
+  matricNumber?: string;
+  items: CartItem[];
+  items_total: number;
+  deliveryFee: number;
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'failed' | 'cancelled';
+  createdAt?: string;
+  checkoutUrl?: string;
+}
+
 export const COVENANT_HALLS = [
   'Daniel Hall',
   'Joseph Hall',
