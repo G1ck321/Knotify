@@ -27,7 +27,15 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
     # RESEND_API_KEY: str
-    # OWNER_EMAIL_ADDRESS: str
+    @field_validator("FW_SECRET_KEY", mode="before")
+    @classmethod
+    def clean_fw_key(cls, v: str) -> str:
+        if not isinstance(v, str):
+            return ""
+        v = v.strip()
+        if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
+            v = v[1:-1]
+        return v.strip()
 
     @field_validator("TELEGRAM_BOT_TOKEN", mode="before")
     @classmethod
