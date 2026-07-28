@@ -124,6 +124,7 @@ async def handle_telegram_requests(
                 "text": final_report,
                 "parse_mode": "Markdown" 
             }
+            print("E work")
 
             async with httpx.AsyncClient() as client:
                 client.post(telegram_api_url, json= response_payload)
