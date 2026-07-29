@@ -19,7 +19,7 @@ class Order(Base):
     order_details = Column(Text, nullable=False)
     delivery_address = Column(Text)
     room_number = Column(String)
-    matric_number = Column(String)
+    # matric_number = Column(String)
     email_snapshot = Column(String)
     phone_snapshot = Column(String)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

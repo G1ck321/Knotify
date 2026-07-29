@@ -86,7 +86,7 @@ export default function CheckoutPage({
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
   const totalValue = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
   const totalDeposit = 200;
-  const outstandingBalance = totalValue + totalDeposit;
+  const totalBill = totalValue + totalDeposit;
 
   // Determine assigned pickup point based on residence hall
   const getAssignedPickupPoint = (hall: string) => {
@@ -709,7 +709,7 @@ export default function CheckoutPage({
                     disabled={isSubmitting}
                     className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
-                    {isSubmitting ? 'STARTING CHECKOUT...' : `RESERVE FOR ₦${totalDeposit.toLocaleString()}`}
+                    {isSubmitting ? 'STARTING CHECKOUT...' : `RESERVE FOR ₦${totalBill.toLocaleString()}`}
                   </button>
                 )}
 
