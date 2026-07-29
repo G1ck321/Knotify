@@ -684,12 +684,12 @@ export default function CheckoutPage({
                   </div>
                   
                   <div className="flex justify-between text-brand-secondary font-bold">
-                    <span>Actual Amount (Deposit)</span>
+                    <span>Delivery & Development</span>
                     <span className="font-sans text-sm">₦{totalDeposit.toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
-                    <span>Delivery & Development</span>
+                    <span>Total</span>
                     <span className="font-sans">₦{outstandingBalance.toLocaleString()}</span>
                   </div>
                 </div>

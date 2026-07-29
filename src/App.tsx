@@ -24,11 +24,42 @@ export default function App() {
   // Page routing state
   const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard'>('home');
 
-  // User Authentication State
+  // Configurable session duration (e.g., 2 hours fixed lifetime)
+  const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 Hours
+
+  // User Authentication State with Expiry Check
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const saved = localStorage.getItem('knotify_current_user');
-    return saved ? JSON.parse(saved) : null;
+    if (!saved) return null;
+    try {
+      const parsed = JSON.parse(saved);
+      // Check if session has expired
+      if (parsed.sessionExpiry && Date.now() > parsed.sessionExpiry) {
+        localStorage.removeItem('knotify_current_user');
+        localStorage.removeItem('knotify_jwt');
+        return null;
+      }
+      return parsed;
+    } catch {
+      localStorage.removeItem('knotify_current_user');
+      return null;
+    }
   });
+
+  // Auto-logout effect when session expires or user is inactive
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const interval = setInterval(() => {
+      if (currentUser.sessionExpiry && Date.now() > currentUser.sessionExpiry) {
+        handleLogout();
+        addToast('Your session has expired. Please sign in again.', 'cart');
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [currentUser]);
+
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: 'add_to_cart' | 'buy_now' | 'checkout';
@@ -52,9 +83,16 @@ export default function App() {
   };
 
   const handleAuthSuccess = (user: any) => {
-    setCurrentUser(user);
+    // Attach fixed session expiration timestamp to user object
+    const userWithExpiry = {
+      ...user,
+      sessionExpiry: Date.now() + SESSION_MAX_AGE_MS
+    };
+
+    setCurrentUser(userWithExpiry);
+    localStorage.setItem('knotify_current_user', JSON.stringify(userWithExpiry));
     setIsAuthOpen(false);
-    addToast(`Successfully signed in as ${user.name}!`, 'success');
+    addToast(`Successfully signed in as ${user.name || user.full_name}!`, 'success');
 
     // Resume the pending buying action if it was intercepted
     if (pendingAction) {
@@ -72,6 +110,8 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('knotify_current_user');
+    localStorage.removeItem('knotify_jwt');
+    localStorage.removeItem('knotify_token');
     addToast('Logged out successfully', 'success');
   };
 
