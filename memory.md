@@ -75,12 +75,12 @@ The system currently uses **Supabase** as its primary cloud data store and objec
 2. **Database Table: `orders`**:
    | Field | Type | Description |
    |---|---|---|
-   | `id` | UUID / Int | Primary Key |
-   | `user_id` | Text / UUID | Owner user ID injected via JWT |
+   | `id` | UUID | Primary Key (`gen_random_uuid()`) |
+   | `user_id` | UUID (NOT NULL) | Foreign key referencing `users(id)` ON DELETE CASCADE. Auto-resolved or created during guest checkout. |
    | `tx_ref` | Text (Unique) | Transaction reference string (e.g. `KNT-ORD-123456`) |
    | `status` | Text | Order status (`pending`, `paid`, `failed`, `cancelled`) |
-   | `amountpaid` | Numeric / Float | Total order amount (Items total + ₦200 delivery fee) |
-   | `items_total` | Numeric / Float | Subtotal of purchased items |
+   | `amountpaid` | Numeric(12,2) | Total order amount (Items total + ₦200 delivery fee) |
+   | `items_total` | Numeric(12,2) | Subtotal of purchased items |
    | `item_count` | Integer | Total count of tie units in order |
    | `currency` | Text | `NGN` |
    | `order_details` | Text | Human-readable line items summary (e.g. `1 x Blue Floral Corporate Tie`) |
@@ -90,6 +90,66 @@ The system currently uses **Supabase** as its primary cloud data store and objec
    | `email_snapshot` | Text | Student email at purchase time |
    | `phone_snapshot` | Text | Student phone / WhatsApp number |
    | `created_at` | Timestamp | Order creation timestamp |
+
+### 3.1 Guest Checkout & User Resolution Architecture
+
+#### Why Guest Users are Auto-Resolved / Created in `users`
+In the PostgreSQL database schema, `orders.user_id` is defined as:
+```sql
+user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE
+```
+
+Because of this strict Foreign Key constraint:
+1. **`NOT NULL` Constraint**: PostgreSQL forbids inserting an order where `user_id` is `NULL`.
+2. **`UUID` Data Type**: PostgreSQL forbids non-UUID strings like `"guest_email@gmail.com"` (`22P02 invalid input syntax for type uuid`).
+3. **Foreign Key Integrity**: Every `user_id` inserted into `orders` MUST exist as a valid primary key `id` inside the `users` table.
+
+#### How the Backend Handles Guest Checkouts Seamlessly:
+When a student initiates payment on `/api/pay`:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 Student Clicks Checkout                     │
+└─────────────────────────────────────────────────────────────┘
+                               │
+                               ▼
+            ┌────────────────────────────────────┐
+            │ Is JWT Auth Token Present & Valid? │
+            └────────────────────────────────────┘
+                     /                  \
+              YES   /                    \  NO (Guest Checkout)
+                   /                      \
+                  ▼                        ▼
+     ┌────────────────────────┐  ┌─────────────────────────────────────┐
+     │ Use Logged-in User's   │  │ Query `users` Table by Email        │
+     │ `user_id` UUID         │  │ `select("id").eq("email", email)`   │
+     └────────────────────────┘  └─────────────────────────────────────┘
+                 │                                   │
+                 │                        ┌──────────┴──────────┐
+                 │                        │  Does Record Exist? │
+                 │                        └─────────────────────┘
+                 │                         /                   \
+                 │                  YES   /                     \  NO
+                 │                       /                       \
+                 │                      ▼                         ▼
+                 │        ┌───────────────────────────┐ ┌───────────────────────────────────┐
+                 │        │ Re-use existing `user_id` │ │ Auto-insert guest row into `users`│
+                 │        │ UUID for this email       │ │ with new UUID, name, email & phone│
+                 │        └───────────────────────────┘ └───────────────────────────────────┘
+                 │                      │                                 │
+                 └──────────────────────┼─────────────────────────────────┘
+                                        │
+                                        ▼
+                   ┌────────────────────────────────────────┐
+                   │ Insert Order into `orders` Table with  │
+                   │ valid `user_id` UUID                   │
+                   └────────────────────────────────────────┘
+```
+
+#### Major Advantages of This Design:
+1. **Zero friction for students**: Students can buy ties instantly as guests without being forced to remember or set a password beforehand.
+2. **100% Relational Database Integrity**: `orders.user_id` always points to a real `users.id` UUID row without breaking PostgreSQL constraints.
+3. **Future Account Linking**: If a guest student creates an account later using that same email address, all their past orders are automatically linked to their profile history!
 
 ### Future Database Strategy: Local PostgreSQL Migration Roadmap
 When transitioning from Supabase to local/hosted PostgreSQL:

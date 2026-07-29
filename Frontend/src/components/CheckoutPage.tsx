@@ -85,8 +85,8 @@ export default function CheckoutPage({
   // Pricing calculations
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
   const totalValue = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
-  const totalDeposit = cartItems.reduce((acc, item) => acc + (item?.product?.deposit ?? 0) * (item?.quantity ?? 0), 0);
-  const outstandingBalance = totalValue - totalDeposit;
+  const totalDeposit = 200;
+  const outstandingBalance = totalValue + totalDeposit;
 
   // Determine assigned pickup point based on residence hall
   const getAssignedPickupPoint = (hall: string) => {
@@ -684,12 +684,12 @@ export default function CheckoutPage({
                   </div>
                   
                   <div className="flex justify-between text-brand-secondary font-bold">
-                    <span>Due Today (Deposit)</span>
+                    <span>Actual Amount (Deposit)</span>
                     <span className="font-sans text-sm">₦{totalDeposit.toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
-                    <span>Payable at Pickup</span>
+                    <span>Delivery & Development</span>
                     <span className="font-sans">₦{outstandingBalance.toLocaleString()}</span>
                   </div>
                 </div>
@@ -725,10 +725,12 @@ export default function CheckoutPage({
                   Secure Reservation Policy
                 </p>
                 <p className="text-xs text-brand-primary/70">
-                  By making a small reservation deposit today, you secure your chosen chapel-compliant tie prior to the resumption week surge. 
+                  By making a reservation deposit today, you secure your chosen chapel-compliant tie prior to the resumption week surge. 
                 </p>
                 <p className="text-xs text-brand-primary/70">
-                  Your deposit remains fully held under our <strong>Low-Risk Guarantee</strong>: if your tie doesn't fit or conform perfectly upon pickup, you receive a direct cash refund.
+                    Your deposit remains fully held under our <strong>Low-Risk Guarantee</strong>: <br></br>
+                      - If your tie doesn't fit or conform perfectly upon pickup, you receive a direct cash refund. <br></br>
+                      - If you do not get into Covenant you get a transfer back.
                 </p>
               </div>
 
