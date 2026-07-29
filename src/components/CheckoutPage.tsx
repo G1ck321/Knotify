@@ -79,7 +79,7 @@ export default function CheckoutPage({
   // Pre-fill user details if logged in
   useEffect(() => {
     if (currentUser) {
-      setBuyerName(currentUser.name || currentUser.full_name || '');
+      setBuyerName(currentUser.name || '');
       setBuyerPhone(currentUser.telegramPhone || currentUser.phone || '');
       setParentsPhone(currentUser.parentsNumber || '');
       setBuyerEmail(currentUser.email || '');

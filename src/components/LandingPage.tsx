@@ -25,13 +25,14 @@ import {
   Loader
 } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
-import { Product, Reservation } from '../types';
-import TiePlaceholder from './TiePlaceholder';
-import FAQSection from './FAQSection';
+import { Product, Reservation } from '../../Frontend/src/types';
+import TiePlaceholder from '../../Frontend/src/components/TiePlaceholder';
+import FAQSection from '../../Frontend/src/components/FAQSection';
 
 interface LandingPageProps {
   onBrowseMarketplace: () => void;
   onBrowseWithFilter: (category: string, search: string) => void;
+  onOpenBecomeSeller: () => void;
   products: Product[];
   featuredProducts: Product[];
   onOpenProductDetail: (product: Product) => void;
@@ -43,6 +44,7 @@ interface LandingPageProps {
 export default function LandingPage({
   onBrowseMarketplace,
   onBrowseWithFilter,
+  onOpenBecomeSeller,
   products,
   featuredProducts,
   onOpenProductDetail,
@@ -316,6 +318,7 @@ export default function LandingPage({
 
             </div>
 
+            {/* Actions Panel */}
             <div className="flex flex-wrap justify-center gap-4 pt-4">
               <button
                 onClick={onBrowseMarketplace}
@@ -323,6 +326,12 @@ export default function LandingPage({
               >
                 explore collection
                 <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button
+                onClick={onOpenBecomeSeller}
+                className="inline-flex items-center gap-2 border border-[#FFFEF2]/30 hover:bg-[#FFFEF2] hover:text-brand-secondary text-[#FFFEF2] rounded px-7 py-4 transition-all duration-300 cursor-pointer text-[10px] font-mono tracking-widest uppercase font-bold"
+              >
+                Sell Your Tie
               </button>
             </div>
 
@@ -345,7 +354,7 @@ export default function LandingPage({
             <span>✦</span>
             <span>ANTI-NEWBIE AESTHETIC</span>
             <span>✦</span>
-            <span>VERIFIED CAMPUS TIES</span>
+            <span>VERIFIED COVENANT VENDORS</span>
             <span>✦</span>
             
             {/* Duplicated for smooth loop */}
@@ -359,7 +368,7 @@ export default function LandingPage({
             <span>✦</span>
             <span>ANTI-NEWBIE AESTHETIC</span>
             <span>✦</span>
-            <span>VERIFIED CAMPUS TIES</span>
+            <span>VERIFIED COVENANT VENDORS</span>
             <span>✦</span>
           </div>
         </div>
@@ -412,6 +421,7 @@ export default function LandingPage({
               <div className="flex items-center gap-3 shrink-0 sm:w-1/3">
                 <span className="font-display italic text-xs font-bold text-brand-secondary border border-brand-secondary/35 px-2.5 py-1 rounded-sm bg-brand-card shadow-sm select-none">№ II</span>
                 <h4 className="font-display font-black text-sm text-brand-primary uppercase tracking-wider">
+                  {/*May soon be removed */}
                   Sourced from Seniors
                 </h4>
               </div>
@@ -565,13 +575,17 @@ export default function LandingPage({
   
                   {/* Text labels inside card */}
                   <div className="text-left space-y-1.5 px-0.5">
+                    <div className="text-[9px] font-mono text-brand-secondary/70 uppercase tracking-wider">
+                      {product.category} • {product.sellerHall}
+                    </div>
+  
                     <h3 className="font-sans font-medium text-sm text-brand-primary tracking-tight leading-snug group-hover:text-brand-secondary transition-colors line-clamp-1">
                       {product.name}
                     </h3>
                     
                     <div className="flex items-baseline justify-between pt-2 border-t border-brand-border/10 mt-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="font-sans text-xs font-bold text-brand-primary">
+                        <span className="font-sans text-xs font-bold text-white">
                           ₦{(product?.price ?? 0).toLocaleString()}
                         </span>
                         {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
@@ -638,7 +652,7 @@ export default function LandingPage({
                       Notify Charge
                     </h3>
                     <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Connect directly with graduating seniors and fellow scholars. Negotiate deals and schedule 5-minute lobby meetings inside Daniel, Peter, PG, Esther, or Lydia hall.
+                      Connect directly with current students and fellow scholars. Get the latest updates on premium tie deals and other clothings.
                     </p>
                   </div>
                   
