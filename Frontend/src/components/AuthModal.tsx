@@ -11,7 +11,7 @@ import {
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any) => void;
+  onSuccess: (user: any, accessToken?: string) => void;
   pendingActionName?: string; // Optional context
 }
 
@@ -90,9 +90,7 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
-      localStorage.setItem('knotify_access_token', response.access_token);
-      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
-      onSuccess(normalizedUser);
+      onSuccess(normalizedUser, response.access_token);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not sign in');
     }
@@ -116,7 +114,6 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
-      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
       onSuccess(normalizedUser);
       setIsLogin(true);
     } catch (err) {

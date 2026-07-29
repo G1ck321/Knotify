@@ -14,6 +14,7 @@ import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
+import { clearAuthSession, getStoredUser, persistAuthSession } from './lib/authStorage';
 
 interface Toast {
   id: string;
@@ -38,9 +39,19 @@ export default function App() {
 
   // User Authentication State
   const [currentUser, setCurrentUser] = useState<any>(() => {
-    const saved = localStorage.getItem('knotify_current_user');
-    return saved ? normalizeUser(JSON.parse(saved)) : null;
+    const parsed = getStoredUser();
+    return parsed ? normalizeUser(parsed) : null;
   });
+
+  // Route to checkout when Flutterwave redirects back with payment query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = (params.get('status') || params.get('tx_status') || '').toLowerCase();
+    const txRef = params.get('tx_ref') || params.get('transaction_id');
+    if (status || txRef) {
+      setCurrentTab('checkout');
+    }
+  }, []);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: 'add_to_cart' | 'buy_now' | 'checkout';
@@ -63,9 +74,10 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleAuthSuccess = (user: any) => {
+  const handleAuthSuccess = (user: any, accessToken?: string) => {
     const normalizedUser = normalizeUser(user);
     setCurrentUser(normalizedUser);
+    persistAuthSession(normalizedUser, accessToken);
     setIsAuthOpen(false);
     addToast(`Successfully signed in as ${normalizedUser?.name || 'user'}!`, 'success');
 
@@ -84,8 +96,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('knotify_current_user');
-    localStorage.removeItem('knotify_access_token');
+    clearAuthSession();
     addToast('Logged out successfully', 'success');
   };
 

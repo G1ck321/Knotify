@@ -12,7 +12,7 @@ import ForgotPasswordModal from './ForgotPasswordModal';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any) => void;
+  onSuccess: (user: any, accessToken?: string) => void;
   pendingActionName?: string; // Optional context
 }
 
@@ -73,7 +73,6 @@ export default function AuthModal({
       createdAt: new Date().toISOString()
     };
 
-    localStorage.setItem('knotify_current_user', JSON.stringify(mockUser));
     onSuccess(mockUser);
   };
 
@@ -96,7 +95,6 @@ export default function AuthModal({
       createdAt: new Date().toISOString()
     };
 
-    localStorage.setItem('knotify_current_user', JSON.stringify(newUser));
     onSuccess(newUser);
   };
 

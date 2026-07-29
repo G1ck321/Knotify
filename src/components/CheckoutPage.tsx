@@ -16,11 +16,24 @@ import {
   CreditCard,
   Building,
   Hash,
-  Loader2
+  Loader2,
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
+import { getAccessToken } from '../lib/authStorage';
+import {
+  clearPaymentReturnParams,
+  clearPendingCheckout,
+  fetchOrderStatus,
+  loadPendingCheckout,
+  parsePaymentReturnParams,
+  PAYMENT_FAILURE_STATUSES,
+  PAYMENT_SUCCESS_STATUSES,
+  savePendingCheckout,
+} from '../lib/checkoutPayment';
 
 interface CheckoutPageProps {
   cartItems: CartItem[];
@@ -73,19 +86,82 @@ export default function CheckoutPage({
     }
   }, [currentUser]);
 
-  // Check URL query parameters for Flutterwave payment callback redirect (e.g. ?status=successful&tx_ref=KNT-ORD-...)
+  // Check URL query parameters for Flutterwave payment callback redirect
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get('status');
-    const txRef = params.get('tx_ref');
+    const { status, txRef } = parsePaymentReturnParams();
+    if (!status && !txRef) return;
 
-    if (status === 'successful' && txRef) {
-      setGeneratedTxRef(txRef);
+    clearPaymentReturnParams();
+
+    const finalizePaidOrder = (confirmedTxRef: string) => {
+      const pending = loadPendingCheckout(confirmedTxRef);
+      setGeneratedTxRef(confirmedTxRef);
+
+      if (pending) {
+        setBuyerName(pending.buyerName);
+        setBuyerPhone(pending.buyerPhone);
+        setBuyerEmail(pending.buyerEmail);
+        setBuyerHall(pending.buyerHall);
+        setRoomNumber(pending.roomNumber);
+
+        onAddReservation({
+          id: confirmedTxRef,
+          name: pending.buyerName,
+          phone: pending.buyerPhone,
+          email: pending.buyerEmail,
+          color: pending.preferredColor,
+          quantity: pending.totalItems,
+          hall: pending.buyerHall,
+          productNames: pending.productNames,
+          deposit: pending.totalAmountPayable,
+          outstanding: 0,
+          status: 'Ready for Pickup',
+          pickupPoint: getAssignedPickupPoint(pending.buyerHall),
+          dateAdded: new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+        });
+        clearPendingCheckout();
+      }
+
       setCheckoutStep('success');
       onClearCart();
-      // Clean query parameter from address bar smoothly without reloading page
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    };
+
+    const handlePaymentReturn = async () => {
+      if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
+        const order = await fetchOrderStatus(txRef);
+        if (order && order.status === 'paid') {
+          finalizePaidOrder(txRef);
+          return;
+        }
+
+        // Webhook may lag behind the redirect — trust gateway success when order is still pending.
+        if (order && order.status === 'pending') {
+          finalizePaidOrder(txRef);
+          return;
+        }
+
+        setPaymentError('We could not confirm your payment yet. Please contact support with your tx_ref.');
+        setCheckoutStep('form');
+        return;
+      }
+
+      if (status && PAYMENT_FAILURE_STATUSES.has(status)) {
+        setPaymentError('Payment was cancelled or failed. Your bag is still saved — try again when ready.');
+        setCheckoutStep('form');
+        return;
+      }
+
+      if (status && !PAYMENT_SUCCESS_STATUSES.has(status)) {
+        setPaymentError('Payment was not completed. No charge was made.');
+        setCheckoutStep('cart');
+      }
+    };
+
+    handlePaymentReturn();
   }, []);
 
   // Pricing calculations
@@ -128,7 +204,8 @@ export default function CheckoutPage({
     setIsProcessingPayment(true);
     setPaymentError(null);
 
-    const tx_ref = `KNT-ORD-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const productNames = cartItems.map(item => `${item.product.name} (x${item.quantity})`).join(', ');
+    const preferredColor = cartItems.map(item => item.product.color).join(', ');
 
     const orderPayload = {
       name: buyerName,
@@ -151,65 +228,52 @@ export default function CheckoutPage({
     };
 
     try {
-      // Attempt backend payment initiation endpoint (/api/pay)
-      const token = currentUser?.access_token || currentUser?.token || localStorage.getItem('knotify_jwt') || localStorage.getItem('knotify_token');
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'https://my-backend-1-7fft.onrender.com';
+      const token = getAccessToken();
+      const backendUrl = import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || 'https://my-backend-1-7fft.onrender.com';
       const response = await fetch(`${backendUrl.replace(/\/$/, '')}/api/pay`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(orderPayload)
+        body: JSON.stringify(orderPayload),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.checkout_url) {
-          // Redirect to hosted Flutterwave checkout
-          window.location.href = data.checkout_url;
-          return;
-        }
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(data?.detail || data?.message || 'Could not start payment');
       }
-    } catch (err) {
-      console.warn('Backend API connection offline, executing Flutterwave checkout client mode:', err);
-    }
 
-    // Direct payment success handling with query parameters preserve
-    setTimeout(() => {
-      setGeneratedTxRef(tx_ref);
-      
-      const productNames = cartItems.map(item => `${item.product.name} (x${item.quantity})`).join(', ');
-      const preferredColor = cartItems.map(item => item.product.color).join(', ');
-      const pickupPoint = getAssignedPickupPoint(buyerHall);
+      const txRef = data.tx_ref;
+      if (!txRef) {
+        throw new Error('Payment session did not return a transaction reference');
+      }
 
-      onAddReservation({
-        id: tx_ref,
-        name: buyerName,
-        phone: buyerPhone,
-        email: buyerEmail,
-        color: preferredColor,
-        quantity: totalItems,
-        hall: buyerHall,
-        productNames: productNames,
-        deposit: totalAmountPayable,
-        outstanding: 0, // Fully paid at checkout
-        status: 'Ready for Pickup',
-        pickupPoint: pickupPoint,
-        dateAdded: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      savePendingCheckout({
+        tx_ref: txRef,
+        buyerName,
+        buyerPhone,
+        buyerEmail,
+        buyerHall,
+        roomNumber,
+        itemsTotal,
+        totalAmountPayable,
+        totalItems,
+        productNames,
+        preferredColor,
       });
 
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+
+      throw new Error('Payment gateway did not return a checkout URL');
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : 'Could not connect to payment gateway');
       setIsProcessingPayment(false);
-      setCheckoutStep('success');
-
-      // Update URL search parameters to reflect success query parameters
-      const successUrl = new URL(window.location.href);
-      successUrl.searchParams.set('status', 'successful');
-      successUrl.searchParams.set('tx_ref', tx_ref);
-      window.history.pushState({}, '', successUrl.toString());
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 1200);
+    }
   };
 
   const copyToClipboard = () => {
@@ -731,6 +795,63 @@ export default function CheckoutPage({
                         <Check size={14} className="text-emerald-500 mt-0.5 shrink-0" />
                         <span>Zero extra fees upon pickup — your order is 100% paid and cleared.</span>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* JOIN CAMPUS COMMUNITIES BLOCK */}
+                  <div className="bg-brand-bg border border-brand-border rounded-2xl p-6 text-left space-y-4 relative z-10">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-sans font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
+                        <MessageSquare size={14} className="text-emerald-400" />
+                        JOIN OFFICIAL CAMPUS DISPATCH CHANNELS
+                      </p>
+                      <span className="text-[9px] font-sans bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 text-emerald-400 rounded uppercase font-semibold">
+                        LIVE UPDATES
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-brand-primary/80 font-sans leading-relaxed">
+                      Connect to our official Covenant student channels to receive real-time hall delivery alerts, lobby dispatch times, and direct customer support.
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+                      {/* Telegram Channel Button */}
+                      <a
+                        href="https://t.me/knotifycu_bot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3.5 bg-[#0088cc]/10 hover:bg-[#0088cc]/20 border border-[#0088cc]/30 rounded-xl transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-[#0088cc] text-white flex items-center justify-center font-bold text-xs">
+                            TG
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-brand-primary group-hover:text-[#0088cc] transition-colors">Telegram Dispatch Bot</p>
+                            <p className="text-[10px] text-brand-primary/60">Live Order Tracking & Bot</p>
+                          </div>
+                        </div>
+                        <ExternalLink size={13} className="text-[#0088cc]" />
+                      </a>
+
+                      {/* WhatsApp Community Button */}
+                      <a
+                        href="https://chat.whatsapp.com/knotifycu"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3.5 bg-[#25D366]/10 hover:bg-[#25D366]/20 border border-[#25D366]/30 rounded-xl transition-all group"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-[#25D366] text-white flex items-center justify-center font-bold text-xs">
+                            WA
+                          </div>
+                          <div className="text-left">
+                            <p className="text-xs font-bold text-brand-primary group-hover:text-[#25D366] transition-colors">WhatsApp Guild</p>
+                            <p className="text-[10px] text-brand-primary/60">Student Community Group</p>
+                          </div>
+                        </div>
+                        <ExternalLink size={13} className="text-[#25D366]" />
+                      </a>
                     </div>
                   </div>
 

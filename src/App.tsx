@@ -13,6 +13,7 @@ import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
+import { clearAuthSession, getAccessToken, loadStoredUserWithExpiry, persistAuthSession } from './lib/authStorage';
 
 interface Toast {
   id: string;
@@ -25,26 +26,20 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard'>('home');
 
   // Configurable session duration (e.g., 2 hours fixed lifetime)
-  const SESSION_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 Hours
+  const SESSION_MAX_AGE_MS = 1.5 * 60 * 60 * 1000; // 2 Hours
 
   // User Authentication State with Expiry Check
-  const [currentUser, setCurrentUser] = useState<any>(() => {
-    const saved = localStorage.getItem('knotify_current_user');
-    if (!saved) return null;
-    try {
-      const parsed = JSON.parse(saved);
-      // Check if session has expired
-      if (parsed.sessionExpiry && Date.now() > parsed.sessionExpiry) {
-        localStorage.removeItem('knotify_current_user');
-        localStorage.removeItem('knotify_jwt');
-        return null;
-      }
-      return parsed;
-    } catch {
-      localStorage.removeItem('knotify_current_user');
-      return null;
+  const [currentUser, setCurrentUser] = useState<any>(() => loadStoredUserWithExpiry());
+
+  // Route to checkout when Flutterwave redirects back with payment query params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = (params.get('status') || params.get('tx_status') || '').toLowerCase();
+    const txRef = params.get('tx_ref') || params.get('transaction_id');
+    if (status || txRef) {
+      setCurrentTab('checkout');
     }
-  });
+  }, []);
 
   // Auto-logout effect when session expires or user is inactive
   useEffect(() => {
@@ -82,15 +77,14 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleAuthSuccess = (user: any) => {
-    // Attach fixed session expiration timestamp to user object
+  const handleAuthSuccess = (user: any, accessToken?: string) => {
     const userWithExpiry = {
       ...user,
       sessionExpiry: Date.now() + SESSION_MAX_AGE_MS
     };
 
     setCurrentUser(userWithExpiry);
-    localStorage.setItem('knotify_current_user', JSON.stringify(userWithExpiry));
+    persistAuthSession(userWithExpiry, accessToken);
     setIsAuthOpen(false);
     addToast(`Successfully signed in as ${user.name || user.full_name}!`, 'success');
 
@@ -109,9 +103,7 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    localStorage.removeItem('knotify_current_user');
-    localStorage.removeItem('knotify_jwt');
-    localStorage.removeItem('knotify_token');
+    clearAuthSession();
     addToast('Logged out successfully', 'success');
   };
 
@@ -145,27 +137,10 @@ export default function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
-  // Knotify Customer Journey Reservations State (Stage 8 Internal Operations)
+  // Knotify Customer Journey Reservations & Orders State
   const [reservations, setReservations] = useState<Reservation[]>(() => {
     const saved = localStorage.getItem('knotify_reservations');
-    const defaultMocks: Reservation[] = [
-      {
-        id: 'KNT-2027-00482',
-        name: 'Daniel',
-        phone: '08012345678',
-        email: 'daniel@student.covenant.edu.ng',
-        color: 'Plain Black',
-        quantity: 1,
-        hall: 'Daniel Hall',
-        productNames: 'Plain Black Tie (x1)',
-        deposit: 1500,
-        outstanding: 2000,
-        status: 'Ready for Pickup',
-        pickupPoint: 'Pickup Point A (Near Joseph Hall)',
-        dateAdded: 'Jul 15, 2026'
-      }
-    ];
-    return saved ? JSON.parse(saved) : defaultMocks;
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Modals overlay controls
@@ -197,7 +172,7 @@ export default function App() {
 
   const handleUpdateUser = (updatedUser: any) => {
     setCurrentUser(updatedUser);
-    localStorage.setItem('knotify_current_user', JSON.stringify(updatedUser));
+    persistAuthSession(updatedUser, getAccessToken() ?? undefined);
   };
 
   const handleUpdateReservation = (updatedRes: Reservation) => {

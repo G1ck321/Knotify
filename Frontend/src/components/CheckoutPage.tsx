@@ -7,24 +7,39 @@ import {
   ArrowRight, 
   User, 
   Phone, 
-  Home, 
   Mail,
   ShieldCheck,
   Clipboard,
   Check,
   ArrowLeft,
-  Info
+  Info,
+  CreditCard,
+  Building,
+  Hash,
+  Loader2,
+  MessageSquare,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
-
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5500').replace(/\/$/, '');
+import { getAccessToken } from '../lib/authStorage';
+import {
+  clearPaymentReturnParams,
+  clearPendingCheckout,
+  fetchOrderStatus,
+  getBackendUrl,
+  loadPendingCheckout,
+  parsePaymentReturnParams,
+  PAYMENT_FAILURE_STATUSES,
+  PAYMENT_SUCCESS_STATUSES,
+  savePendingCheckout,
+} from '../lib/checkoutPayment';
 
 async function createCheckoutSession(payload: unknown) {
-  const token = localStorage.getItem('knotify_access_token');
+  const token = getAccessToken();
 
-  const response = await fetch(`${API_BASE_URL}/api/pay`, {
+  const response = await fetch(`${getBackendUrl()}/api/pay`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -68,10 +83,13 @@ export default function CheckoutPage({
   const [buyerPhone, setBuyerPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
   const [buyerHall, setBuyerHall] = useState(COVENANT_HALLS[0] || 'Daniel Hall');
+  const [roomNumber, setRoomNumber] = useState('');
   const [copiedId, setCopiedId] = useState(false);
-  const [generatedId, setGeneratedId] = useState('');
+  const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const DELIVERY_FEE = 200;
 
   // Pre-fill user details if logged in
   useEffect(() => {
@@ -82,11 +100,81 @@ export default function CheckoutPage({
     }
   }, [currentUser]);
 
+  useEffect(() => {
+    const { status, txRef } = parsePaymentReturnParams();
+    if (!status && !txRef) return;
+
+    clearPaymentReturnParams();
+
+    const finalizePaidOrder = (confirmedTxRef: string) => {
+      const pending = loadPendingCheckout(confirmedTxRef);
+      setGeneratedTxRef(confirmedTxRef);
+
+      if (pending) {
+        setBuyerName(pending.buyerName);
+        setBuyerPhone(pending.buyerPhone);
+        setBuyerEmail(pending.buyerEmail);
+        setBuyerHall(pending.buyerHall);
+        setRoomNumber(pending.roomNumber);
+
+        onAddReservation({
+          id: confirmedTxRef,
+          name: pending.buyerName,
+          phone: pending.buyerPhone,
+          email: pending.buyerEmail,
+          color: pending.preferredColor,
+          quantity: pending.totalItems,
+          hall: pending.buyerHall,
+          productNames: pending.productNames,
+          deposit: pending.totalAmountPayable,
+          outstanding: 0,
+          status: 'Ready for Pickup',
+          pickupPoint: getAssignedPickupPoint(pending.buyerHall),
+          dateAdded: new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+        });
+        clearPendingCheckout();
+      }
+
+      setCheckoutStep('success');
+      onClearCart();
+    };
+
+    const handlePaymentReturn = async () => {
+      if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
+        const order = await fetchOrderStatus(txRef);
+        if (order && (order.status === 'paid' || order.status === 'pending')) {
+          finalizePaidOrder(txRef);
+          return;
+        }
+
+        setSubmitError('We could not confirm your payment yet. Please contact support with your tx_ref.');
+        setCheckoutStep('form');
+        return;
+      }
+
+      if (status && PAYMENT_FAILURE_STATUSES.has(status)) {
+        setSubmitError('Payment was cancelled or failed. Your bag is still saved — try again when ready.');
+        setCheckoutStep('form');
+        return;
+      }
+
+      if (status && !PAYMENT_SUCCESS_STATUSES.has(status)) {
+        setSubmitError('Payment was not completed. No charge was made.');
+        setCheckoutStep('cart');
+      }
+    };
+
+    handlePaymentReturn();
+  }, []);
+
   // Pricing calculations
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
-  const totalValue = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
-  const totalDeposit = 200;
-  const outstandingBalance = totalValue + totalDeposit;
+  const itemsTotal = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
+  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
 
   // Determine assigned pickup point based on residence hall
   const getAssignedPickupPoint = (hall: string) => {
@@ -113,9 +201,10 @@ export default function CheckoutPage({
     }
   };
 
-  const handleConfirmReservation = async (e: React.FormEvent) => {
+  const handleInitiatePayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!buyerName || !buyerPhone) {
+    if (!buyerName || !buyerPhone || !buyerEmail) {
+      setSubmitError('Please fill in your name, contact phone, and email address.');
       return;
     }
 
@@ -133,56 +222,54 @@ export default function CheckoutPage({
 
       const preferredColor = cartItems.map((item) => item.product.color).join(', ');
       const productNames = cartItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ');
-      const pickupPoint = getAssignedPickupPoint(buyerHall);
 
       const response = await createCheckoutSession({
         name: buyerName,
         email: buyerEmail,
         telegramPhone: buyerPhone,
         parentsNumber: currentUser?.parentsNumber || buyerPhone,
-        whatsApp: currentUser?.whatsApp || undefined,
+        whatsApp: currentUser?.whatsApp || buyerPhone,
         matricNumber: currentUser?.matricNumber || undefined,
-        address: pickupPoint,
-        roomNumber: buyerHall,
+        address: buyerHall,
+        roomNumber: roomNumber || 'N/A',
         items: orderItems,
         orderDetails: productNames,
-        amount: totalValue,
+        amount: itemsTotal,
       });
 
-      const uniqueId = response.tx_ref || `KNT-2027-${Math.floor(10000 + Math.random() * 90000)}`;
-      setGeneratedId(uniqueId);
+      const txRef = response.tx_ref;
+      if (!txRef) {
+        throw new Error('Payment session did not return a transaction reference');
+      }
 
-      onAddReservation({
-        id: uniqueId,
-        name: buyerName,
-        phone: buyerPhone,
-        email: buyerEmail || undefined,
-        color: preferredColor,
-        quantity: totalItems,
-        hall: buyerHall,
-        productNames: productNames,
-        deposit: totalDeposit,
-        outstanding: outstandingBalance,
-        status: 'Reserved',
-        pickupPoint: pickupPoint,
-        dateAdded: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      savePendingCheckout({
+        tx_ref: txRef,
+        buyerName,
+        buyerPhone,
+        buyerEmail,
+        buyerHall,
+        roomNumber,
+        itemsTotal,
+        totalAmountPayable,
+        totalItems,
+        productNames,
+        preferredColor,
       });
-
-      setCheckoutStep('success');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
 
       if (response.checkout_url) {
         window.location.href = response.checkout_url;
+        return;
       }
+
+      throw new Error('Payment gateway did not return a checkout URL');
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Could not start checkout');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedId);
+    navigator.clipboard.writeText(generatedTxRef);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
   };
@@ -199,10 +286,10 @@ export default function CheckoutPage({
       <div className="mb-10 flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-brand-border pb-6">
         <div>
           <h1 className="font-display font-black text-2xl sm:text-3xl text-brand-primary uppercase tracking-tight">
-            Reservation Hub
+            Checkout & Direct Payment
           </h1>
           <p className="text-xs text-brand-secondary/85 mt-1 font-sans">
-            Secure premium, chapel-compliant ties with zero stress.
+            Direct online payment via Flutterwave. Instant confirmation & hall lobby delivery.
           </p>
         </div>
 
@@ -229,11 +316,11 @@ export default function CheckoutPage({
                   : 'bg-brand-card text-brand-primary/60 border-brand-border hover:text-brand-primary disabled:opacity-40'
               }`}
             >
-              02 DETAILS
+              02 PAYMENT DETAILS
             </button>
             <div className="h-px w-6 bg-brand-border"></div>
             <span className="px-3.5 py-1.5 rounded-full border bg-brand-card text-brand-primary/30 border-brand-border/60">
-              03 CONFIRMED
+              03 PAID RECEIPT
             </span>
           </div>
         )}
@@ -418,7 +505,7 @@ export default function CheckoutPage({
                     </p>
                   </div>
 
-                  <form onSubmit={handleConfirmReservation} className="space-y-6">
+                  <form onSubmit={handleInitiatePayment} className="space-y-6">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       
                       {/* Name input */}
@@ -468,7 +555,7 @@ export default function CheckoutPage({
                       {/* Email input (optional) */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          EMAIL ADDRESS (OPTIONAL)
+                          EMAIL ADDRESS *
                         </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
@@ -476,6 +563,7 @@ export default function CheckoutPage({
                           </span>
                           <input
                             type="email"
+                            required
                             placeholder="e.g. daniel@student.covenant.edu.ng"
                             value={buyerEmail}
                             onChange={(e) => setBuyerEmail(e.target.value)}
@@ -533,7 +621,7 @@ export default function CheckoutPage({
                         disabled={isSubmitting}
                         className="w-full sm:w-auto px-8 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                       >
-                        {isSubmitting ? 'STARTING CHECKOUT...' : 'CONFIRM RESERVATION'}
+                        {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE`}
                         <ArrowRight size={14} />
                       </button>
                     </div>
@@ -589,7 +677,7 @@ export default function CheckoutPage({
 
                       <div className="bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary px-4 py-2 rounded-xl text-center">
                         <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">DEPOSIT RECEIVED</span>
-                        <span className="font-sans text-base font-extrabold">₦{totalDeposit.toLocaleString()}</span>
+                        <span className="font-sans text-base font-extrabold">₦{outstandingBalance.toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -602,8 +690,8 @@ export default function CheckoutPage({
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
                         <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">ASSIGNED PICKUP POINT</p>
-                        <p className="text-brand-secondary font-bold text-xs mt-1 leading-tight truncate" title={getAssignedPickupPoint(buyerHall)}>
-                          {getAssignedPickupPoint(buyerHall)}
+                        <p className="text-brand-secondary font-bold text-xs mt-1 leading-tight truncate" title="">
+                          Shared Near Resumption Date
                         </p>
                       </div>
 
