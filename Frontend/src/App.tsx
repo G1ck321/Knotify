@@ -12,6 +12,7 @@ import BecomeSellerModal from './components/BecomeSellerModal';
 import SellPage from './components/SellPage';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
+import Dashboard from './components/Dashboard';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { clearAuthSession, getStoredUser, persistAuthSession } from './lib/authStorage';
@@ -35,13 +36,24 @@ function normalizeUser(user: any) {
 
 export default function App() {
   // Page routing state
-  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard'>('home');
 
   // User Authentication State
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
   });
+    const handleUpdateUser = (updatedUser: any) => {
+    setCurrentUser(updatedUser);
+    persistAuthSession(updatedUser, getAccessToken() ?? undefined);
+  };
+    const handleUpdateReservation = (updatedRes: Reservation) => {
+    setReservations((prev) =>
+      prev.map((res) => (res.id === updatedRes.id ? updatedRes : res))
+    );
+  };
+  
+  
 
   // Route to checkout when Flutterwave redirects back with payment query params
   useEffect(() => {
@@ -382,6 +394,32 @@ export default function App() {
                   setCurrentTab('checkout');
                 }}
                 onBackToCollection={() => setCurrentTab('marketplace')}
+              />
+            </motion.div>
+          ) : currentTab === 'dashboard' ? (
+            /* USER DASHBOARD MODULE */
+            <motion.div
+              key="dashboard"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Dashboard
+                currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
+                reservations={reservations}
+                onUpdateReservation={handleUpdateReservation}
+                wishlist={wishlist}
+                products={products}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={handleAddToCart}
+                onLogout={handleLogout}
+                onOpenAuth={() => {
+                  setPendingAction(null);
+                  setIsAuthOpen(true);
+                }}
+                setCurrentTab={setCurrentTab}
               />
             </motion.div>
           ) : (

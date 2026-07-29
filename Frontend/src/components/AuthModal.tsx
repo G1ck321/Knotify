@@ -7,11 +7,12 @@ import {
   EyeOff, 
   AlertCircle
 } from 'lucide-react';
+import ForgotPasswordModal from './ForgotPasswordModal';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any, accessToken?: string) => void;
+  onSuccess: (user: any) => void;
   pendingActionName?: string; // Optional context
 }
 
@@ -54,6 +55,7 @@ export default function AuthModal({
   onSuccess,
 }: AuthModalProps) {
   const [isLogin, setIsLogin] = useState(true);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   
@@ -70,6 +72,15 @@ export default function AuthModal({
   const [loginPassword, setLoginPassword] = useState('');
 
   if (!isOpen) return null;
+
+   if (showForgotPassword) {
+    return (
+      <ForgotPasswordModal
+        onClose={() => setShowForgotPassword(false)}
+        onBackToLogin={() => setShowForgotPassword(false)}
+      />
+    );
+  }
 
   const handleToggleMode = () => {
     setIsLogin(!isLogin);
@@ -90,7 +101,9 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
-      onSuccess(normalizedUser, response.access_token);
+      localStorage.setItem('knotify_access_token', response.access_token);
+      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
+      onSuccess(normalizedUser);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not sign in');
     }
@@ -114,6 +127,7 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
+      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
       onSuccess(normalizedUser);
       setIsLogin(true);
     } catch (err) {
@@ -264,8 +278,19 @@ export default function AuthModal({
                       </button>
                     </div>
                   </div>
-                </div>
 
+                    <div className="text-right">
+                    <button
+                      type="button"
+                      id="forgot-password-link"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-[10px] font-mono text-[#2D6A4F] hover:text-[#1F3E2B] hover:underline transition-colors cursor-pointer tracking-wide uppercase font-bold"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                </div>
+              
                 <div className="pt-2">
                   <button
                     type="submit"

@@ -126,7 +126,7 @@ export default function CheckoutPage({
           quantity: pending.totalItems,
           hall: pending.buyerHall,
           productNames: pending.productNames,
-          deposit: pending.totalAmountPayable,
+          deposit: pending.itemsTotal,
           outstanding: 0,
           status: 'Ready for Pickup',
           pickupPoint: getAssignedPickupPoint(pending.buyerHall),
@@ -229,7 +229,6 @@ export default function CheckoutPage({
         telegramPhone: buyerPhone,
         parentsNumber: currentUser?.parentsNumber || buyerPhone,
         whatsApp: currentUser?.whatsApp || buyerPhone,
-        matricNumber: currentUser?.matricNumber || undefined,
         address: buyerHall,
         roomNumber: roomNumber || 'N/A',
         items: orderItems,
@@ -642,19 +641,19 @@ export default function CheckoutPage({
                   <div className="absolute top-0 right-0 w-64 h-64 bg-brand-secondary/[0.03] rounded-full filter blur-[80px] pointer-events-none" />
 
                   {/* Header confirmation */}
-                  <div className="text-center max-w-lg mx-auto space-y-4 relative z-10">
-                    <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
-                      <CheckCircle size={28} />
-                    </div>
+          <div className="text-center max-w-lg mx-auto space-y-4">
+            <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
+              <CheckCircle size={28} />
+            </div>
 
-                    <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
-                      Tie is Reserved
-                    </h2>
-                    
-                    <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
-                      Congratulations <strong>{buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
-                    </p>
-                  </div>
+            <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
+              Tie is Reserved
+            </h2>
+            
+            <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
+              Congratulations <strong>{confirmedOrder.buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
+            </p>
+          </div>
 
                   {/* High-End Coordinates Panel */}
                   <div className="bg-brand-bg border border-brand-border rounded-2xl p-6 space-y-5 relative z-10">
@@ -755,51 +754,52 @@ export default function CheckoutPage({
             </AnimatePresence>
           </div>
 
-          {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY SUMMARY */}
-          {checkoutStep !== 'success' && (
-            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
-              
-              {/* STICKY CARD */}
-              <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left">
-                <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border">
-                  Billing Overview
-                </h3>
+          {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY */}
+{checkoutStep !== 'success' && (
+  <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
+    
+    <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left">
+      <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border">
+        Billing Overview
+      </h3>
 
-                <div className="space-y-3.5 text-xs font-sans uppercase pb-5 border-b border-brand-border">
-                  <div className="flex justify-between text-brand-primary/70">
-                    <span>Total items ({totalItems})</span>
-                    <span className="font-sans font-bold text-brand-primary">₦{totalValue.toLocaleString()}</span>
-                  </div>
-                  
-                  <div className="flex justify-between text-brand-secondary font-bold">
-                    <span>Delivery & Development</span>
-                    <span className="font-sans text-sm">₦{totalDeposit.toLocaleString()}</span>
-                  </div>
+      <div className="space-y-3.5 text-xs font-sans uppercase pb-5 border-b border-brand-border">
+        <div className="flex justify-between text-brand-primary/70">
+          <span>Total items ({totalItems})</span>
+          <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
+        </div>
+        
+        <div className="flex justify-between text-brand-secondary font-bold">
+          <span>Delivery & Development</span>
+          <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
+        </div>
 
-                  <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
-                    <span>Total</span>
-                    <span className="font-sans">₦{outstandingBalance.toLocaleString()}</span>
-                  </div>
-                </div>
+        <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
+          <span>Total Payable</span>
+          <span className="font-sans font-bold">₦{totalAmountPayable.toLocaleString()}</span>
+        </div>
+      </div>
 
-                {/* Main Call to Action Button inside sticky card */}
-                {checkoutStep === 'cart' ? (
-                  <button
-                    onClick={handleStartCheckout}
-                    className="w-full mt-5 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                  >
-                    PROCEED TO DETAILS
-                    <ArrowRight size={13} />
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleConfirmReservation}
-                    disabled={isSubmitting}
-                    className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                  >
-                    {isSubmitting ? 'STARTING CHECKOUT...' : `RESERVE FOR ₦${outstandingBalance.toLocaleString()}`}
-                  </button>
-                )}
+      {/* Main Call to Action Button inside sticky card */}
+      {checkoutStep === 'cart' ? (
+        <button
+          onClick={handleStartCheckout}
+          className="w-full mt-5 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+        >
+          PROCEED TO DETAILS
+          <ArrowRight size={13} />
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={handleInitiatePayment} // 🌟 FIX 1: Updated function name here
+          disabled={isSubmitting}
+          className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+        >
+          {/* 🌟 FIX 2: Updated variable from outstandingBalance to totalAmountPayable */}
+          {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE`}
+        </button>
+      )}
 
                 <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
                   🔒 Encrypted connection. Student-verified handoffs.

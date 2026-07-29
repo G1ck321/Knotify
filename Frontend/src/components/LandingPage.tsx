@@ -25,7 +25,7 @@ import {
   Loader
 } from 'lucide-react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
-import { Product, Reservation } from '../types';
+import { Product, Reservation } from './Frontend/src/types';
 import TiePlaceholder from './TiePlaceholder';
 import FAQSection from './FAQSection';
 

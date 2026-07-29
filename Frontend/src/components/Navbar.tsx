@@ -3,8 +3,8 @@ import { ShoppingBag, Heart, PlusCircle, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NavbarProps {
-  currentTab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist';
-  setCurrentTab: (tab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist') => void;
+  currentTab: 'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard';
+  setCurrentTab: (tab: 'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard') => void;
   cartCount: number;
   wishlistCount: number;
   onOpenCart: () => void;
@@ -75,6 +75,17 @@ export default function Navbar({
               id="nav-link-marketplace"
             >
               COLLECTION
+            </button>
+             <button
+              onClick={() => setCurrentTab('dashboard')}
+              className={`text-[10px] font-mono tracking-[0.2em] uppercase transition-all duration-200 py-1 cursor-pointer ${
+                currentTab === 'dashboard'
+                  ? 'text-brand-secondary font-black scale-105'
+                  : 'text-neutral-500 hover:text-brand-secondary'
+              }`}
+              id="nav-link-dashboard"
+            >
+              DASHBOARD
             </button>
 
             {/* Red Chapel Cross emblem representing university chapel design theme */}
@@ -191,6 +202,19 @@ export default function Navbar({
                 }`}
               >
                 HOMEPAGE
+              </button>
+               <button
+                onClick={() => {
+                  setCurrentTab('dashboard');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left ${
+                  currentTab === 'dashboard' 
+                    ? 'text-brand-secondary bg-brand-secondary/5 font-black border-l-2 border-brand-secondary' 
+                    : 'text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5'
+                }`}
+              >
+                DASHBOARD
               </button>
               <button
                 onClick={() => {
