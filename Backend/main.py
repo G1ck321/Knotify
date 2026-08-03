@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 
 import uvicorn
 
-from routers import auth, orders, webhooks
+from routers import auth, orders, quantity, webhooks
 # , webhooks
 
 app = FastAPI(title="Knotify COvenant University", version="2026.1.0")
@@ -31,6 +31,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(orders.router)
+app.include_router(quantity.router)
 app.include_router(webhooks.router)
 
 if __name__ =="__main__":
