@@ -14,11 +14,20 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 class OrderItemInput(BaseModel):
     """One purchasable line item in a checkout request."""
 
-    item_id: str = Field(..., min_length=1)
+    tie_id: str = Field(..., alias="item_id", min_length=1)
     name: str = Field(..., min_length=1)
     quantity: int = Field(..., gt=0)
     unit_price: float = Field(..., gt=0)
     image_url: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("tie_id", mode="before")
+    @classmethod
+    def normalize_tie_id(cls, value):
+        if value in (None, ""):
+            raise ValueError("tie_id is required")
+        return str(value).strip()
 
     @field_validator("image_url", mode="before")
     @classmethod
