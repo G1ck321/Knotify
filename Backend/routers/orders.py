@@ -1,5 +1,6 @@
 import traceback
 import os
+import json
 import httpx
 
 from fastapi.responses import JSONResponse
@@ -7,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 
 from database import supabase
 from config import settings
+from routers.quantity import get_tie_by_id
 
 from typing import Optional, List
 from dependencies import get_optional_current_user
@@ -23,6 +25,29 @@ async def initialize_payment(
     current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
     try:
+        normalized_items = []
+        for item in payload.items:
+            tie_row = get_tie_by_id(item.tie_id)
+            if not tie_row:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{item.tie_id}' was not found")
+
+            available_quantity = int(tie_row.get("quantity") or 0)
+            if available_quantity < item.quantity:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Tie '{item.tie_id}' only has {available_quantity} left",
+                )
+
+            normalized_items.append(
+                {
+                    "tie_id": item.tie_id,
+                    "tie_name": tie_row.get("tie_name") or tie_row.get("name") or item.name,
+                    "quantity": item.quantity,
+                    "unit_price": item.unit_price,
+                    "image_url": item.image_url,
+                }
+            )
+
         # Add delivery fee of 200 on the server so the frontend cannot alter it.
         calculated_total = float(payload.amount) + 200
         tx_ref = generate_tx_ref("order")
@@ -44,6 +69,9 @@ async def initialize_payment(
                     "full_name": payload.name.strip(),
                     "email": cleaned_email,
                     "phone": payload.telegramPhone.strip() if payload.telegramPhone else None,
+                    "parentsNumber": payload.parentsNumber.strip(),
+                    "telegramPhone": payload.telegramPhone.strip(),
+                    "whatsApp": payload.whatsApp.strip() if payload.whatsApp else payload.telegramPhone.strip(),
                     "password_hash": "$2b$12$GuestCheckoutUnusablePasswordHashPlaceholder",
                     "is_active": True
                 }
@@ -55,6 +83,7 @@ async def initialize_payment(
 
         db_payload = {
             "user_id": user_id,
+            "buyer_name": payload.name.strip(),
             "tx_ref": tx_ref,
             "status": "pending",
             "amountpaid": calculated_total,
@@ -62,9 +91,11 @@ async def initialize_payment(
             "item_count": len(payload.items),
             "currency": "NGN",
             "order_details": payload.order_summary,
+            "cart_snapshot": normalized_items,
+            "delivery_address": payload.address,
             "room_number": payload.roomNumber,
-            "email": payload.email,
-            "telegramPhone": payload.telegramPhone,
+            "email_snapshot": payload.email,
+            "phone_snapshot": payload.telegramPhone,
         }
 
         #Insert order into database before payment gateway
@@ -106,7 +137,8 @@ async def initialize_payment(
             "meta":{
                 "user_id": user_id or "guest",
                 "item_count": len(payload.items),
-                "roomNumber": payload.roomNumber
+                "roomNumber": payload.roomNumber,
+                "cart_snapshot": normalized_items,
             },
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{
@@ -181,10 +213,10 @@ async def get_my_past_orders(authorization: Optional[str] = Header(None)):
     return [
         OrderResponse(
             tx_ref=row["tx_ref"],
-            buyer_name=row["buyer_name"],
-            amount=row["amount"],
+            buyer_name=row.get("buyer_name") or row.get("email_snapshot") or "Unknown",
+            amount=row["amountpaid"],
             status=row["status"],
-            items=row["product_names"],
+            items=row.get("order_details") or "",
             created_at=row["created_at"]
         )
         for row in response.data
