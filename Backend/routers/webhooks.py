@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, status, Header, Request, Backgroun
 from database import supabase
 from config import settings
 from datetime import timezone, datetime
+from routers.quantity import decrement_stock_for_order
 
 
 router = APIRouter(prefix="/webhook", tags=["Third Party Web Hooks"])
@@ -85,8 +86,21 @@ async def flutterwave_webhook(
         if order_record.get("status") == "paid":
             return {"status": "ignored", "reason": "Already processed transaction pattern."}
         
+        cart_snapshot = order_record.get("cart_snapshot") or []
+        if isinstance(cart_snapshot, str):
+            import json
+            try:
+                cart_snapshot = json.loads(cart_snapshot)
+            except Exception:
+                cart_snapshot = []
+
         # Update the order row to paid once the gateway confirms success.
-        updated_order = supabase.table("orders").update({"status": "paid"}).eq("tx_ref", tx_ref).execute()
+        updated_order = (
+            supabase.table("orders")
+            .update({"status": "paid", "paid_at": datetime.now(timezone.utc).isoformat()})
+            .eq("tx_ref", tx_ref)
+            .execute()
+        )
 
         # Check if database update was successful
         if updated_order.data:
@@ -94,7 +108,8 @@ async def flutterwave_webhook(
             
             # Background tasks keep the webhook response fast and non-blocking.
             # background_tasks.add_task(send_email_order_receipt, order_record)
-            background_tasks.add_task(order_record)
+            if cart_snapshot:
+                background_tasks.add_task(decrement_stock_for_order, cart_snapshot)
         else:
             print("DEBUG: Supabase update failed or returned empty data.")
 
