@@ -52,7 +52,7 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     response = (
         supabase.table("ties")
         .select("*")
-        .or_(f"tie_id.eq.{tie_id},id.eq.{tie_id},name.eq.{tie_id}")
+        .or_(f"tie_id.eq.{tie_id},tie_name.eq.{tie_id}")
         .limit(1)
         .execute()
     )
