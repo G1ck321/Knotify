@@ -402,9 +402,9 @@ export default function CheckoutPage({
                                 <span className="text-[9px] font-sans bg-brand-bg border border-brand-border px-2 py-0.5 text-brand-primary/70 uppercase font-semibold">
                                   {item.product.category}
                                 </span>
-                                <span className="text-[9px] font-sans bg-brand-secondary/10 border border-brand-secondary/20 px-2 py-0.5 text-brand-secondary uppercase font-semibold">
+                                {/* <span className="text-[9px] font-sans bg-brand-secondary/10 border border-brand-secondary/20 px-2 py-0.5 text-brand-secondary uppercase font-semibold">
                                   Deposit required: ₦{(item.product.deposit).toLocaleString()}
-                                </span>
+                                </span> */}
                               </div>
                             </div>
                             <div className="sm:text-right flex sm:flex-col justify-between sm:justify-start items-center sm:items-end gap-1">
