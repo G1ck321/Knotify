@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 
 from database import supabase
 from config import settings
-from routers.quantity import get_tie_by_id
+from routers.quantity import compute_order_total, get_tie_by_id
 
 from typing import Optional, List
 from dependencies import get_optional_current_user
@@ -26,30 +26,34 @@ async def initialize_payment(
 ):
     try:
         normalized_items = []
+        server_items_total = 0.0
         for item in payload.items:
             tie_row = get_tie_by_id(item.tie_id)
             if not tie_row:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{item.tie_id}' was not found")
 
             available_quantity = int(tie_row.get("quantity") or 0)
+            server_price = float(tie_row.get("price") or item.unit_price or 0)
             if available_quantity < item.quantity:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Tie '{item.tie_id}' only has {available_quantity} left",
                 )
 
+            server_items_total += server_price * item.quantity
+
             normalized_items.append(
                 {
                     "tie_id": item.tie_id,
                     "tie_name": tie_row.get("tie_name") or tie_row.get("name") or item.name,
                     "quantity": item.quantity,
-                    "unit_price": item.unit_price,
+                    "unit_price": server_price,
                     "image_url": item.image_url,
                 }
             )
 
         # Add delivery fee of 200 on the server so the frontend cannot alter it.
-        calculated_total = float(payload.amount) + 200
+        calculated_total = server_items_total + 200
         tx_ref = generate_tx_ref("order")
 
         # Determine valid user_id UUID from authenticated session or lookup/auto-create guest user in Supabase
@@ -87,7 +91,7 @@ async def initialize_payment(
             "tx_ref": tx_ref,
             "status": "pending",
             "amountpaid": calculated_total,
-            "items_total": payload.items_total,
+            "items_total": server_items_total,
             "item_count": len(payload.items),
             "currency": "NGN",
             "order_details": payload.order_summary,
@@ -96,6 +100,7 @@ async def initialize_payment(
             "room_number": payload.roomNumber,
             "email_snapshot": payload.email,
             "phone_snapshot": payload.telegramPhone,
+            "parentsNumber":payload.parentsNumber
         }
 
         #Insert order into database before payment gateway
@@ -139,11 +144,12 @@ async def initialize_payment(
                 "item_count": len(payload.items),
                 "roomNumber": payload.roomNumber,
                 "cart_snapshot": normalized_items,
+                "items_total": server_items_total,
             },
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{
                 "title":"KnotifyCu",
-                "description": f"Ties NGN {payload.amount} | Delivery & Development Fee: NGN 200"
+                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 200"
             }
         }
 
