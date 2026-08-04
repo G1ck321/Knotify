@@ -46,7 +46,7 @@ export function clearPendingCheckout() {
 export async function fetchOrderStatus(txRef: string) {
   const backendUrl = getBackendUrl();
   const response = await fetch(
-    `${backendUrl}/api/orders/status?tx_ref=${encodeURIComponent(txRef)}`
+    `${backendUrl}/api/orders/status/${encodeURIComponent(txRef)}`
   );
 
   if (!response.ok) {

@@ -192,12 +192,8 @@ export default function CheckoutPage({
 
   const handleStartCheckout = () => {
     if (cartItems.length > 0) {
-      if (!currentUser) {
-        onOpenAuth();
-      } else {
-        setCheckoutStep('form');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
+      setCheckoutStep('form');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -213,7 +209,7 @@ export default function CheckoutPage({
 
     try {
       const orderItems = cartItems.map((item) => ({
-        item_id: item.product.id,
+        tie_id: item.product.id,
         name: item.product.name,
         quantity: item.quantity,
         unit_price: item.product.price,
@@ -640,34 +636,30 @@ export default function CheckoutPage({
                   {/* Subtle Glow decoration */}
                   <div className="absolute top-0 right-0 w-64 h-64 bg-brand-secondary/[0.03] rounded-full filter blur-[80px] pointer-events-none" />
 
-                  {/* Header confirmation */}
-          <div className="text-center max-w-lg mx-auto space-y-4">
-            <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
-              <CheckCircle size={28} />
-            </div>
+                  <div className="text-center max-w-lg mx-auto space-y-4">
+                    <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
+                      <CheckCircle size={28} />
+                    </div>
 
-            <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
-              Tie is Reserved
-            </h2>
-            
-            <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
-              Congratulations <strong>{confirmedOrder.buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
-            </p>
-          </div>
+                    <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
+                      Payment Confirmed
+                    </h2>
 
-                  {/* High-End Coordinates Panel */}
+                    <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
+                      Congratulations <strong>{buyerName}</strong>. Your direct checkout has been logged and your order is now secured.
+                    </p>
+                  </div>
+
                   <div className="bg-brand-bg border border-brand-border rounded-2xl p-6 space-y-5 relative z-10">
-                    
-                    {/* Unique reservation ID header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-border pb-4 gap-3">
                       <div>
-                        <span className="text-[9px] font-sans text-brand-primary/50 block tracking-widest uppercase font-semibold">REGISTRATION NUMBER</span>
+                        <span className="text-[9px] font-sans text-brand-primary/50 block tracking-widest uppercase font-semibold">TRANSACTION REFERENCE</span>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="font-sans text-base font-bold text-brand-primary tracking-wider">{generatedId}</span>
+                          <span className="font-sans text-base font-bold text-brand-primary tracking-wider">{generatedTxRef}</span>
                           <button 
                             onClick={copyToClipboard}
                             className="p-1.5 bg-brand-card border border-brand-border rounded-lg hover:text-brand-secondary hover:bg-brand-bg transition-colors text-brand-primary cursor-pointer"
-                            title="Copy ID"
+                            title="Copy reference"
                           >
                             {copiedId ? <Check size={13} className="text-emerald-700" /> : <Clipboard size={13} />}
                           </button>
@@ -675,35 +667,34 @@ export default function CheckoutPage({
                       </div>
 
                       <div className="bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary px-4 py-2 rounded-xl text-center">
-                        <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">DEPOSIT RECEIVED</span>
-                        <span className="font-sans text-base font-extrabold">₦{outstandingBalance.toLocaleString()}</span>
+                        <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">AMOUNT PAID</span>
+                        <span className="font-sans text-base font-extrabold">₦{totalAmountPayable.toLocaleString()}</span>
                       </div>
                     </div>
 
-                    {/* Meta coordinates breakdown */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5 text-xs font-sans uppercase text-brand-secondary">
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">RESIDENCE COORD</p>
+                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">RESIDENCE HALL</p>
                         <p className="text-brand-primary font-bold text-xs mt-1">{buyerHall}</p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
                         <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">ASSIGNED PICKUP POINT</p>
-                        <p className="text-brand-secondary font-bold text-xs mt-1 leading-tight truncate" title="">
-                          Shared Near Resumption Date
+                        <p className="text-brand-secondary font-bold text-xs mt-1 leading-tight truncate" title={getAssignedPickupPoint(buyerHall)}>
+                          {getAssignedPickupPoint(buyerHall)}
                         </p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">OUTSTANDING (AT PICKUP)</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">₦{outstandingBalance.toLocaleString()}</p>
+                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">ORDER TOTAL</p>
+                        <p className="text-brand-primary font-bold text-xs mt-1">₦{itemsTotal.toLocaleString()}</p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">TICKET STATUS</p>
+                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">STATUS</p>
                         <p className="text-emerald-800 font-bold text-xs mt-1 flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                          CONFIRMED READY
+                          READY FOR PICKUP
                         </p>
                       </div>
                     </div>

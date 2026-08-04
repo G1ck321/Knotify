@@ -34,7 +34,7 @@ export interface Product {
   condition: 'Brand New' | 'Like New' | 'Gently Used' | 'Used';
   category: 'Official Tie' | 'Premium' | 'Department' | 'Bow Tie' | 'Corporate' | 'Vintage';
   color: 'Navy' | 'Crimson' | 'Gold' | 'Forest Green' | 'Black' | 'Wine' | 'Stripes';
-  stock: number;
+  stock: number | string;
   description: string;
   materials: string;
   pickupProcess: string;
@@ -234,7 +234,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Navy',
-    stock: 50,
+    stock: 0,
     description: 'The classic plain navy blue tie — a timeless staple for any Covenant scholar. Matches every formal shirt and fulfils all chapel dress requirements effortlessly.',
     materials: 'Smooth matte polyester satin, double-lined for a firm Windsor knot, wrinkle-resistant weave.',
     pickupProcess: 'Reserve with a N1,500 deposit. Collect from our designated pickup point at your hall lobby upon resumption and pay the outstanding balance.',
@@ -248,7 +248,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ]
   },
 
-  // ── VINTAGE TIES ─────────────────────────────────────────────────────────────
+ // ── VINTAGE TIES ─────────────────────────────────────────────────────────────
   {
     id: 'vint-blue-dolphin',
     name: 'Blue Dolphin Character Vintage Tie',
@@ -261,7 +261,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Navy',
-    stock: 1,
+    stock: 0,
     description: 'A fun and charming vintage tie featuring playful dolphin characters on a rich navy background. A conversation starter and a personality statement in any chapel or lecture hall.',
     materials: 'Vintage 100% silk blend, hand-finished edges, original lining intact.',
     pickupProcess: 'Reserve with a N1,000 deposit. Meet seller in Peter Hall lobby at an agreed time to inspect and collect.',
@@ -285,7 +285,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Gently Used',
     category: 'Vintage',
     color: 'Navy',
-    stock: 1,
+    stock: 0,
     description: 'A vintage patterned character tie with rich blue tones and intricate detailing. A rare find from a graduating senior — pairs beautifully with a crisp white shirt.',
     materials: 'Polyester satin blend with vintage woven pattern, original keeper loop intact.',
     pickupProcess: 'Reserve with a N800 deposit. Meet seller in Daniel Hall lobby to inspect and collect.',
@@ -307,7 +307,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Navy',
-    stock: 1,
+    stock: 0,
     description: 'A graceful vintage tie with a repeating geometric blue pattern — understated elegance meeting classic craftsmanship. Perfect for formal chapel attendance.',
     materials: '100% woven polyester, structured vintage lining, excellent knot stability.',
     pickupProcess: 'Reserve with a N900 deposit. Meet seller in Esther Hall lobby to inspect and collect.',
@@ -331,7 +331,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Stripes',
-    stock: 1,
+    stock: 0,
     description: 'A bold, eye-catching vintage tie with bright abstract art — for the scholar who dresses with intention. A premium collector piece sourced from a graduating senior.',
     materials: 'Silk-polyester blend, vivid print, original vintage backing intact.',
     pickupProcess: 'Reserve with a N1,000 deposit. Meet seller in Paul Hall lobby to inspect and collect.',
@@ -355,7 +355,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Gently Used',
     category: 'Vintage',
     color: 'Navy',
-    stock: 1,
+    stock: 0,
     description: 'A cool-toned abstract vintage tie with smooth artistic patterns. A sophisticated choice for the style-forward Covenant scholar who wants to stand out gracefully.',
     materials: 'Polyester with abstract print overlay, sturdy vintage inner lining.',
     pickupProcess: 'Reserve with a N1,000 deposit. Meet seller in Lydia Hall lobby to inspect and collect.',
@@ -377,7 +377,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Gently Used',
     category: 'Vintage',
     color: 'Gold',
-    stock: 1,
+    stock: 0,
     description: 'A whimsical and fun vintage tie adorned with duck characters — a cheerful, nostalgic piece for the scholar with a great sense of humour and confident personal style.',
     materials: 'Vintage polyester satin, novelty character print, intact original lining.',
     pickupProcess: 'Reserve with a N700 deposit. Meet seller in Joseph Hall lobby to inspect and collect.',
@@ -399,7 +399,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Crimson',
-    stock: 1,
+    stock: 0,
     description: 'An exquisite vintage floral tie — rich botanicals woven into fine silk-like fabric. Elegant and chapel-approved, ideal for formal occasions and Sunday services.',
     materials: 'Vintage woven silk-polyester, botanical jacquard pattern, soft inner lining.',
     pickupProcess: 'Reserve with a N1,000 deposit. Meet seller in Mary Hall lobby to inspect and collect.',
@@ -423,7 +423,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Forest Green',
-    stock: 1,
+    stock: 0,
     description: 'A distinguished vintage tie in forest green with a bold diamond geometric pattern. A rare colour that commands respect and sets you apart in chapel and formal settings.',
     materials: 'Woven polyester with diamond-knit pattern, full vintage lining, crisp blade.',
     pickupProcess: 'Reserve with a N900 deposit. Meet seller in Daniel Hall lobby to inspect and collect.',
@@ -445,7 +445,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Gently Used',
     category: 'Vintage',
     color: 'Forest Green',
-    stock: 1,
+    stock: 0,
     description: 'A striking vintage tie with a repeating eye-motif pattern in deep green tones. Unique and artful — the kind of tie that starts conversations at chapel and beyond.',
     materials: 'Polyester satin weave with novelty eye pattern, reinforced vintage lining.',
     pickupProcess: 'Reserve with a N850 deposit. Meet seller in Peter Hall lobby to inspect and collect.',
@@ -467,7 +467,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Navy',
-    stock: 1,
+    stock: 0,
     description: 'A fluid, mesmerising vintage tie with wavy oceanic blue patterns — calm, distinguished, and unforgettable. A premium piece for the scholar with impeccable taste.',
     materials: 'Vintage silk-touch polyester with wave-print jacquard, smooth finish, intact lining.',
     pickupProcess: 'Reserve with a N1,000 deposit. Meet seller in Paul Hall lobby to inspect and collect.',
@@ -491,7 +491,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     condition: 'Like New',
     category: 'Vintage',
     color: 'Wine',
-    stock: 1,
+    stock: 0,
     description: 'A rich wine-coloured vintage tie with character motif patterns — sophisticated yet expressive. Perfect for chapel services, formal dinners and departmental events.',
     materials: 'Woven polyester with character jacquard pattern, wine satin reverse, robust lining.',
     pickupProcess: 'Reserve with a N950 deposit. Meet seller in Esther Hall lobby to inspect and collect.',

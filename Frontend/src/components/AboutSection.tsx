@@ -68,13 +68,13 @@ function LayerWhoWeAre() {
             {/* Big stat */}
             <div className="bg-[#FFFEF2]/[0.055] border border-[#FFFEF2]/[0.09] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
               <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-brand-accent/20 rounded-full filter blur-3xl pointer-events-none" />
-              <StatBlock value="1,850+" label="Scholars active this semester" large />
+              <StatBlock value="1,850+" label="Students serving capacity" large />
             </div>
 
             {/* Two smaller chips */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-[#FFFEF2]/[0.055] border border-[#FFFEF2]/[0.09] rounded-xl p-6">
-                <StatBlock value="5 halls" label="Covered across campus" />
+                <StatBlock value="5 halls" label="Coverage across campus" />
               </div>
               <div className="bg-[#FFFEF2]/[0.055] border border-[#FFFEF2]/[0.09] rounded-xl p-6">
                 <StatBlock value="2026" label="Founded by scholars" />
@@ -84,7 +84,8 @@ function LayerWhoWeAre() {
             {/* Origin story quote */}
             <div className="border-l-2 border-[#FFFEF2]/20 pl-5 py-1">
               <p className="text-sm italic text-[#FFFEF2]/65 leading-relaxed font-display">
-                "We built Knotify on a Monday morning after watching a fresher sprint to chapel in a blazer with no tie."
+                "Knotify was built from a place of helping students retain value and look good without breaking the bank,
+                why shuld a student pay the price of a standard meal for a tie?"
               </p>
               <span className="text-[9px] font-mono text-[#FFFEF2]/40 tracking-[0.3em] uppercase mt-2 block">
                 — The Founders, Peter Hall, 2026

@@ -288,7 +288,7 @@ export default function Marketplace({
                       <div className="absolute top-3 left-3 flex flex-col gap-1">
                         {isOutOfStock ? (
                           <span className="bg-brand-primary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded">
-                            SOLD OUT
+                            OUT OF STOCK
                           </span>
                         ) : discountPercent > 0 ? (
                           <span className="bg-brand-secondary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded">

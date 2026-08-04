@@ -4,9 +4,10 @@ import { ShieldCheck, Award } from 'lucide-react';
 interface FooterProps {
   setCurrentTab: (tab: 'home' | 'marketplace' | 'sell' | 'checkout') => void;
   onOpenBecomeSeller: () => void;
+  onResetLocalSession: () => void;
 }
 
-export default function Footer({ setCurrentTab, onOpenBecomeSeller }: FooterProps) {
+export default function Footer({ setCurrentTab, onOpenBecomeSeller, onResetLocalSession }: FooterProps) {
   return (
     <footer className="bg-brand-bg pt-20 pb-16 px-6 sm:px-12 border-t border-brand-border text-left" id="site-footer">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-start">
@@ -38,6 +39,9 @@ export default function Footer({ setCurrentTab, onOpenBecomeSeller }: FooterProp
             </button>
             <button onClick={onOpenBecomeSeller} className="hover:text-brand-secondary text-left transition-colors cursor-pointer hover:underline underline-offset-4 decoration-brand-secondary/40">
               Sell Your Tie
+            </button>
+            <button onClick={onResetLocalSession} className="hover:text-brand-secondary text-left transition-colors cursor-pointer hover:underline underline-offset-4 decoration-brand-secondary/40">
+              Reset Local Session
             </button>
           </div>
         </div>
