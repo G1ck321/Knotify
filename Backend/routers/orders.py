@@ -10,7 +10,7 @@ from database import supabase
 from config import settings
 from routers.quantity import compute_order_total, get_tie_by_id
 
-from typing import Optional, List
+from typing import Optional, List, Any
 from dependencies import get_optional_current_user
 from request_models import OrderCreateRequest
 from utils.tokens import generate_tx_ref
@@ -192,6 +192,11 @@ class OrderResponse(BaseModel):
     amount: float
     status: str
     items: str
+    email_snapshot: Optional[str] = None
+    phone_snapshot: Optional[str] = None
+    room_number: Optional[str] = None
+    delivery_address: Optional[str] = None
+    cart_snapshot: Optional[list[dict[str, Any]]] = None
     created_at: str
 
 # -----------------------------------------------------------------------------
@@ -224,6 +229,11 @@ async def get_my_past_orders(authorization: Optional[str] = Header(None)):
             amount=row["amountpaid"],
             status=row["status"],
             items=row.get("order_details") or "",
+            email_snapshot=row.get("email_snapshot"),
+            phone_snapshot=row.get("phone_snapshot"),
+            room_number=row.get("room_number"),
+            delivery_address=row.get("delivery_address"),
+            cart_snapshot=row.get("cart_snapshot") or [],
             created_at=row["created_at"]
         )
         for row in response.data
