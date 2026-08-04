@@ -599,7 +599,7 @@ export default function LandingPage({
                   
                   <div className="shrink-0">
                     <a
-                      href="https://chat.whatsapp.com/invite/knotify-covenant"
+                      href="https://chat.whatsapp.com/Kiwu2BWP1NuE0z0wC61to0"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3 border border-brand-primary/20 hover:border-brand-secondary hover:bg-brand-secondary hover:text-brand-bg rounded-sm transition-all duration-300 text-xs font-mono tracking-widest uppercase font-bold group/btn cursor-pointer bg-transparent text-brand-primary"
@@ -629,7 +629,7 @@ export default function LandingPage({
                   
                   <div className="shrink-0">
                     <a
-                      href="https://t.me/knotify_covenant"
+                      href="https://t.me/+go-lAiSrbJ5hNGVk"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2 px-6 py-3 border border-brand-primary/20 hover:border-brand-secondary hover:bg-brand-secondary hover:text-brand-bg rounded-sm transition-all duration-300 text-xs font-mono tracking-widest uppercase font-bold group/btn cursor-pointer bg-transparent text-brand-primary"

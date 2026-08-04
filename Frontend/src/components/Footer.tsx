@@ -42,8 +42,33 @@ export default function Footer({ setCurrentTab, onOpenBecomeSeller }: FooterProp
           </div>
         </div>
 
-        {/* Column 3: The Academic Standard Statement */}
-        <div className="md:col-span-4 space-y-4">
+        {/* Column 3: Community channels */}
+        <div className="md:col-span-2 space-y-4">
+          <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-brand-primary/50 font-bold">
+            Community
+          </h4>
+          <div className="flex flex-col space-y-3 text-xs font-medium text-brand-primary/80">
+            <a
+              href="https://chat.whatsapp.com/Kiwu2BWP1NuE0z0wC61to0"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-secondary text-left transition-colors hover:underline underline-offset-4 decoration-brand-secondary/40"
+            >
+              WhatsApp
+            </a>
+            <a
+              href="https://t.me/+go-lAiSrbJ5hNGVk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-secondary text-left transition-colors hover:underline underline-offset-4 decoration-brand-secondary/40"
+            >
+              Telegram
+            </a>
+          </div>
+        </div>
+
+        {/* Column 4: The Academic Standard Statement */}
+        <div className="md:col-span-3 space-y-4">
           <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-brand-primary/50 font-bold">
             Administrative Standard
           </h4>
