@@ -52,7 +52,7 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     response = (
         supabase.table("ties")
         .select("*")
-        .or_(f"tie_id.eq.{tie_id},tie_name.eq.{tie_id}")
+        .eq("tie_id", tie_id)
         .limit(1)
         .execute()
     )
@@ -101,7 +101,7 @@ def decrement_tie_stock(tie_id: str, quantity: int) -> TieInventoryResponse:
     updated = (
         supabase.table("ties")
         .update(update_payload)
-        .or_(f"tie_id.eq.{tie_id},id.eq.{tie_id},name.eq.{tie_id}")
+        .eq("tie_id", tie_id)
         .execute()
     )
 

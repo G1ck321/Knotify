@@ -11,7 +11,7 @@ from config import settings
 from routers.quantity import compute_order_total, get_tie_by_id
 
 from typing import Optional, List, Any
-from dependencies import get_optional_current_user
+from dependencies import get_optional_current_user, get_current_user
 from request_models import OrderCreateRequest
 from utils.tokens import generate_tx_ref
 from pydantic import BaseModel
@@ -203,21 +203,11 @@ class OrderResponse(BaseModel):
 # 1. GET /api/orders/me - Fetch Logged-in User's Past Orders
 # -----------------------------------------------------------------------------
 @router.get("/me", response_model=List[OrderResponse])
-async def get_my_past_orders(authorization: Optional[str] = Header(None)):
+async def get_my_past_orders(current_user: dict = Depends(get_current_user)):
     """
     Fetches past orders for an authenticated user without exposing Supabase credentials to the frontend.
     """
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization token.")
-    
-    token = authorization.split(" ")[1]
-    
-    # Verify user token securely with Supabase Auth
-    user_res = supabase.auth.get_user(token)
-    if not user_res or not user_res.user:
-        raise HTTPException(status_code=401, detail="Expired or invalid user session.")
-    
-    user_id = user_res.user.id
+    user_id = current_user["id"]
     
     # Query database safely using Service Role
     response = supabase.table("orders").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
