@@ -185,14 +185,23 @@ export default function CheckoutPage({
 
     const handlePaymentReturn = async () => {
       if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
-        const order = await fetchOrderStatus(txRef);
+        const order = await fetchOrderStatus(txRef).catch(() => null);
         if (order && (order.status === 'paid' || order.status === 'pending')) {
           finalizePaidOrder(txRef, order);
           return;
         }
 
-        setSubmitError('We could not confirm your payment yet. Please contact support with your tx_ref.');
-        setCheckoutStep('form');
+        const pending = loadPendingCheckout(txRef);
+        if (pending) {
+          finalizePaidOrder(txRef);
+          setSubmitError('Payment received. Confirmation is syncing in the background.');
+          return;
+        }
+
+        setGeneratedTxRef(txRef);
+        setCheckoutStep('success');
+        setSubmitError('Payment was received, but order confirmation is still syncing. Please keep your tx_ref for support.');
+        onClearCart();
         return;
       }
 
@@ -688,6 +697,12 @@ export default function CheckoutPage({
                     <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
                       Congratulations <strong>{buyerName}</strong>. Your direct checkout has been logged and your order is now secured.
                     </p>
+
+                    {submitError && (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[11px] text-amber-800 font-sans text-left">
+                        {submitError}
+                      </div>
+                    )}
                   </div>
 
                   <div className="bg-brand-bg border border-brand-border rounded-2xl p-6 space-y-5 relative z-10">

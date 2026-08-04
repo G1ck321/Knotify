@@ -138,7 +138,7 @@ export default function App() {
       }
 
       try {
-        const response = await fetch(`${getBackendUrl()}/api/orders/me`, {
+        const response = await fetch(`${getBackendUrl()}/api/me`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
