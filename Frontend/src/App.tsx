@@ -8,30 +8,27 @@ import Marketplace from './components/Marketplace';
 import ProductDetailModal from './components/ProductDetailModal';
 import CheckoutPage from './components/CheckoutPage';
 import WishlistPage from './components/WishlistPage';
-import BecomeSellerModal from './components/BecomeSellerModal';
-import SellPage from './components/SellPage';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
-import { clearAuthSession, getStoredUser, persistAuthSession } from './lib/authStorage';
-
-interface Toast {
-  id: string;
-  message: string;
-  type: 'cart' | 'wishlist' | 'success';
-}
+import { clearAuthSession, getAccessToken, getStoredUser, persistAuthSession } from './lib/authStorage';
 
 function normalizeUser(user: any) {
-  if (!user) return null;
-
+  if (!user) return user;
   const name = user.name ?? user.full_name ?? user.fullName ?? '';
   return {
     ...user,
     name,
     full_name: user.full_name ?? name,
   };
+}
+
+interface Toast {
+  id: string;
+  message: string;
+  type: 'cart' | 'wishlist' | 'success';
 }
 
 export default function App() {
@@ -43,17 +40,7 @@ export default function App() {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
   });
-    const handleUpdateUser = (updatedUser: any) => {
-    setCurrentUser(updatedUser);
-    persistAuthSession(updatedUser, getAccessToken() ?? undefined);
-  };
-    const handleUpdateReservation = (updatedRes: Reservation) => {
-    setReservations((prev) =>
-      prev.map((res) => (res.id === updatedRes.id ? updatedRes : res))
-    );
-  };
-  
-  
+
 
   // Route to checkout when Flutterwave redirects back with payment query params
   useEffect(() => {
@@ -91,7 +78,7 @@ export default function App() {
     setCurrentUser(normalizedUser);
     persistAuthSession(normalizedUser, accessToken);
     setIsAuthOpen(false);
-    addToast(`Successfully signed in as ${normalizedUser?.name || 'user'}!`, 'success');
+    addToast(`Successfully signed in as ${user.name}!`, 'success');
 
     // Resume the pending buying action if it was intercepted
     if (pendingAction) {
@@ -126,7 +113,7 @@ export default function App() {
 
   // Core database state (simulated local list)
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('cu_marketplace_products_v3');
+    const saved = localStorage.getItem('cu_marketplace_products_v4');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
 
@@ -172,7 +159,7 @@ export default function App() {
 
   // Sync state with local storage
   useEffect(() => {
-    localStorage.setItem('cu_marketplace_products_v3', JSON.stringify(products));
+    localStorage.setItem('cu_marketplace_products_v4', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
@@ -190,6 +177,17 @@ export default function App() {
   const handleAddReservation = (newRes: Reservation) => {
     setReservations((prev) => [newRes, ...prev]);
     addToast(`Reservation ${newRes.id} successfully created!`, 'success');
+  };
+
+  const handleUpdateUser = (updatedUser: any) => {
+    setCurrentUser(updatedUser);
+    localStorage.setItem('knotify_current_user', JSON.stringify(updatedUser));
+  };
+
+  const handleUpdateReservation = (updatedRes: Reservation) => {
+    setReservations((prev) =>
+      prev.map((res) => (res.id === updatedRes.id ? updatedRes : res))
+    );
   };
 
   const executeAddToCart = (product: Product, quantity: number = 1) => {
@@ -374,7 +372,20 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <SellPage onAddListing={handleAddListing} />
+              <SellPage
+                currentUser={currentUser}
+                onUpdateUser={handleUpdateUser}
+                reservations={reservations}
+                onUpdateReservation={handleUpdateReservation}
+                wishlist={wishlist}
+                products={products}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={handleAddToCart}
+                onOpenAuth={() => {
+                  setPendingAction(null);
+                  setIsAuthOpen(true);
+                }}
+              />
             </motion.div>
           ) : currentTab === 'wishlist' ? (
             /* WISHLIST PAGE MODULE */

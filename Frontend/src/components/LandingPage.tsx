@@ -28,11 +28,11 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { Product, Reservation } from './Frontend/src/types';
 import TiePlaceholder from './TiePlaceholder';
 import FAQSection from './FAQSection';
+import AboutSection from './AboutSection';
 
 interface LandingPageProps {
   onBrowseMarketplace: () => void;
   onBrowseWithFilter: (category: string, search: string) => void;
-  onOpenBecomeSeller: () => void;
   products: Product[];
   featuredProducts: Product[];
   onOpenProductDetail: (product: Product) => void;
@@ -44,7 +44,6 @@ interface LandingPageProps {
 export default function LandingPage({
   onBrowseMarketplace,
   onBrowseWithFilter,
-  onOpenBecomeSeller,
   products,
   featuredProducts,
   onOpenProductDetail,
@@ -128,8 +127,10 @@ export default function LandingPage({
   const yGlow1 = useTransform(scrollY, [0, 1200], [0, 120]);
   const yGlow2 = useTransform(scrollY, [0, 1800], [0, -150]);
 
+
+
   return (
-    <div className="w-full pb-16 bg-brand-bg font-sans overflow-x-hidden" id="landing-page-root">
+    <div className="w-full pb-16 bg-brand-bg font-sans" id="landing-page-root">
       
       {/* 1. HERO SECTION (Redesigned to replicate Image One's clean, classical serif and polaroid collage aesthetic) */}
       <section className="relative overflow-hidden pt-20 pb-28 md:pt-24 md:pb-36 bg-brand-secondary border-b border-brand-border/20" id="hero-section">
@@ -182,6 +183,33 @@ export default function LandingPage({
               <p className="text-base sm:text-xl font-display italic text-[#FFFEF2]/95 max-w-xl mx-auto leading-relaxed">
                 Skip the morning panic. Secure certified, chapel-compliant ties listed by fellow scholars within your own residential hall.
               </p>
+
+              {/* Number of users active — prominent stat block */}
+              <div className="flex flex-col items-center gap-5 pt-6">
+                {/* Avatar stack */}
+                <div className="flex -space-x-3">
+                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model1.jpg" alt="Scholar 1" />
+                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model2.jpg" alt="Scholar 2" />
+                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model3.jpg" alt="Scholar 3" />
+                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model4.jpg" alt="Scholar 4" />
+                  <div className="inline-flex h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary bg-brand-primary/60 items-center justify-center shadow-md">
+                    <span className="text-[9px] font-mono font-bold text-[#FFFEF2]/80">+1K</span>
+                  </div>
+                </div>
+
+                {/* Large user count */}
+                <div className="flex flex-col items-center gap-1">
+                  <div className="flex items-baseline gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block mb-0.5" />
+                    <span id="active-user-count" className="font-display font-black text-5xl sm:text-6xl md:text-7xl text-[#FFFEF2] tracking-tight leading-none">
+                      1,850+
+                    </span>
+                  </div>
+                  <span className="text-xs sm:text-sm font-mono tracking-[0.3em] uppercase text-[#FFFEF2]/60 mt-1">
+                    Scholars active this semester
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* SEVEN POLAROID CAROUSEL/COLLAGE (Asymmetric overlapping premium layout - Augmented Bigger Sizes) */}
@@ -241,7 +269,7 @@ export default function LandingPage({
                 </div>
               </motion.div>
 
-              {/* Polaroid 4 (Center - Upright, Tall, Majestic, Elevated) */}
+              {/* Polaroid 4 (Center - Upright, Tall, Majestic, Elevated) - Knotify Logo middle spot */}
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -252,9 +280,9 @@ export default function LandingPage({
               >
                 <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5">
                   <img 
-                    src="/models/model4.jpg" 
-                    alt="Dapper scholar tie"
-                    className="w-full h-full object-cover grayscale-[5%] group-hover:grayscale-0 transition-all duration-500"
+                    src="/logo.png" 
+                    alt="Knotify Logo"
+                    className="w-full h-full object-cover group-hover:scale-102 transition-all duration-500"
                   />
                 </div>
               </motion.div>
@@ -270,14 +298,14 @@ export default function LandingPage({
               >
                 <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5 relative">
                   <img 
-                    src="/models/model1.jpg" 
+                    src="/models/model4.jpg" 
                     alt="Tweed Signatures"
                     className="w-full h-full object-cover grayscale-[15%] group-hover:grayscale-0 transition-all duration-500"
                   />
                 </div>
               </motion.div>
 
-              {/* Polaroid 6 (Far Right - Tilted Right with Tape Effect) */}
+              {/* Polaroid 6 (Far Right - Tilted Right with Tape Effect) - Incorporating model6.jpg */}
               <motion.div 
                 initial={{ opacity: 0, rotate: 14 }}
                 animate={{ opacity: 1, rotate: 8 }}
@@ -291,7 +319,7 @@ export default function LandingPage({
 
                 <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5">
                   <img 
-                    src="/models/model2.jpg" 
+                    src="/models/model6.jpg" 
                     alt="Regal Traditional"
                     className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-500"
                   />
@@ -318,7 +346,6 @@ export default function LandingPage({
 
             </div>
 
-            {/* Actions Panel */}
             <div className="flex flex-wrap justify-center gap-4 pt-4">
               <button
                 onClick={onBrowseMarketplace}
@@ -326,12 +353,6 @@ export default function LandingPage({
               >
                 explore collection
                 <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button
-                onClick={onOpenBecomeSeller}
-                className="inline-flex items-center gap-2 border border-[#FFFEF2]/30 hover:bg-[#FFFEF2] hover:text-brand-secondary text-[#FFFEF2] rounded px-7 py-4 transition-all duration-300 cursor-pointer text-[10px] font-mono tracking-widest uppercase font-bold"
-              >
-                Sell Your Tie
               </button>
             </div>
 
@@ -354,7 +375,7 @@ export default function LandingPage({
             <span>✦</span>
             <span>ANTI-NEWBIE AESTHETIC</span>
             <span>✦</span>
-            <span>VERIFIED COVENANT VENDORS</span>
+            <span>VERIFIED CAMPUS TIES</span>
             <span>✦</span>
             
             {/* Duplicated for smooth loop */}
@@ -368,7 +389,7 @@ export default function LandingPage({
             <span>✦</span>
             <span>ANTI-NEWBIE AESTHETIC</span>
             <span>✦</span>
-            <span>VERIFIED COVENANT VENDORS</span>
+            <span>VERIFIED CAMPUS TIES</span>
             <span>✦</span>
           </div>
         </div>
@@ -376,89 +397,8 @@ export default function LandingPage({
 
 
 
-      {/* 3. MANIFESTO: REDESIGNED WITH STUNNING EDITORIAL TYPOGRAPHY, PURE MINIMALIST LIST STRUCTURE */}
-      <motion.section 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-100px" }}
-        className="py-24 px-4 sm:px-8 border-b border-brand-border relative overflow-hidden" 
-        id="manifesto-section"
-      >
-        <motion.div style={{ y: yGlow2 }} className="absolute top-0 right-0 w-80 h-80 bg-brand-secondary/5 rounded-full filter blur-[100px] pointer-events-none" />
-        
-        <div className="max-w-4xl mx-auto text-center space-y-16">
-          
-          <div className="space-y-4 max-w-2xl mx-auto">
-            <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-brand-secondary block">Our Simple Mission</span>
-            <h3 className="font-display font-light text-4xl sm:text-5xl text-brand-primary tracking-tight uppercase leading-tight">
-              Ties made for <span className="font-normal italic text-brand-secondary">Your Success</span>
-            </h3>
-            <div className="h-[1px] w-12 bg-brand-secondary mx-auto"></div>
-            
-            <p className="text-base sm:text-lg font-light text-brand-primary/70 leading-relaxed italic pt-4">
-              "We want to make dressing up for chapel and class as simple and stress-free as possible. Skip expensive shops and easily grab great ties directly from students who already know the rules."
-            </p>
-          </div>
-
-          {/* ULTRA-MINIMALISTIC LIST UI STRUCTURE (Replaces old clunky project cards) */}
-          <div className="max-w-3xl mx-auto divide-y divide-brand-border/30 font-sans text-left" id="manifesto-pillars-list">
-            
-            {/* Pillar 1 */}
-            <div className="py-6 sm:py-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
-              <div className="flex items-center gap-3 shrink-0 sm:w-1/3">
-                <span className="font-display italic text-xs font-bold text-brand-secondary border border-brand-secondary/35 px-2.5 py-1 rounded-sm bg-brand-card shadow-sm select-none">№ I</span>
-                <h4 className="font-display font-black text-sm text-brand-primary uppercase tracking-wider">
-                  Dress Code Approved
-                </h4>
-              </div>
-              <p className="text-sm font-bold text-brand-primary sm:w-2/3 leading-relaxed">
-                Rigorously pre-screened neckwear guaranteed to comply 100% with school chapel and class dress codes.
-              </p>
-            </div>
-
-            {/* Pillar 2 */}
-            <div className="py-6 sm:py-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
-              <div className="flex items-center gap-3 shrink-0 sm:w-1/3">
-                <span className="font-display italic text-xs font-bold text-brand-secondary border border-brand-secondary/35 px-2.5 py-1 rounded-sm bg-brand-card shadow-sm select-none">№ II</span>
-                <h4 className="font-display font-black text-sm text-brand-primary uppercase tracking-wider">
-                  {/*May soon be removed */}
-                  Sourced from Seniors
-                </h4>
-              </div>
-              <p className="text-sm font-bold text-brand-primary sm:w-2/3 leading-relaxed">
-                Clean, compliant ties passed down directly from graduating seniors to support campus confidence.
-              </p>
-            </div>
-
-            {/* Pillar 3 */}
-            <div className="py-6 sm:py-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
-              <div className="flex items-center gap-3 shrink-0 sm:w-1/3">
-                <span className="font-display italic text-xs font-bold text-brand-secondary border border-brand-secondary/35 px-2.5 py-1 rounded-sm bg-brand-card shadow-sm select-none">№ III</span>
-                <h4 className="font-display font-black text-sm text-brand-primary uppercase tracking-wider">
-                  Pocket-Friendly Prices
-                </h4>
-              </div>
-              <p className="text-sm font-bold text-brand-primary sm:w-2/3 leading-relaxed">
-                Skip standard market markups with highly affordable, direct student-to-student pricing.
-              </p>
-            </div>
-
-            {/* Pillar 4 */}
-            <div className="py-6 sm:py-8 flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
-              <div className="flex items-center gap-3 shrink-0 sm:w-1/3">
-                <span className="font-display italic text-xs font-bold text-brand-secondary border border-brand-secondary/35 px-2.5 py-1 rounded-sm bg-brand-card shadow-sm select-none">№ IV</span>
-                <h4 className="font-display font-black text-sm text-brand-primary uppercase tracking-wider">
-                  Lobby Hand-Delivery
-                </h4>
-              </div>
-              <p className="text-sm font-bold text-brand-primary sm:w-2/3 leading-relaxed">
-                Zero shipping lag. Instantly meet inside residential lobbies to inspect and try on before paying.
-              </p>
-            </div>
-
-          </div>
-        </div>
-      </motion.section>
+      {/* 3. ABOUT SCROLL-DRIVEN SECTION — sticky 3-layer cinematic reveal */}
+      <AboutSection />
 
              {/* 4. CURATED FEATURED TIES: ULTRA-PREMIUM ASYMMETRIC GRID GALLERY */}
       <motion.section 
@@ -575,24 +515,25 @@ export default function LandingPage({
   
                   {/* Text labels inside card */}
                   <div className="text-left space-y-1.5 px-0.5">
-                    <div className="text-[9px] font-mono text-brand-secondary/70 uppercase tracking-wider">
-                      {product.category} • {product.sellerHall}
-                    </div>
-  
                     <h3 className="font-sans font-medium text-sm text-brand-primary tracking-tight leading-snug group-hover:text-brand-secondary transition-colors line-clamp-1">
                       {product.name}
                     </h3>
                     
                     <div className="flex items-baseline justify-between pt-2 border-t border-brand-border/10 mt-2">
-                      <div className="flex items-baseline gap-2">
-                        <span className="font-sans text-xs font-bold text-white">
-                          ₦{(product?.price ?? 0).toLocaleString()}
-                        </span>
-                        {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
-                          <span className="font-sans text-[9px] text-brand-secondary/30 line-through">
-                            ₦{(product?.originalPrice ?? 0).toLocaleString()}
+                      <div className="flex flex-col text-left">
+                        <div className="flex items-baseline gap-2">
+                          <span className="font-sans text-xs font-bold text-brand-primary">
+                            ₦{(product?.price ?? 0).toLocaleString()}
                           </span>
-                        )}
+                          {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
+                            <span className="font-sans text-[9px] text-brand-secondary/30 line-through">
+                              ₦{(product?.originalPrice ?? 0).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-mono text-brand-secondary/65 mt-0.5">
+                          {product.stock} in stock
+                        </span>
                       </div>
                       <div className="text-[9px] font-mono text-brand-secondary/65 tracking-wider uppercase">
                         {product.rating} / 5.0
@@ -652,7 +593,7 @@ export default function LandingPage({
                       Notify Charge
                     </h3>
                     <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Connect directly with current students and fellow scholars. Get the latest updates on premium tie deals and other clothings.
+                      Connect directly with graduating seniors and fellow scholars. Negotiate deals and schedule 5-minute lobby meetings inside Daniel, Peter, PG, Esther, or Lydia hall.
                     </p>
                   </div>
                   

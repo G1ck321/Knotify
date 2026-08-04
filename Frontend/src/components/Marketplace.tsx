@@ -95,9 +95,9 @@ export default function Marketplace({
   }, [searchQuery, selectedCategory, selectedCondition, selectedColor, maxPrice, minRating, onlyInStock, sortBy]);
 
   // Constants
-  const categories = ['All', 'Official Tie', 'Premium', 'Department', 'Bow Tie'];
+  const categories = ['All', 'Official Tie', 'Premium', 'Department', 'Bow Tie', 'Corporate', 'Vintage'];
   const conditions = ['All', 'Brand New', 'Like New', 'Gently Used', 'Used'];
-  const colors = ['All', 'Navy', 'Crimson', 'Gold', 'Forest Green', 'Black', 'Stripes'];
+  const colors = ['All', 'Navy', 'Crimson', 'Gold', 'Forest Green', 'Black', 'Wine', 'Stripes'];
 
   // Reset Filters
   const handleResetFilters = () => {
@@ -153,23 +153,6 @@ export default function Marketplace({
         <p className="text-[10px] sm:text-xs text-brand-secondary font-light max-w-md mx-auto leading-relaxed mt-3 uppercase tracking-wider select-none">
           Premium Compliant University Neckwear &bull; Hostel-to-Hostel Student Handoffs
         </p>
-      </div>
-
-      {/* 2. CENTERED MINIMALIST NAVIGATION TABS */}
-      <div className="flex justify-center items-center gap-x-8 gap-y-3 flex-wrap border-b border-brand-border/10 pb-4 mb-10" id="categories-tabs">
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`pb-2 text-[11px] font-mono tracking-[0.15em] uppercase transition-all duration-300 cursor-pointer border-b-2 ${
-              selectedCategory === cat
-                ? 'border-brand-primary text-brand-primary font-extrabold'
-                : 'border-transparent text-neutral-500 hover:text-brand-primary font-medium'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
       </div>
 
       {/* 3. ULTRA-SLIM SEARCH & UTILITIES CONTROL BAR */}
@@ -358,19 +341,18 @@ export default function Marketplace({
                         {product.name}
                       </h3>
 
-                      <div className="flex items-baseline gap-1.5 font-sans text-xs text-brand-secondary font-medium">
-                        <span>₦{(product?.price ?? 0).toLocaleString()}</span>
-                        {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
-                          <span className="font-sans text-[9px] text-brand-secondary/40 line-through">
-                            ₦{(product?.originalPrice ?? 0).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-1.5 text-[8px] font-mono text-neutral-400 uppercase tracking-widest pt-0.5">
-                        <span>{product.category}</span>
-                        <span>&bull;</span>
-                        <span className="font-semibold text-neutral-500">{product.sellerHall}</span>
+                      <div className="flex items-baseline justify-between font-sans text-xs text-brand-secondary font-medium">
+                        <div className="flex items-baseline gap-1.5">
+                          <span>₦{(product?.price ?? 0).toLocaleString()}</span>
+                          {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
+                            <span className="font-sans text-[9px] text-brand-secondary/40 line-through">
+                              ₦{(product?.originalPrice ?? 0).toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[9px] font-mono text-brand-secondary/65">
+                          {product.stock} in stock
+                        </span>
                       </div>
                     </div>
                   </motion.div>
