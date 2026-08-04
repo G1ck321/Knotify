@@ -3,8 +3,8 @@ import { ShoppingBag, Heart, PlusCircle, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NavbarProps {
-  currentTab: 'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard';
-  setCurrentTab: (tab: 'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard') => void;
+  currentTab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard';
+  setCurrentTab: (tab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
   cartCount: number;
   wishlistCount: number;
   onOpenCart: () => void;

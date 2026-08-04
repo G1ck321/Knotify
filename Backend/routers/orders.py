@@ -143,8 +143,9 @@ async def initialize_payment(
                 "user_id": user_id or "guest",
                 "item_count": len(payload.items),
                 "roomNumber": payload.roomNumber,
-                "cart_snapshot": normalized_items,
                 "items_total": server_items_total,
+                "cart_snapshot_json": json.dumps(normalized_items),
+                "item_names": ", ".join(item["tie_name"] for item in normalized_items),
             },
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{

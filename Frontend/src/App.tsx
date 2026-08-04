@@ -49,7 +49,7 @@ interface Toast {
 }
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
@@ -246,12 +246,14 @@ export default function App() {
 
   const executeAddToCart = (product: Product, quantity: number = 1) => {
     setCartItems((previous) => {
+      const safeQuantity = Number(quantity) || 0;
+      const maxStock = Number(product.stock) || 0;
       const existing = previous.find((item) => item.product.id === product.id);
       if (existing) {
-        const newQuantity = Math.min(existing.quantity + quantity, product.stock);
+        const newQuantity = Math.min(existing.quantity + safeQuantity, maxStock);
         return previous.map((item) => (item.product.id === product.id ? { ...item, quantity: newQuantity } : item));
       }
-      return [...previous, { product, quantity: Math.min(quantity, product.stock) }];
+      return [...previous, { product, quantity: Math.min(safeQuantity, maxStock) }];
     });
     addToast(`"${product.name}" added to bag`, 'cart');
     setCurrentTab('checkout');
@@ -278,7 +280,7 @@ export default function App() {
 
     setCartItems((previous) =>
       previous.map((item) =>
-        item.product.id === productId ? { ...item, quantity: Math.min(quantity, targetProduct.stock) } : item
+        item.product.id === productId ? { ...item, quantity: Math.min(Number(quantity) || 0, Number(targetProduct.stock) || 0) } : item
       )
     );
   };

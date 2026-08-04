@@ -457,6 +457,16 @@ export default function Dashboard({
                             {/* Info grid */}
                             <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-brand-border/25">
                               <div>
+                                <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Purchased Ties</span>
+                                <span className="font-sans font-bold text-neutral-800 line-clamp-2">{res.productNames}</span>
+                              </div>
+                              <div>
+                                <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Tie Count</span>
+                                <span className="font-sans font-bold text-neutral-800">
+                                  {res.quantity} {res.quantity > 1 ? 'Ties' : 'Tie'}
+                                </span>
+                              </div>
+                              <div>
                                 <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Lobby pickup point</span>
                                 <span className="font-sans font-bold text-neutral-800">{res.pickupPoint || `${res.hall} Lobby`}</span>
                               </div>
@@ -467,23 +477,16 @@ export default function Dashboard({
                                   {res.dateAdded}
                                 </span>
                               </div>
-                              <div className="col-span-2 bg-[#FFFEF2] p-2 border border-brand-border/20 rounded-xs flex items-center justify-between">
-                                <span className="text-[9px] font-mono text-neutral-500 uppercase">Amount of Ties:</span>
-                                <span className="font-mono text-xs font-bold text-brand-secondary">
-                                  {res.quantity} {res.quantity > 1 ? 'Ties' : 'Tie'}
-                                </span>
-                              </div>
                             </div>
 
-                            {/* Financial Details */}
-                            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono border-t border-brand-border/25 pt-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono border-t border-brand-border/25 pt-3">
                               <div className="text-[#1F3E2B]">
-                                <span>Deposit Paid: </span>
-                                <strong>₦{res.deposit.toLocaleString()}</strong>
+                                <span>Status: </span>
+                                <strong>{res.status}</strong>
                               </div>
-                              <div className="text-right text-amber-700">
-                                <span>Balance: </span>
-                                <strong>₦{res.outstanding.toLocaleString()}</strong>
+                              <div className="text-right text-brand-secondary">
+                                <span>Reference: </span>
+                                <strong>{res.id}</strong>
                               </div>
                             </div>
                           </div>
@@ -810,13 +813,17 @@ export default function Dashboard({
                 <span className="text-[8px] font-mono text-neutral-400 block uppercase">Date Scheduled</span>
                 <span className="font-bold text-brand-primary">{activePassRes.dateAdded}</span>
               </div>
+              <div className="col-span-2">
+                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Purchased Ties</span>
+                <span className="font-bold text-brand-primary">{activePassRes.productNames}</span>
+              </div>
               <div>
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Amount of Ties</span>
+                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Tie Count</span>
                 <span className="font-bold text-brand-primary">{activePassRes.quantity} {activePassRes.quantity > 1 ? 'Ties' : 'Tie'}</span>
               </div>
               <div className="text-right">
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Outstanding Balance</span>
-                <span className="font-mono font-bold text-amber-700 text-xs">₦{activePassRes.outstanding.toLocaleString()}</span>
+                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Status</span>
+                <span className="font-mono font-bold text-emerald-700 text-xs">{activePassRes.status}</span>
               </div>
             </div>
 
