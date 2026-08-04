@@ -53,7 +53,19 @@ export async function fetchOrderStatus(txRef: string) {
     return null;
   }
 
-  return response.json() as Promise<{ tx_ref: string; status: string; amountpaid?: number }>;
+  return response.json() as Promise<{
+    tx_ref: string;
+    status: string;
+    amountpaid?: number;
+    buyer_name?: string;
+    order_details?: string;
+    cart_snapshot?: Array<{ tie_id?: string; tie_name?: string; quantity?: number }>;
+    email_snapshot?: string;
+    phone_snapshot?: string;
+    room_number?: string;
+    delivery_address?: string;
+    paid_at?: string;
+  }>;
 }
 
 export function parsePaymentReturnParams() {

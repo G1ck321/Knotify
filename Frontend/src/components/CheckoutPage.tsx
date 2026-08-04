@@ -106,9 +106,47 @@ export default function CheckoutPage({
 
     clearPaymentReturnParams();
 
-    const finalizePaidOrder = (confirmedTxRef: string) => {
+    const finalizePaidOrder = (confirmedTxRef: string, order?: Awaited<ReturnType<typeof fetchOrderStatus>> | null) => {
       const pending = loadPendingCheckout(confirmedTxRef);
       setGeneratedTxRef(confirmedTxRef);
+
+      const fallbackProductNames =
+        order?.cart_snapshot?.length
+          ? order.cart_snapshot.map((item) => `${item.tie_name || item.tie_id || 'Tie'} (x${item.quantity || 1})`).join(', ')
+          : order?.order_details || '';
+
+      const fallbackHall = order?.delivery_address || order?.room_number || buyerHall;
+      const fallbackBuyerName = order?.buyer_name || buyerName;
+      const fallbackEmail = order?.email_snapshot || buyerEmail;
+      const fallbackPhone = order?.phone_snapshot || buyerPhone;
+
+      if (!pending && order) {
+        setBuyerName(fallbackBuyerName);
+        setBuyerPhone(fallbackPhone);
+        setBuyerEmail(fallbackEmail);
+        setBuyerHall(fallbackHall);
+        setRoomNumber(order.room_number || roomNumber);
+
+        onAddReservation({
+          id: confirmedTxRef,
+          name: fallbackBuyerName,
+          phone: fallbackPhone,
+          email: fallbackEmail,
+          color: cartItems.map((item) => item.product.color).join(', ') || 'N/A',
+          quantity: order.cart_snapshot?.reduce((total, item) => total + Number(item.quantity || 0), 0) || totalItems,
+          hall: fallbackHall,
+          productNames: fallbackProductNames,
+          deposit: order.amountpaid || totalAmountPayable,
+          outstanding: 0,
+          status: 'Ready for Pickup',
+          pickupPoint: getAssignedPickupPoint(fallbackHall),
+          dateAdded: new Date().toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          }),
+        });
+      }
 
       if (pending) {
         setBuyerName(pending.buyerName);
@@ -137,6 +175,8 @@ export default function CheckoutPage({
           }),
         });
         clearPendingCheckout();
+      } else if (order) {
+        clearPendingCheckout();
       }
 
       setCheckoutStep('success');
@@ -147,7 +187,7 @@ export default function CheckoutPage({
       if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
         const order = await fetchOrderStatus(txRef);
         if (order && (order.status === 'paid' || order.status === 'pending')) {
-          finalizePaidOrder(txRef);
+          finalizePaidOrder(txRef, order);
           return;
         }
 

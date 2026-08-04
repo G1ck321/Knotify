@@ -15,6 +15,7 @@ import SellPage from './components/SellPage';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
+import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
 
 function normalizeUser(user: any) {
@@ -47,6 +48,25 @@ interface Toast {
   message: string;
   type: 'cart' | 'wishlist' | 'success';
 }
+
+type OrderHistoryRow = {
+  tx_ref: string;
+  buyer_name: string;
+  amount: number;
+  status: string;
+  items: string;
+  email_snapshot?: string | null;
+  phone_snapshot?: string | null;
+  room_number?: string | null;
+  delivery_address?: string | null;
+  cart_snapshot?: Array<{
+    tie_id?: string;
+    tie_name?: string;
+    quantity?: number;
+    product?: { name?: string };
+  }>;
+  created_at: string;
+};
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
@@ -101,8 +121,86 @@ export default function App() {
     ];
     return saved ? JSON.parse(saved) : defaultMocks;
   });
+  const [orderHistoryReservations, setOrderHistoryReservations] = useState<Reservation[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOrderHistory = async () => {
+      const token = getAccessToken();
+      if (!currentUser || !token) {
+        if (!cancelled) {
+          setOrderHistoryReservations([]);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${getBackendUrl()}/api/orders/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (!cancelled) setOrderHistoryReservations([]);
+          return;
+        }
+
+        const orders = (await response.json().catch(() => [])) as OrderHistoryRow[];
+        if (cancelled) return;
+
+        const mappedReservations = orders.map((order) => {
+          const cartSnapshot = Array.isArray(order.cart_snapshot) ? order.cart_snapshot : [];
+          const productNames = cartSnapshot.length
+            ? cartSnapshot
+                .map((item) => `${item.tie_name || item.product?.name || item.tie_id || 'Tie'} (x${item.quantity || 1})`)
+                .join(', ')
+            : order.items;
+
+          return {
+            id: order.tx_ref,
+            name: order.buyer_name,
+            phone: order.phone_snapshot || currentUser.telegramPhone || '',
+            email: order.email_snapshot || currentUser.email,
+            color: 'N/A',
+            quantity: cartSnapshot.reduce((total, item) => total + Number(item.quantity || 0), 0) || 1,
+            hall: order.delivery_address || order.room_number || currentUser.residenceHall || 'N/A',
+            productNames,
+            deposit: Number(order.amount || 0),
+            outstanding: 0,
+            status: order.status === 'paid' ? 'Ready for Pickup' : order.status === 'collected' ? 'Collected' : 'Reserved',
+            pickupPoint: order.delivery_address || `${order.room_number || currentUser.roomNumber || 'N/A'} Lobby`,
+            dateAdded: new Date(order.created_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+          } satisfies Reservation;
+        });
+
+        setOrderHistoryReservations(mappedReservations);
+      } catch {
+        if (!cancelled) {
+          setOrderHistoryReservations([]);
+        }
+      }
+    };
+
+    loadOrderHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  const mergedReservations = [...orderHistoryReservations, ...reservations].reduce<Reservation[]>((accumulator, reservation) => {
+    if (accumulator.some((entry) => entry.id === reservation.id)) {
+      return accumulator;
+    }
+    return [...accumulator, reservation];
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -435,7 +533,7 @@ export default function App() {
               <Dashboard
                 currentUser={currentUser}
                 onUpdateUser={handleUpdateUser}
-                reservations={reservations}
+                reservations={mergedReservations}
                 onUpdateReservation={handleUpdateReservation}
                 wishlist={wishlist}
                 products={products}
