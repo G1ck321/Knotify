@@ -210,7 +210,9 @@ async def get_my_past_orders(current_user: dict = Depends(get_current_user)):
     user_id = current_user["id"]
     
     # Query database safely using Service Role
-    response = supabase.table("orders").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    response = supabase.table("orders").select("*").eq("user_id", user_id)\
+    .eq("status","paid")\
+    .order("created_at", desc=True).execute()
     
     return [
         OrderResponse(
