@@ -68,6 +68,12 @@ interface CheckoutPageProps {
   onContinueShopping: () => void;
 }
 
+interface CheckoutTotals {
+  totalItems: number;
+  itemsTotal: number;
+  totalAmountPayable: number;
+}
+
 export default function CheckoutPage({
   cartItems,
   onUpdateQuantity,
@@ -88,6 +94,11 @@ export default function CheckoutPage({
   const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkoutTotals, setCheckoutTotals] = useState<CheckoutTotals>(() => ({
+    totalItems: Number(localStorage.getItem('knotify_checkout_totalItems') || 0),
+    itemsTotal: Number(localStorage.getItem('knotify_checkout_itemsTotal') || 0),
+    totalAmountPayable: Number(localStorage.getItem('knotify_checkout_totalAmountPayable') || 0),
+  }));
 
   const DELIVERY_FEE = 200;
 
@@ -133,10 +144,10 @@ export default function CheckoutPage({
           phone: fallbackPhone,
           email: fallbackEmail,
           color: cartItems.map((item) => item.product.color).join(', ') || 'N/A',
-          quantity: order.cart_snapshot?.reduce((total, item) => total + Number(item.quantity || 0), 0) || totalItems,
+          quantity: order.cart_snapshot?.reduce((total, item) => total + Number(item.quantity || 0), 0) || checkoutTotals.totalItems,
           hall: fallbackHall,
           productNames: fallbackProductNames,
-          deposit: order.amountpaid || totalAmountPayable,
+          deposit: order.amountpaid || checkoutTotals.totalAmountPayable,
           outstanding: 0,
           status: 'Ready for Pickup',
           pickupPoint: getAssignedPickupPoint(fallbackHall),
@@ -224,6 +235,17 @@ export default function CheckoutPage({
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
   const itemsTotal = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
   const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
+
+  useEffect(() => {
+    // Freeze the latest checkout summary while the cart still has items.
+    if (checkoutStep === 'success' || cartItems.length === 0) return;
+
+    const nextTotals = { totalItems, itemsTotal, totalAmountPayable };
+    setCheckoutTotals(nextTotals);
+    localStorage.setItem('knotify_checkout_totalItems', String(totalItems));
+    localStorage.setItem('knotify_checkout_itemsTotal', String(itemsTotal));
+    localStorage.setItem('knotify_checkout_totalAmountPayable', String(totalAmountPayable));
+  }, [checkoutStep, cartItems.length, totalItems, itemsTotal, totalAmountPayable]);
 
   // Determine assigned pickup point based on residence hall
   const getAssignedPickupPoint = (hall: string) => {
@@ -723,7 +745,7 @@ export default function CheckoutPage({
 
                       <div className="bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary px-4 py-2 rounded-xl text-center">
                         <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">AMOUNT PAID</span>
-                        <span className="font-sans text-base font-extrabold">₦{totalAmountPayable.toLocaleString()}</span>
+                        <span className="font-sans text-base font-extrabold">₦{checkoutTotals.totalAmountPayable.toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -742,7 +764,7 @@ export default function CheckoutPage({
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
                         <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">ORDER TOTAL</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">₦{itemsTotal.toLocaleString()}</p>
+                        <p className="text-brand-primary font-bold text-xs mt-1">₦{checkoutTotals.itemsTotal.toLocaleString()}</p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">

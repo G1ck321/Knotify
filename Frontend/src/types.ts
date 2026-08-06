@@ -15,7 +15,6 @@ export interface Reservation {
   quantity: number;
   hall: string;
   productNames: string;
-  deposit: number;
   outstanding: number;
   status: 'Reserved' | 'Ready for Pickup' | 'Collected';
   pickupPoint: string;
@@ -27,9 +26,7 @@ export interface Product {
   name: string;
   seller: string;
   sellerRating: number;
-  sellerHall: string;
-  price: number;
-  deposit: number;
+  sellerHall: string
   originalPrice: number;
   condition: 'Brand New' | 'Like New' | 'Gently Used' | 'Used';
   category: 'Official Tie' | 'Premium' | 'Department' | 'Bow Tie' | 'Corporate' | 'Vintage';
@@ -68,8 +65,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 3800,
-    deposit: 1500,
     originalPrice: 5500,
     condition: 'Brand New',
     category: 'Corporate',
@@ -90,8 +85,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 4000,
-    deposit: 1500,
     originalPrice: 6000,
     condition: 'Brand New',
     category: 'Corporate',
@@ -112,8 +105,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 3500,
-    deposit: 1500,
     originalPrice: 5000,
     condition: 'Brand New',
     category: 'Corporate',
@@ -134,8 +125,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 3800,
-    deposit: 1500,
     originalPrice: 5500,
     condition: 'Brand New',
     category: 'Corporate',
@@ -156,8 +145,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 3500,
-    deposit: 1500,
     originalPrice: 5000,
     condition: 'Brand New',
     category: 'Corporate',
@@ -179,8 +166,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 4000,
-    deposit: 1500,
     originalPrice: 6000,
     condition: 'Brand New',
     category: 'Corporate',
@@ -204,8 +189,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 4500,
-    deposit: 1500,
     originalPrice: 6500,
     condition: 'Brand New',
     category: 'Corporate',
@@ -228,8 +211,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    price: 3500,
-    deposit: 1500,
     originalPrice: 5000,
     condition: 'Brand New',
     category: 'Corporate',
@@ -255,8 +236,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Emeka Williams',
     sellerRating: 4.7,
     sellerHall: 'Peter Hall',
-    price: 2500,
-    deposit: 1000,
     originalPrice: 4000,
     condition: 'Like New',
     category: 'Vintage',
@@ -279,8 +258,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Chukwudi A.',
     sellerRating: 4.5,
     sellerHall: 'Daniel Hall',
-    price: 2000,
-    deposit: 800,
     originalPrice: 3500,
     condition: 'Gently Used',
     category: 'Vintage',
@@ -301,8 +278,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Adaeze M.',
     sellerRating: 4.6,
     sellerHall: 'Esther Hall',
-    price: 2200,
-    deposit: 900,
     originalPrice: 3800,
     condition: 'Like New',
     category: 'Vintage',
@@ -325,8 +300,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Segun F.',
     sellerRating: 4.8,
     sellerHall: 'Paul Hall',
-    price: 2800,
-    deposit: 1000,
     originalPrice: 4500,
     condition: 'Like New',
     category: 'Vintage',
@@ -349,8 +322,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Bola A.',
     sellerRating: 4.5,
     sellerHall: 'Lydia Hall',
-    price: 2500,
-    deposit: 1000,
     originalPrice: 4000,
     condition: 'Gently Used',
     category: 'Vintage',
@@ -371,8 +342,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Kelvin U.',
     sellerRating: 4.4,
     sellerHall: 'Joseph Hall',
-    price: 1800,
-    deposit: 700,
     originalPrice: 3200,
     condition: 'Gently Used',
     category: 'Vintage',
@@ -393,8 +362,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Amara E.',
     sellerRating: 4.7,
     sellerHall: 'Mary Hall',
-    price: 2600,
-    deposit: 1000,
     originalPrice: 4200,
     condition: 'Like New',
     category: 'Vintage',
@@ -417,8 +384,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Tobi R.',
     sellerRating: 4.6,
     sellerHall: 'Daniel Hall',
-    price: 2300,
-    deposit: 900,
     originalPrice: 3800,
     condition: 'Like New',
     category: 'Vintage',
@@ -439,8 +404,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Sola B.',
     sellerRating: 4.5,
     sellerHall: 'Peter Hall',
-    price: 2100,
-    deposit: 850,
     originalPrice: 3600,
     condition: 'Gently Used',
     category: 'Vintage',
@@ -461,8 +424,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Nnamdi O.',
     sellerRating: 4.8,
     sellerHall: 'Paul Hall',
-    price: 2700,
-    deposit: 1000,
     originalPrice: 4300,
     condition: 'Like New',
     category: 'Vintage',
@@ -485,8 +446,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'David K.',
     sellerRating: 4.7,
     sellerHall: 'Esther Hall',
-    price: 2400,
-    deposit: 950,
     originalPrice: 4000,
     condition: 'Like New',
     category: 'Vintage',
