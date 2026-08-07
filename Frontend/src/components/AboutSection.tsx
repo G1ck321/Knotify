@@ -45,21 +45,21 @@ function LayerWhoWeAre() {
           {/* Left — Headline */}
           <div className="space-y-8">
             <h2 className="font-display font-black text-6xl sm:text-7xl md:text-8xl text-[#FFFEF2] tracking-tight uppercase leading-[0.88]">
-              WHO<br />
+              RESUME<br />
               <span className="font-serif italic font-light text-[#FFFEF2]/85 relative inline-block">
-                WE ARE
+                PREPARED
                 <span className="absolute -bottom-3 left-0 w-full h-[1px] bg-[#FFFEF2]/25" />
               </span>
             </h2>
 
             <p className="text-lg sm:text-xl text-[#FFFEF2]/80 leading-relaxed max-w-md font-display italic">
-              Born inside Peter Hall, Knotify exists to solve the most frustrating morning problem on campus.
+              Preparing for Resumption Shouldn't Be Stressful.
             </p>
 
             <div className="h-[1px] w-12 bg-[#FFFEF2]/20" />
 
             <p className="text-sm text-[#FFFEF2]/60 leading-relaxed max-w-sm font-sans">
-              We are a peer-powered marketplace where graduating scholars sell their regulation-compliant neckwear directly to freshers and juniors — no middlemen, no overpriced stores, no morning panic.
+              Every resumption comes with a long checklist: Packing. Travel. Registration. Moving into your hostel. Meeting new people. Finding the right Covenant University tie shouldn't be another challenge. Knotify helps you get it before you arrive, so you can resume with confidence.
             </p>
           </div>
 
@@ -84,10 +84,10 @@ function LayerWhoWeAre() {
             {/* Origin story quote */}
             <div className="border-l-2 border-[#FFFEF2]/20 pl-5 py-1">
               <p className="text-sm italic text-[#FFFEF2]/65 leading-relaxed font-display">
-                "We built Knotify on a Monday morning after watching a fresher sprint to chapel in a blazer with no tie."
+                "Finding the right Covenant University tie shouldn't be another challenge. We help you check it off your list before you arrive."
               </p>
               <span className="text-[9px] font-mono text-[#FFFEF2]/40 tracking-[0.3em] uppercase mt-2 block">
-                — The Founders, Peter Hall, 2026
+                — Knotify, Built by Students, 2026
               </span>
             </div>
           </div>
@@ -104,21 +104,21 @@ function LayerWhyUs() {
   const reasons = [
     {
       number: '01',
-      title: 'Chapel-Verified',
-      body: 'Every tie is pre-screened against university dress-code standards before it ever reaches the platform.',
-      tag: 'Standards-first',
+      title: 'Resume Ready',
+      body: 'Get your tie before arriving on campus so one important item is already checked off your list.',
+      tag: 'Prepare',
     },
     {
       number: '02',
-      title: 'Same-Hall Speed',
-      body: 'Reserve in seconds, pick up in the lobby of your own residential hall within minutes — not days.',
-      tag: 'Zero wait time',
+      title: 'Save Time & Money',
+      body: 'No last-minute searching around campus. Avoid buying the wrong tie and paying twice.',
+      tag: 'Efficiency',
     },
     {
       number: '03',
-      title: 'Student Pricing',
-      body: 'Peer-to-peer means no retail mark-ups. Premium ties at student-friendly prices, every single listing.',
-      tag: 'Fair & direct',
+      title: 'Built by Students',
+      body: 'Created by Covenant students who understand what resumption really feels like.',
+      tag: 'Empathy',
     },
   ];
 
@@ -133,14 +133,14 @@ function LayerWhyUs() {
         {/* Header row */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-14 pb-8 border-b border-[#FFFEF2]/[0.08]">
           <h2 className="font-display font-black text-6xl sm:text-7xl md:text-8xl text-[#FFFEF2] tracking-tight uppercase leading-[0.88]">
-            WHY<br />
+            WHY STUDENTS<br />
             <span className="font-serif italic font-light text-[#FFFEF2]/85 relative inline-block">
-              CHOOSE US
+              CHOOSE KNOTIFY
               <span className="absolute -bottom-3 left-0 w-full h-[1px] bg-[#FFFEF2]/25" />
             </span>
           </h2>
           <p className="text-sm text-[#FFFEF2]/50 max-w-[220px] leading-relaxed font-sans hidden sm:block self-end pb-1">
-            Three pillars that set Knotify apart from every other option on campus.
+            How we help Covenant students resume with confidence.
           </p>
         </div>
 
@@ -210,27 +210,27 @@ function LayerHowWeWork() {
   const steps = [
     {
       number: '01',
-      title: 'Browse & Reserve',
-      description: 'Search by color, pattern, or hall. Place a small reservation deposit to secure your tie.',
-      timeHint: '< 2 min',
+      title: 'Prepare Before You Arrive',
+      description: 'Avoid the rush. Choose your tie online before you start your journey to campus.',
+      timeHint: 'Easy',
     },
     {
       number: '02',
-      title: 'Seller Confirms',
-      description: 'Your seller gets notified instantly and confirms the lobby handoff time.',
-      timeHint: '~5 min',
+      title: 'Simple & Reliable',
+      description: 'Order with confidence. No complex processes, just straightforward student coordination.',
+      timeHint: 'Trust',
     },
     {
       number: '03',
-      title: 'Lobby Pickup',
-      description: 'Inspect the tie in person at your hall lobby. Pay the balance only when satisfied.',
-      timeHint: 'Same day',
+      title: 'Save Time & Money',
+      description: 'Get the correct tie the first time. No last-minute campus searches or double spending.',
+      timeHint: 'Affordable',
     },
     {
       number: '04',
-      title: 'Walk Outside',
-      description: 'Head to class, chapel, or any formal setting looking sharp. Fully compliant, zero stress.',
-      timeHint: 'Day 1 ready',
+      title: 'Resume Confidently',
+      description: 'Arrive ready for class, chapel, and hostel check-in with one less thing to worry about.',
+      timeHint: 'Ready',
     },
   ];
 
@@ -245,22 +245,22 @@ function LayerHowWeWork() {
         {/* Header */}
         <div className="mb-12 sm:mb-16">
           <h2 className="font-display font-black text-6xl sm:text-7xl md:text-8xl text-[#FFFEF2] tracking-tight uppercase leading-[0.88]">
-            HOW WE<br />
+            OUR<br />
             <span className="font-serif italic font-light text-[#FFFEF2]/85 relative inline-block">
-              WORK
+              MISSION
               <span className="absolute -bottom-3 left-0 w-full h-[1px] bg-[#FFFEF2]/25" />
             </span>
           </h2>
         </div>
 
-        {/* Steps — clean numbered horizontal list */}
+        {/* Steps ── clean numbered horizontal list */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#FFFEF2]/[0.07]">
           {steps.map((step, i) => {
             const isLast = i === steps.length - 1;
             return (
               <div key={step.number} className="group relative flex flex-col gap-6 px-0 sm:px-8 py-6 sm:py-0 first:pl-0 last:pr-0">
 
-                {/* Step number — large and proud */}
+                {/* Step number ── large and proud */}
                 <div className="flex items-baseline gap-3">
                   <span className="font-display font-black text-[56px] sm:text-[64px] leading-none text-[#FFFEF2]/[0.12] group-hover:text-[#FFFEF2]/[0.22] transition-colors duration-500 select-none">
                     {step.number}
@@ -269,7 +269,7 @@ function LayerHowWeWork() {
 
                 {/* Time badge */}
                 <div className="inline-flex self-start items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#FFFEF2]/[0.06] border border-[#FFFEF2]/[0.09]">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   <span className="text-[8px] font-mono tracking-widest uppercase text-[#FFFEF2]/55">
                     {step.timeHint}
                   </span>
@@ -295,10 +295,10 @@ function LayerHowWeWork() {
         {/* Bottom strip */}
         <div className="mt-14 pt-7 border-t border-[#FFFEF2]/[0.07] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <p className="text-sm text-[#FFFEF2]/45 font-display italic">
-            From browse to fully dressed — the entire journey in under 30 minutes.
+            Starting or returning to university already comes with enough to think about. Knotify exists to remove one unnecessary source of stress by helping students prepare before they arrive.
           </p>
           <span className="text-[9px] font-mono tracking-[0.35em] uppercase text-[#FFFEF2]/30">
-            Zero shipping. Zero waiting.
+            Simple. Affordable. Reliable.
           </span>
         </div>
       </div>

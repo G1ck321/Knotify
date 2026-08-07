@@ -18,7 +18,8 @@ import {
   Hash,
   Loader2,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, COVENANT_HALLS } from '../types';
@@ -55,6 +56,160 @@ async function createCheckoutSession(payload: unknown) {
   }
 
   return data as { checkout_url?: string; tx_ref?: string };
+}
+
+interface ReviewFormProps {
+  initialEmail: string;
+}
+
+function ReviewForm({ initialEmail }: ReviewFormProps) {
+  const [email, setEmail] = useState(initialEmail);
+  const [reviewText, setReviewText] = useState('');
+  const [rating, setRating] = useState(5);
+  const [hoveredRating, setHoveredRating] = useState<number | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+
+  useEffect(() => {
+    setEmail(initialEmail);
+  }, [initialEmail]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !reviewText) {
+      setSubmitError('Please fill in both your email and review.');
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError('');
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          review: reviewText.trim(),
+          review_text: reviewText.trim(),
+          text: reviewText.trim(),
+          rating,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit review');
+      }
+
+      setSubmitSuccess(true);
+      setReviewText('');
+    } catch (err) {
+      setSubmitError('Failed to submit review. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left space-y-4">
+      <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-2 pb-2 border-b border-brand-border flex items-center gap-1.5">
+        <MessageSquare size={14} className="text-brand-secondary" />
+        Share Your Experience
+      </h3>
+      
+      {submitSuccess ? (
+        <div className="space-y-3 py-4 text-center">
+          <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800 mx-auto">
+            <Check size={20} />
+          </div>
+          <p className="text-xs text-brand-primary font-sans font-bold uppercase tracking-wider">Review Submitted!</p>
+          <p className="text-[11px] text-neutral-500 font-sans leading-relaxed">
+            Thank you for your valuable feedback. It helps us improve our collection and service!
+          </p>
+          <button
+            onClick={() => setSubmitSuccess(false)}
+            className="text-[10px] font-sans text-brand-secondary hover:text-brand-primary uppercase font-bold cursor-pointer underline bg-transparent border-none"
+          >
+            Submit another review
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1">
+              Email Address
+            </label>
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="e.g. scholar@covenant.edu"
+              className="w-full px-3 py-2.5 bg-brand-bg border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xl font-sans text-xs focus:outline-none transition-all"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+              Rating
+            </label>
+            <div className="flex gap-1.5">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  onMouseEnter={() => setHoveredRating(star)}
+                  onMouseLeave={() => setHoveredRating(null)}
+                  className="p-0.5 text-brand-primary hover:scale-110 transition-transform cursor-pointer"
+                >
+                  <Star
+                    size={18}
+                    fill={(hoveredRating !== null ? star <= hoveredRating : star <= rating) ? '#D4AF37' : 'none'}
+                    stroke={(hoveredRating !== null ? star <= hoveredRating : star <= rating) ? '#D4AF37' : 'currentColor'}
+                    className={
+                      (hoveredRating !== null ? star <= hoveredRating : star <= rating)
+                        ? 'text-[#D4AF37]'
+                        : 'text-brand-primary/40'
+                    }
+                  />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1">
+              Your Review
+            </label>
+            <textarea
+              required
+              rows={4}
+              value={reviewText}
+              onChange={(e) => setReviewText(e.target.value)}
+              placeholder="Tell us what you think of your tie and reservation experience..."
+              className="w-full px-3 py-2 bg-brand-bg border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xl font-sans text-xs focus:outline-none transition-all resize-none"
+            />
+          </div>
+
+          {submitError && (
+            <div className="text-[10px] text-red-600 font-mono">
+              {submitError}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] font-mono tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+          >
+            {isSubmitting ? 'SUBMITTING...' : 'SUBMIT FEEDBACK'}
+          </button>
+        </form>
+      )}
+    </div>
+  );
 }
 
 interface CheckoutPageProps {
@@ -651,7 +806,7 @@ export default function CheckoutPage({
             </h2>
             
             <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
-              Congratulations <strong>{confirmedOrder.buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
+              Congratulations <strong>{buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
             </p>
           </div>
 
@@ -809,51 +964,51 @@ export default function CheckoutPage({
           </div>
 
           {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY */}
-{checkoutStep !== 'success' && (
-  <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
-    
-    <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left">
-      <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border">
-        Billing Overview
-      </h3>
+          {checkoutStep !== 'success' ? (
+            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
+              
+              <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left">
+                <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border">
+                  Billing Overview
+                </h3>
 
-      <div className="space-y-3.5 text-xs font-sans uppercase pb-5 border-b border-brand-border">
-        <div className="flex justify-between text-brand-primary/70">
-          <span>Total items ({totalItems})</span>
-          <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
-        </div>
-        
-        <div className="flex justify-between text-brand-secondary font-bold">
-          <span>Delivery & Development</span>
-          <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
-        </div>
+                <div className="space-y-3.5 text-xs font-sans uppercase pb-5 border-b border-brand-border">
+                  <div className="flex justify-between text-brand-primary/70">
+                    <span>Total items ({totalItems})</span>
+                    <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-brand-secondary font-bold">
+                    <span>Delivery & Development</span>
+                    <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
+                  </div>
 
-        <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
-          <span>Total Payable</span>
-          <span className="font-sans font-bold">₦{totalAmountPayable.toLocaleString()}</span>
-        </div>
-      </div>
+                  <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
+                    <span>Total Payable</span>
+                    <span className="font-sans font-bold">₦{totalAmountPayable.toLocaleString()}</span>
+                  </div>
+                </div>
 
-      {/* Main Call to Action Button inside sticky card */}
-      {checkoutStep === 'cart' ? (
-        <button
-          onClick={handleStartCheckout}
-          className="w-full mt-5 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-        >
-          PROCEED TO DETAILS
-          <ArrowRight size={13} />
-        </button>
-      ) : (
-        <button
-          type="button"
-          onClick={handleInitiatePayment} // 🌟 FIX 1: Updated function name here
-          disabled={isSubmitting}
-          className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-        >
-          {/* 🌟 FIX 2: Updated variable from outstandingBalance to totalAmountPayable */}
-          {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE`}
-        </button>
-      )}
+                {/* Main Call to Action Button inside sticky card */}
+                {checkoutStep === 'cart' ? (
+                  <button
+                    onClick={handleStartCheckout}
+                    className="w-full mt-5 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    PROCEED TO DETAILS
+                    <ArrowRight size={13} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleInitiatePayment} // 🌟 FIX 1: Updated function name here
+                    disabled={isSubmitting}
+                    className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    {/* 🌟 FIX 2: Updated variable from outstandingBalance to totalAmountPayable */}
+                    {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE`}
+                  </button>
+                )}
 
                 <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
                   🔒 Encrypted connection. Student-verified handoffs.
@@ -876,6 +1031,10 @@ export default function CheckoutPage({
                 </p>
               </div>
 
+            </div>
+          ) : (
+            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
+              <ReviewForm initialEmail={buyerEmail} />
             </div>
           )}
 

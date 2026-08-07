@@ -18,10 +18,13 @@ import {
   QrCode,
   X,
   LogOut,
-  LogIn
+  LogIn,
+  Star,
+  MessageSquare
 } from 'lucide-react';
 import { Product, Reservation, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
+import { getBackendUrl } from '../lib/checkoutPayment';
 
 interface DashboardProps {
   currentUser: any;
@@ -50,8 +53,8 @@ export default function Dashboard({
   onOpenAuth,
   setCurrentTab,
 }: DashboardProps) {
-  // Tabs: 'reservations' | 'wishlist' | 'settings'
-  const [activeTab, setActiveTab] = useState<'reservations' | 'wishlist' | 'settings'>('reservations');
+  // Tabs: 'reservations' | 'wishlist' | 'settings' | 'reviews'
+  const [activeTab, setActiveTab] = useState<'reservations' | 'wishlist' | 'settings' | 'reviews'>('reservations');
   
   // Filter for reservations: 'all' | 'pending' | 'completed'
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed'>('all');
@@ -71,6 +74,15 @@ export default function Dashboard({
   const [editHall, setEditHall] = useState(currentUser?.residenceHall || COVENANT_HALLS[0]);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
+  // Review form state
+  const [reviewEmail, setReviewEmail] = useState(currentUser?.email || '');
+  const [reviewText, setReviewText] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewHoveredRating, setReviewHoveredRating] = useState<number | null>(null);
+  const [reviewSuccess, setReviewSuccess] = useState(false);
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
   // Sync settings when currentUser changes
   React.useEffect(() => {
     if (currentUser) {
@@ -78,8 +90,45 @@ export default function Dashboard({
       setEditPhone(currentUser.telegramPhone || '');
       setEditRoom(currentUser.roomNumber || '');
       setEditHall(currentUser.residenceHall || COVENANT_HALLS[0]);
+      setReviewEmail(currentUser.email || '');
     }
   }, [currentUser]);
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewEmail || !reviewText) {
+      setReviewError('Please fill in both your email and review.');
+      return;
+    }
+    setReviewSubmitting(true);
+    setReviewError('');
+    try {
+      const response = await fetch(`${getBackendUrl()}/api/reviews`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: reviewEmail.trim(),
+          review: reviewText.trim(),
+          review_text: reviewText.trim(),
+          text: reviewText.trim(),
+          rating: reviewRating,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to submit review');
+      }
+
+      setReviewSuccess(true);
+      setReviewText('');
+    } catch (err) {
+      setReviewError('Failed to submit review. Please try again.');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
 
   // Filter reservations for current user
   const userReservations = currentUser ? reservations.filter(
@@ -328,6 +377,17 @@ export default function Dashboard({
           </button>
 
           <button
+            onClick={() => setActiveTab('reviews')}
+            className={`pb-4 text-[10px] font-mono tracking-[0.25em] uppercase border-b-2 transition-all duration-300 cursor-pointer ${
+              activeTab === 'reviews'
+                ? 'border-brand-secondary text-brand-secondary font-black scale-105'
+                : 'border-transparent text-neutral-500 hover:text-brand-secondary hover:border-brand-border'
+            }`}
+          >
+            Submit Review
+          </button>
+
+          <button
             onClick={() => setActiveTab('settings')}
             className={`pb-4 text-[10px] font-mono tracking-[0.25em] uppercase border-b-2 transition-all duration-300 cursor-pointer ${
               activeTab === 'settings'
@@ -343,7 +403,7 @@ export default function Dashboard({
       {/* 📦 3. TAB CONTENTS */}
       <div className="min-h-[400px]">
         {/* If Guest/Not Signed In, block access with beautiful prompt */}
-        {!currentUser && activeTab !== 'wishlist' ? (
+        {!currentUser && activeTab !== 'wishlist' && activeTab !== 'reviews' ? (
           <div className="max-w-md mx-auto py-16 px-6 border border-brand-border/40 bg-brand-card/25 rounded-xs text-center space-y-6 shadow-xs">
             <div className="w-12 h-12 bg-brand-secondary/5 text-brand-secondary border border-brand-secondary/20 rounded-full flex items-center justify-center mx-auto">
               <User size={20} />
@@ -732,6 +792,113 @@ export default function Dashboard({
                     <span>Save Settings</span>
                   </button>
                 </form>
+              </div>
+            )}
+
+            {activeTab === 'reviews' && (
+              <div className="space-y-6 text-left max-w-xl mx-auto bg-brand-card/35 p-6 sm:p-8 border border-brand-border/40 rounded-xs shadow-xs">
+                <div className="border-b border-brand-border/25 pb-3">
+                  <h3 className="font-display font-bold text-lg text-brand-secondary uppercase">
+                    Submit Experience Feedback
+                  </h3>
+                  <p className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mt-0.5">
+                    We appreciate your thoughts! Share your experience with Knotify.
+                  </p>
+                </div>
+
+                {reviewSuccess ? (
+                  <div className="space-y-4 py-8 text-center">
+                    <div className="w-12 h-12 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-800 mx-auto">
+                      <CheckCircle size={24} />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-mono text-brand-secondary uppercase font-bold tracking-wider">Review Submitted Successfully!</h4>
+                      <p className="text-xs text-neutral-500 max-w-xs mx-auto font-sans leading-relaxed">
+                        Thank you for taking the time to share your feedback.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setReviewSuccess(false)}
+                      className="px-6 py-2.5 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 shadow-sm cursor-pointer"
+                    >
+                      Write Another Review
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleReviewSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                        Email Address
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={reviewEmail}
+                        onChange={(e) => setReviewEmail(e.target.value)}
+                        placeholder="e.g. scholar@covenant.edu"
+                        className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xs font-sans text-xs focus:outline-none transition-all"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                        Experience Rating
+                      </label>
+                      <div className="flex gap-1.5 py-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setReviewRating(star)}
+                            onMouseEnter={() => setReviewHoveredRating(star)}
+                            onMouseLeave={() => setReviewHoveredRating(null)}
+                            className="p-1 text-brand-primary hover:scale-110 transition-transform cursor-pointer"
+                          >
+                            <Star
+                              size={22}
+                              fill={(reviewHoveredRating !== null ? star <= reviewHoveredRating : star <= reviewRating) ? '#D4AF37' : 'none'}
+                              stroke={(reviewHoveredRating !== null ? star <= reviewHoveredRating : star <= reviewRating) ? '#D4AF37' : 'currentColor'}
+                              className={
+                                (reviewHoveredRating !== null ? star <= reviewHoveredRating : star <= reviewRating)
+                                  ? 'text-[#D4AF37]'
+                                  : 'text-brand-primary/40'
+                              }
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
+                        Your Feedback / Review
+                      </label>
+                      <textarea
+                        required
+                        rows={5}
+                        value={reviewText}
+                        onChange={(e) => setReviewText(e.target.value)}
+                        placeholder="Tell us about your experience..."
+                        className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-[#1F3E2B] focus:ring-1 focus:ring-[#1F3E2B]/20 text-brand-primary rounded-xs font-sans text-xs focus:outline-none transition-all resize-none"
+                      />
+                    </div>
+
+                    {reviewError && (
+                      <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-[10px] font-mono uppercase tracking-wider rounded-xs">
+                        {reviewError}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={reviewSubmitting}
+                      className="w-full py-3 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <MessageSquare size={13} />
+                      <span>{reviewSubmitting ? 'SUBMITTING...' : 'SUBMIT REVIEW'}</span>
+                    </button>
+                  </form>
+                )}
               </div>
             )}
           </>

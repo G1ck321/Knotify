@@ -165,23 +165,26 @@ export default function LandingPage({
               {/* Vintage Double-Rectangular Badge Accent (Touches of Old Money) */}
               <div className="inline-flex items-center justify-center px-6 py-2 border-2 border-brand-bg/30 relative before:absolute before:inset-0.5 before:border before:border-brand-bg/15 before:pointer-events-none mx-auto mb-3 bg-brand-primary/20 rounded-sm shadow-md" id="knotify-hero-badge">
                 <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.45em] text-[#FFFEF2] font-black">
-                  KNOTIFY • EST. 2026
+                  Made by Students. Built for Students.
                 </span>
               </div>
-
+ 
               <h1 className="font-display font-extrabold text-6xl sm:text-8xl md:text-[98px] lg:text-[116px] text-[#FFFEF2] tracking-tight leading-[0.85] uppercase max-w-5xl mx-auto">
-                GET YOUR TIE, <br />
+                Resume at Covenant <br />
                 <span className="font-serif italic font-light text-brand-bg relative inline-block">
-                  INSTANTLY
+                  With Confidence
                   <span className="absolute -bottom-2 left-0 right-0 h-[1.5px] bg-brand-bg/40"></span>
                   <span className="absolute -bottom-3 left-1/4 right-1/4 h-[0.5px] bg-brand-bg/25"></span>
                 </span>
               </h1>
-
+ 
               <div className="h-[1px] w-20 bg-[#FFFEF2]/25 mx-auto my-6"></div>
               
-              <p className="text-base sm:text-xl font-display italic text-[#FFFEF2]/95 max-w-xl mx-auto leading-relaxed">
-                Skip the morning panic. Secure certified, chapel-compliant ties listed by fellow scholars within your own residential hall.
+              <p className="text-base sm:text-xl font-display italic text-[#FFFEF2]/95 max-w-2xl mx-auto leading-relaxed">
+                Whether you're resuming for your first semester or returning to campus, there's already enough to prepare for. Knotify makes getting your Covenant University tie simple, so you can arrive prepared and focus on what really matters.
+              </p>
+              <p className="text-xs sm:text-sm font-mono tracking-widest uppercase text-[#FFFEF2]/75 mt-3">
+                One less thing to worry about before resumption.
               </p>
 
               {/* Number of users active — prominent stat block */}
@@ -351,8 +354,17 @@ export default function LandingPage({
                 onClick={onBrowseMarketplace}
                 className="inline-flex items-center gap-2.5 bg-[#FFFEF2] hover:bg-brand-primary text-brand-secondary hover:text-brand-bg rounded px-8 py-4 transition-all duration-300 cursor-pointer text-[10px] font-mono font-bold tracking-widest uppercase group border border-[#FFFEF2]/10 shadow-lg hover:scale-105"
               >
-                explore collection
+                Get Your Tie Before Resumption
                 <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('about-scroll-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-2.5 bg-transparent hover:bg-[#FFFEF2]/10 text-[#FFFEF2] rounded px-8 py-4 transition-all duration-300 cursor-pointer text-[10px] font-mono font-bold tracking-widest uppercase group border border-[#FFFEF2]/20 shadow-lg hover:scale-105 animate-pulse"
+              >
+                Learn More
               </button>
             </div>
 
@@ -563,21 +575,21 @@ export default function LandingPage({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-start">
             
-            {/* Left Column: Pure Editorial Headline */}
+            {/* Left Column: Trust Section */}
             <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-28">
               <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-brand-secondary font-bold block">
-                Instant Co-ordination
+                Built by Students
               </span>
               <h2 className="font-display font-black text-4xl sm:text-5xl text-brand-primary tracking-tight uppercase leading-[1.05]">
-                CAMPUS <br />
-                COMMUNITY
+                BUILT BY <br />
+                STUDENTS
               </h2>
               <div className="h-[1px] w-12 bg-brand-secondary"></div>
               <p className="text-sm text-brand-primary/70 leading-relaxed font-sans">
-                Getting a tie is all about speed. Join our verified student-run digital networks to coordinate lobby exchanges, view fresh daily listings, and request specific colors instantly.
+                We understand the resumption experience because we've lived it. That's why we created Knotify—to make preparing for Covenant University just a little easier for every student.
               </p>
             </div>
-
+ 
             {/* Right Column: Premium High-Contrast Rows */}
             <div className="lg:col-span-8 divide-y divide-brand-border/40" id="community-channels-list">
               
@@ -593,7 +605,7 @@ export default function LandingPage({
                       Notify Charge
                     </h3>
                     <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Connect directly with graduating seniors and fellow scholars. Negotiate deals and schedule 5-minute lobby meetings inside Daniel, Peter, PG, Esther, or Lydia hall.
+                      Coordinate with fellow scholars to get your class-ready ties directly in your hall lobby. Simple. Reliable. Stress-free.
                     </p>
                   </div>
                   
@@ -610,7 +622,7 @@ export default function LandingPage({
                   </div>
                 </div>
               </div>
-
+ 
               {/* Channel 2: Telegram */}
               <div className="py-8 group">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
@@ -623,7 +635,7 @@ export default function LandingPage({
                       Telegram Channels
                     </h3>
                     <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Get real-time updates pushed directly to your phone. Never miss a rare, highly coveted, or premium regulation-compliant tie listing as soon as it goes live.
+                      Receive notifications about available ties in your hall, helping you prepare before you arrive on campus.
                     </p>
                   </div>
                   
@@ -671,16 +683,14 @@ export default function LandingPage({
             variants={itemVariants} 
             className="font-display font-black text-4xl sm:text-6xl md:text-7xl text-brand-bg tracking-tight uppercase leading-[1.05]"
           >
-            Why pay the price of <br className="hidden sm:inline" />
-            a standard meal, <br />
-            <span className="italic font-light text-brand-bg/90">just to buy another tie?</span>
+            Ready for Resumption?
           </motion.h2>
 
           <motion.p 
             variants={itemVariants} 
             className="text-xs sm:text-sm text-brand-bg/85 font-sans max-w-xl mx-auto leading-relaxed"
           >
-            Step onto campus with premium, vetted, fully class-compliant neckwear. Skip overpriced stores, grab dapper ties directly in your residential lobby, and stay beautifully dressed for chapel.
+            Order your Covenant University tie today and arrive on campus prepared, confident, and ready for the semester ahead.
           </motion.p>
 
           <motion.div variants={itemVariants} className="pt-6">
@@ -689,7 +699,7 @@ export default function LandingPage({
               className="px-12 py-4.5 bg-brand-bg text-brand-secondary hover:text-brand-bg hover:bg-brand-primary font-mono text-xs tracking-widest uppercase font-black rounded-md shadow-2xl transition-all duration-300 hover:scale-105 inline-flex items-center gap-3.5 cursor-pointer"
               id="cta-bottom-browse"
             >
-              EXPLORE THE CATALOG NOW
+              Order Before Resumption
               <ArrowRight size={14} />
             </button>
           </motion.div>
