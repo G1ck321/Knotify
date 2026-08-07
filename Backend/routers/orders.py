@@ -8,10 +8,10 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 
 from database import supabase
 from config import settings
-from routers.quantity import get_tie_by_id
+from routers.quantity import compute_order_total, get_tie_by_id
 
-from typing import Optional, List
-from dependencies import get_optional_current_user
+from typing import Optional, List, Any
+from dependencies import get_optional_current_user, get_current_user
 from request_models import OrderCreateRequest
 from utils.tokens import generate_tx_ref
 from pydantic import BaseModel
@@ -26,30 +26,34 @@ async def initialize_payment(
 ):
     try:
         normalized_items = []
+        server_items_total = 0.0
         for item in payload.items:
             tie_row = get_tie_by_id(item.tie_id)
             if not tie_row:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{item.tie_id}' was not found")
 
             available_quantity = int(tie_row.get("quantity") or 0)
+            server_price = float(tie_row.get("price") or item.unit_price or 0)
             if available_quantity < item.quantity:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=f"Tie '{item.tie_id}' only has {available_quantity} left",
                 )
 
+            server_items_total += server_price * item.quantity
+
             normalized_items.append(
                 {
                     "tie_id": item.tie_id,
                     "tie_name": tie_row.get("tie_name") or tie_row.get("name") or item.name,
                     "quantity": item.quantity,
-                    "unit_price": item.unit_price,
+                    "unit_price": server_price,
                     "image_url": item.image_url,
                 }
             )
 
         # Add delivery fee of 200 on the server so the frontend cannot alter it.
-        calculated_total = float(payload.amount) + 200
+        calculated_total = server_items_total + 200
         tx_ref = generate_tx_ref("order")
 
         # Determine valid user_id UUID from authenticated session or lookup/auto-create guest user in Supabase
@@ -87,7 +91,7 @@ async def initialize_payment(
             "tx_ref": tx_ref,
             "status": "pending",
             "amountpaid": calculated_total,
-            "items_total": payload.items_total,
+            "items_total": server_items_total,
             "item_count": len(payload.items),
             "currency": "NGN",
             "order_details": payload.order_summary,
@@ -96,6 +100,7 @@ async def initialize_payment(
             "room_number": payload.roomNumber,
             "email_snapshot": payload.email,
             "phone_snapshot": payload.telegramPhone,
+            "parentsNumber":payload.parentsNumber
         }
 
         #Insert order into database before payment gateway
@@ -138,12 +143,14 @@ async def initialize_payment(
                 "user_id": user_id or "guest",
                 "item_count": len(payload.items),
                 "roomNumber": payload.roomNumber,
-                "cart_snapshot": normalized_items,
+                "items_total": server_items_total,
+                "cart_snapshot_json": json.dumps(normalized_items),
+                "item_names": ", ".join(item["tie_name"] for item in normalized_items),
             },
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{
                 "title":"KnotifyCu",
-                "description": f"Ties NGN {payload.amount} | Delivery & Development Fee: NGN 200"
+                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 200"
             }
         }
 
@@ -185,30 +192,27 @@ class OrderResponse(BaseModel):
     amount: float
     status: str
     items: str
+    email_snapshot: Optional[str] = None
+    phone_snapshot: Optional[str] = None
+    room_number: Optional[str] = None
+    delivery_address: Optional[str] = None
+    cart_snapshot: Optional[list[dict[str, Any]]] = None
     created_at: str
 
 # -----------------------------------------------------------------------------
 # 1. GET /api/orders/me - Fetch Logged-in User's Past Orders
 # -----------------------------------------------------------------------------
 @router.get("/me", response_model=List[OrderResponse])
-async def get_my_past_orders(authorization: Optional[str] = Header(None)):
+async def get_my_past_orders(current_user: dict = Depends(get_current_user)):
     """
     Fetches past orders for an authenticated user without exposing Supabase credentials to the frontend.
     """
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization token.")
-    
-    token = authorization.split(" ")[1]
-    
-    # Verify user token securely with Supabase Auth
-    user_res = supabase.auth.get_user(token)
-    if not user_res or not user_res.user:
-        raise HTTPException(status_code=401, detail="Expired or invalid user session.")
-    
-    user_id = user_res.user.id
+    user_id = current_user["id"]
     
     # Query database safely using Service Role
-    response = supabase.table("orders").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    response = supabase.table("orders").select("*").eq("user_id", user_id)\
+    .eq("status","paid")\
+    .order("created_at", desc=True).execute()
     
     return [
         OrderResponse(
@@ -217,6 +221,11 @@ async def get_my_past_orders(authorization: Optional[str] = Header(None)):
             amount=row["amountpaid"],
             status=row["status"],
             items=row.get("order_details") or "",
+            email_snapshot=row.get("email_snapshot"),
+            phone_snapshot=row.get("phone_snapshot"),
+            room_number=row.get("room_number"),
+            delivery_address=row.get("delivery_address"),
+            cart_snapshot=row.get("cart_snapshot") or [],
             created_at=row["created_at"]
         )
         for row in response.data

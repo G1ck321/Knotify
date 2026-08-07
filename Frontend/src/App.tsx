@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Heart, X, ShoppingBag, Trash2, ArrowRight, Check } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
+import { X } from 'lucide-react';
 
 import Navbar from './components/Navbar';
 import LandingPage from './components/LandingPage';
@@ -11,9 +11,12 @@ import WishlistPage from './components/WishlistPage';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
+import SellPage from './components/SellPage';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
-import { clearAuthSession, getAccessToken, getStoredUser, persistAuthSession } from './lib/authStorage';
+import { clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
+import { getAccessToken } from './lib/authStorage';
+import { getBackendUrl } from './lib/checkoutPayment';
 
 function normalizeUser(user: any) {
   if (!user) return user;
@@ -25,24 +28,248 @@ function normalizeUser(user: any) {
   };
 }
 
+type InventoryRow = {
+  tie_id: string;
+  tie_name: string;
+  price: number;
+  quantity: number;
+  is_active: boolean;
+  is_sold_out: boolean;
+};
+
+type InventorySummary = {
+  totalQuantity: number;
+  availableTies: number;
+  paidUsers: number;
+};
+
 interface Toast {
   id: string;
   message: string;
   type: 'cart' | 'wishlist' | 'success';
 }
 
-export default function App() {
-  // Page routing state
-  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'checkout' | 'wishlist' | 'dashboard'>('home');
+type OrderHistoryRow = {
+  tx_ref: string;
+  buyer_name: string;
+  amount: number;
+  status: string;
+  items: string;
+  email_snapshot?: string | null;
+  phone_snapshot?: string | null;
+  room_number?: string | null;
+  delivery_address?: string | null;
+  cart_snapshot?: Array<{
+    tie_id?: string;
+    tie_name?: string;
+    quantity?: number;
+    product?: { name?: string };
+  }>;
+  created_at: string;
+};
 
-  // User Authentication State
+export default function App() {
+  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
   });
+  const [inventorySummary, setInventorySummary] = useState<InventorySummary>({
+    totalQuantity: 0,
+    availableTies: 0,
+    paidUsers: 0,
+  });
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{
+    type: 'add_to_cart' | 'buy_now' | 'checkout';
+    product?: Product;
+    quantity?: number;
+  } | null>(null);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [sharedSearchQuery, setSharedSearchQuery] = useState('');
+  const [sharedCategory, setSharedCategory] = useState('All');
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('cu_marketplace_products_v4');
+    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+  });
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem('cu_marketplace_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [wishlist, setWishlist] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cu_marketplace_wishlist');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [reservations, setReservations] = useState<Reservation[]>(() => {
+    const saved = localStorage.getItem('knotify_reservations');
+    const defaultMocks: Reservation[] = [
+      {
+        id: 'KNT-2027-00482',
+        name: 'Daniel',
+        phone: '08012345678',
+        email: 'daniel@student.covenant.edu.ng',
+        color: 'Plain Black',
+        quantity: 1,
+        hall: 'Daniel Hall',
+        productNames: 'Plain Black Tie (x1)',
+        deposit: 1500,
+        outstanding: 2000,
+        status: 'Ready for Pickup',
+        pickupPoint: 'Pickup Point A (Near Joseph Hall)',
+        dateAdded: 'Jul 15, 2026',
+      },
+    ];
+    return saved ? JSON.parse(saved) : defaultMocks;
+  });
+  const [orderHistoryReservations, setOrderHistoryReservations] = useState<Reservation[]>([]);
+  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
 
-  // Route to checkout when Flutterwave redirects back with payment query params
+    const loadOrderHistory = async () => {
+      const token = getAccessToken();
+      if (!currentUser || !token) {
+        if (!cancelled) {
+          setOrderHistoryReservations([]);
+        }
+        return;
+      }
+
+      try {
+        const response = await fetch(`${getBackendUrl()}/api/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          if (!cancelled) setOrderHistoryReservations([]);
+          return;
+        }
+
+        const orders = (await response.json().catch(() => [])) as OrderHistoryRow[];
+        if (cancelled) return;
+
+        const mappedReservations = orders.map((order) => {
+          const cartSnapshot = Array.isArray(order.cart_snapshot) ? order.cart_snapshot : [];
+          const productNames = cartSnapshot.length
+            ? cartSnapshot
+                .map((item) => `${item.tie_name || item.product?.name || item.tie_id || 'Tie'} (x${item.quantity || 1})`)
+                .join(', ')
+            : order.items;
+
+          return {
+            id: order.tx_ref,
+            name: order.buyer_name,
+            phone: order.phone_snapshot || currentUser.telegramPhone || '',
+            email: order.email_snapshot || currentUser.email,
+            color: 'N/A',
+            quantity: cartSnapshot.reduce((total, item) => total + Number(item.quantity || 0), 0) || 1,
+            hall: order.delivery_address || order.room_number || currentUser.residenceHall || 'N/A',
+            productNames,
+            deposit: Number(order.amount || 0),
+            outstanding: 0,
+            status: order.status === 'paid' ? 'Ready for Pickup' : order.status === 'collected' ? 'Collected' : 'Reserved',
+            pickupPoint: order.delivery_address || `${order.room_number || currentUser.roomNumber || 'N/A'} Lobby`,
+            dateAdded: new Date(order.created_at).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
+          } satisfies Reservation;
+        });
+
+        setOrderHistoryReservations(mappedReservations);
+      } catch {
+        if (!cancelled) {
+          setOrderHistoryReservations([]);
+        }
+      }
+    };
+
+    loadOrderHistory();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser]);
+
+  const mergedReservations = [...orderHistoryReservations, ...reservations].reduce<Reservation[]>((accumulator, reservation) => {
+    if (accumulator.some((entry) => entry.id === reservation.id)) {
+      return accumulator;
+    }
+    return [...accumulator, reservation];
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInventory = async () => {
+      try {
+        const [tiesResponse, paidUsersResponse] = await Promise.all([
+          fetch(`${getBackendUrl()}/quantity/ties`),
+          fetch(`${getBackendUrl()}/quantity/paid-users`),
+        ]);
+
+        const ties = (await tiesResponse.json().catch(() => [])) as InventoryRow[];
+        const paidUsers = (await paidUsersResponse.json().catch(() => ({ paid_orders: 0, unique_paid_users: 0 }))) as {
+          paid_orders?: number;
+          unique_paid_users?: number;
+        };
+
+        if (cancelled) return;
+
+        const tieMap = new Map(ties.map((row) => [row.tie_id, row]));
+
+        setProducts((previousProducts) =>
+          previousProducts.map((product) => {
+            const liveTie = tieMap.get(product.id);
+            if (!liveTie) return product;
+
+            return {
+              ...product,
+              name: liveTie.tie_name || product.name,
+              price: Number(liveTie.price ?? product.price),
+              stock: Number(liveTie.quantity ?? product.stock),
+            };
+          })
+        );
+
+        setInventorySummary({
+          totalQuantity: ties.reduce((total, tie) => total + Number(tie.quantity || 0), 0),
+          availableTies: ties.filter((tie) => tie.is_active && !tie.is_sold_out).length,
+          paidUsers: Number(paidUsers.unique_paid_users ?? paidUsers.paid_orders ?? 0),
+        });
+      } catch {
+        if (!cancelled) {
+          setInventorySummary({ totalQuantity: 0, availableTies: 0, paidUsers: 0 });
+        }
+      }
+    };
+
+    loadInventory();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cu_marketplace_products_v4', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('cu_marketplace_cart', JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  useEffect(() => {
+    localStorage.setItem('cu_marketplace_wishlist', JSON.stringify(wishlist));
+  }, [wishlist]);
+
+  useEffect(() => {
+    localStorage.setItem('knotify_reservations', JSON.stringify(reservations));
+  }, [reservations]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = (params.get('status') || params.get('tx_status') || '').toLowerCase();
@@ -51,26 +278,17 @@ export default function App() {
       setCurrentTab('checkout');
     }
   }, []);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{
-    type: 'add_to_cart' | 'buy_now' | 'checkout';
-    product?: Product;
-    quantity?: number;
-  } | null>(null);
-
-  // Toast notifications state
-  const [toasts, setToasts] = useState<Toast[]>([]);
 
   const addToast = (message: string, type: 'cart' | 'wishlist' | 'success' = 'success') => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((previous) => [...previous, { id, message, type }]);
     setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
+      setToasts((previous) => previous.filter((toast) => toast.id !== id));
     }, 3500);
   };
 
   const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((previous) => previous.filter((toast) => toast.id !== id));
   };
 
   const handleAuthSuccess = (user: any, accessToken?: string) => {
@@ -78,9 +296,8 @@ export default function App() {
     setCurrentUser(normalizedUser);
     persistAuthSession(normalizedUser, accessToken);
     setIsAuthOpen(false);
-    addToast(`Successfully signed in as ${user.name}!`, 'success');
+    addToast(`Successfully signed in as ${normalizedUser.name}!`, 'success');
 
-    // Resume the pending buying action if it was intercepted
     if (pendingAction) {
       if (pendingAction.type === 'add_to_cart' && pendingAction.product) {
         executeAddToCart(pendingAction.product, pendingAction.quantity || 1);
@@ -99,84 +316,21 @@ export default function App() {
     addToast('Logged out successfully', 'success');
   };
 
-  // Shared filter states from landing page to marketplace
-  const [sharedSearchQuery, setSharedSearchQuery] = useState('');
-  const [sharedCategory, setSharedCategory] = useState('All');
+  const handleResetLocalSession = () => {
+    clearClientSessionState();
+    window.location.reload();
+  };
 
   const handleBrowseWithFilter = (category: string, searchQuery: string = '') => {
     setSharedCategory(category);
     setSharedSearchQuery(searchQuery);
     setCurrentTab('marketplace');
-    // Scroll smoothly to top of window on page switches
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Core database state (simulated local list)
-  const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('cu_marketplace_products_v4');
-    return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
-  });
-
-  // Shopping cart state
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('cu_marketplace_cart');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Wishlist state (array of product IDs)
-  const [wishlist, setWishlist] = useState<string[]>(() => {
-    const saved = localStorage.getItem('cu_marketplace_wishlist');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // Knotify Customer Journey Reservations State (Stage 8 Internal Operations)
-  const [reservations, setReservations] = useState<Reservation[]>(() => {
-    const saved = localStorage.getItem('knotify_reservations');
-    const defaultMocks: Reservation[] = [
-      {
-        id: 'KNT-2027-00482',
-        name: 'Daniel',
-        phone: '08012345678',
-        email: 'daniel@student.covenant.edu.ng',
-        color: 'Plain Black',
-        quantity: 1,
-        hall: 'Daniel Hall',
-        productNames: 'Plain Black Tie (x1)',
-        deposit: 1500,
-        outstanding: 2000,
-        status: 'Ready for Pickup',
-        pickupPoint: 'Pickup Point A (Near Joseph Hall)',
-        dateAdded: 'Jul 15, 2026'
-      }
-    ];
-    return saved ? JSON.parse(saved) : defaultMocks;
-  });
-
-  // Modals overlay controls
-  const [activeProduct, setActiveProduct] = useState<Product | null>(null);
-  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
-  const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
-
-  // Sync state with local storage
-  useEffect(() => {
-    localStorage.setItem('cu_marketplace_products_v4', JSON.stringify(products));
-  }, [products]);
-
-  useEffect(() => {
-    localStorage.setItem('cu_marketplace_cart', JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  useEffect(() => {
-    localStorage.setItem('cu_marketplace_wishlist', JSON.stringify(wishlist));
-  }, [wishlist]);
-
-  useEffect(() => {
-    localStorage.setItem('knotify_reservations', JSON.stringify(reservations));
-  }, [reservations]);
-
-  const handleAddReservation = (newRes: Reservation) => {
-    setReservations((prev) => [newRes, ...prev]);
-    addToast(`Reservation ${newRes.id} successfully created!`, 'success');
+  const handleAddReservation = (newReservation: Reservation) => {
+    setReservations((previous) => [newReservation, ...previous]);
+    addToast(`Reservation ${newReservation.id} successfully created!`, 'success');
   };
 
   const handleUpdateUser = (updatedUser: any) => {
@@ -184,26 +338,22 @@ export default function App() {
     localStorage.setItem('knotify_current_user', JSON.stringify(updatedUser));
   };
 
-  const handleUpdateReservation = (updatedRes: Reservation) => {
-    setReservations((prev) =>
-      prev.map((res) => (res.id === updatedRes.id ? updatedRes : res))
-    );
+  const handleUpdateReservation = (updatedReservation: Reservation) => {
+    setReservations((previous) => previous.map((reservation) => (reservation.id === updatedReservation.id ? updatedReservation : reservation)));
   };
 
   const executeAddToCart = (product: Product, quantity: number = 1) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.product.id === product.id);
+    setCartItems((previous) => {
+      const safeQuantity = Number(quantity) || 0;
+      const maxStock = Number(product.stock) || 0;
+      const existing = previous.find((item) => item.product.id === product.id);
       if (existing) {
-        // Enforce max stock boundaries
-        const newQty = Math.min(existing.quantity + quantity, product.stock);
-        return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: newQty } : item
-        );
+        const newQuantity = Math.min(existing.quantity + safeQuantity, maxStock);
+        return previous.map((item) => (item.product.id === product.id ? { ...item, quantity: newQuantity } : item));
       }
-      return [...prev, { product, quantity: Math.min(quantity, product.stock) }];
+      return [...previous, { product, quantity: Math.min(safeQuantity, maxStock) }];
     });
     addToast(`"${product.name}" added to bag`, 'cart');
-    // Visual high-end trigger - direct to full-page checkout immediately
     setCurrentTab('checkout');
   };
 
@@ -213,18 +363,12 @@ export default function App() {
     setCurrentTab('checkout');
   };
 
-  // Handler functions
   const handleAddToCart = (product: Product, quantity: number = 1) => {
-    if (!currentUser) {
-      setPendingAction({ type: 'add_to_cart', product, quantity });
-      setIsAuthOpen(true);
-      return;
-    }
     executeAddToCart(product, quantity);
   };
 
   const handleUpdateCartQuantity = (productId: string, quantity: number) => {
-    const targetProduct = products.find((p) => p.id === productId);
+    const targetProduct = products.find((product) => product.id === productId);
     if (!targetProduct) return;
 
     if (quantity <= 0) {
@@ -232,11 +376,9 @@ export default function App() {
       return;
     }
 
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.product.id === productId
-          ? { ...item, quantity: Math.min(quantity, targetProduct.stock) }
-          : item
+    setCartItems((previous) =>
+      previous.map((item) =>
+        item.product.id === productId ? { ...item, quantity: Math.min(Number(quantity) || 0, Number(targetProduct.stock) || 0) } : item
       )
     );
   };
@@ -246,7 +388,7 @@ export default function App() {
     if (targetItem) {
       addToast(`Removed "${targetItem.product.name}" from bag`, 'success');
     }
-    setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
+    setCartItems((previous) => previous.filter((item) => item.product.id !== productId));
   };
 
   const handleClearCart = () => {
@@ -254,52 +396,43 @@ export default function App() {
     addToast('Bag cleared', 'success');
   };
 
-  const handleToggleWishlist = (product: Product, e?: React.MouseEvent) => {
-    if (e) {
-      e.stopPropagation(); // Avoid triggering card details popup
+  const handleToggleWishlist = (product: Product, event?: React.MouseEvent) => {
+    if (event) {
+      event.stopPropagation();
     }
-    setWishlist((prev) => {
-      const exists = prev.includes(product.id);
+
+    setWishlist((previous) => {
+      const exists = previous.includes(product.id);
       if (exists) {
         addToast(`Removed "${product.name}" from wishlist`, 'success');
-        return prev.filter((id) => id !== product.id);
-      } else {
-        addToast(`Added "${product.name}" to wishlist`, 'wishlist');
-        return [...prev, product.id];
+        return previous.filter((id) => id !== product.id);
       }
+
+      addToast(`Added "${product.name}" to wishlist`, 'wishlist');
+      return [...previous, product.id];
     });
   };
 
   const handleAddListing = (newProduct: Product) => {
-    setProducts((prev) => [newProduct, ...prev]);
+    setProducts((previous) => [newProduct, ...previous]);
     addToast(`Listed "${newProduct.name}" for sale!`, 'success');
   };
 
   const handleDirectBuyNow = (product: Product) => {
-    if (!currentUser) {
-      setPendingAction({ type: 'buy_now', product });
-      setIsAuthOpen(true);
-      return;
-    }
     executeDirectBuyNow(product);
   };
 
   const isInWishlist = (productId: string) => wishlist.includes(productId);
-
-  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const wishlistCount = wishlist.length;
-
-  const featuredProducts = products.filter((p) => p.isFeatured);
+  const featuredProducts = products.filter((product) => product.isFeatured);
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-brand-bg relative antialiased" id="marketplace-viewport">
-      
-      {/* 1. CUSTOM FLOATING NAVIGATION BAR */}
       <Navbar
         currentTab={currentTab}
         setCurrentTab={(tab) => {
           setCurrentTab(tab);
-          // Scroll smoothly to top of window on page switches
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         cartCount={cartCount}
@@ -315,11 +448,9 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* 2. PAGE SECTIONS (ORCHESTRATED LAYOUT) */}
       <main className="flex-grow">
         <AnimatePresence mode="wait">
           {currentTab === 'home' ? (
-            /* LANDING PAGE MODULE */
             <motion.div
               key="landing"
               initial={{ opacity: 0, y: 10 }}
@@ -330,17 +461,16 @@ export default function App() {
               <LandingPage
                 onBrowseMarketplace={() => handleBrowseWithFilter('All', '')}
                 onBrowseWithFilter={handleBrowseWithFilter}
-                onOpenBecomeSeller={() => setCurrentTab('sell')}
                 products={products}
                 featuredProducts={featuredProducts}
                 onOpenProductDetail={setActiveProduct}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(prod, e) => handleAddToCart(prod, 1)}
+                onAddToCart={(product) => handleAddToCart(product, 1)}
                 isInWishlist={isInWishlist}
+                inventorySummary={inventorySummary}
               />
             </motion.div>
           ) : currentTab === 'marketplace' ? (
-            /* MARKETPLACE GRID MODULE */
             <motion.div
               key="marketplace"
               initial={{ opacity: 0, y: 10 }}
@@ -352,9 +482,9 @@ export default function App() {
                 products={products}
                 onOpenProductDetail={setActiveProduct}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(prod, e) => {
-                  e.stopPropagation();
-                  handleAddToCart(prod, 1);
+                onAddToCart={(product, event) => {
+                  event.stopPropagation();
+                  handleAddToCart(product, 1);
                 }}
                 isInWishlist={isInWishlist}
                 initialSearchQuery={sharedSearchQuery}
@@ -364,7 +494,6 @@ export default function App() {
               />
             </motion.div>
           ) : currentTab === 'sell' ? (
-            /* SELL PAGE MODULE */
             <motion.div
               key="sell"
               initial={{ opacity: 0, y: 10 }}
@@ -372,23 +501,9 @@ export default function App() {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <SellPage
-                currentUser={currentUser}
-                onUpdateUser={handleUpdateUser}
-                reservations={reservations}
-                onUpdateReservation={handleUpdateReservation}
-                wishlist={wishlist}
-                products={products}
-                onToggleWishlist={handleToggleWishlist}
-                onAddToCart={handleAddToCart}
-                onOpenAuth={() => {
-                  setPendingAction(null);
-                  setIsAuthOpen(true);
-                }}
-              />
+              <SellPage />
             </motion.div>
           ) : currentTab === 'wishlist' ? (
-            /* WISHLIST PAGE MODULE */
             <motion.div
               key="wishlist"
               initial={{ opacity: 0, y: 10 }}
@@ -400,15 +515,14 @@ export default function App() {
                 wishlist={wishlist}
                 products={products}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(prod, qty) => {
-                  handleAddToCart(prod, qty);
+                onAddToCart={(product, quantity) => {
+                  handleAddToCart(product, quantity);
                   setCurrentTab('checkout');
                 }}
                 onBackToCollection={() => setCurrentTab('marketplace')}
               />
             </motion.div>
           ) : currentTab === 'dashboard' ? (
-            /* USER DASHBOARD MODULE */
             <motion.div
               key="dashboard"
               initial={{ opacity: 0, y: 10 }}
@@ -419,7 +533,7 @@ export default function App() {
               <Dashboard
                 currentUser={currentUser}
                 onUpdateUser={handleUpdateUser}
-                reservations={reservations}
+                reservations={mergedReservations}
                 onUpdateReservation={handleUpdateReservation}
                 wishlist={wishlist}
                 products={products}
@@ -434,7 +548,6 @@ export default function App() {
               />
             </motion.div>
           ) : (
-            /* CHECKOUT PAGE MODULE */
             <motion.div
               key="checkout"
               initial={{ opacity: 0, y: 10 }}
@@ -446,7 +559,7 @@ export default function App() {
                 cartItems={cartItems}
                 onUpdateQuantity={handleUpdateCartQuantity}
                 onRemoveItem={handleRemoveCartItem}
-                onClearCart={() => setCartItems([])}
+                onClearCart={handleClearCart}
                 onAddReservation={handleAddReservation}
                 currentUser={currentUser}
                 onOpenAuth={() => {
@@ -460,17 +573,12 @@ export default function App() {
         </AnimatePresence>
       </main>
 
-      {/* 3. SCANDINAVIAN THEMED FOOTER */}
-      <Footer 
-        setCurrentTab={setCurrentTab} 
+      <Footer
+        setCurrentTab={setCurrentTab}
         onOpenBecomeSeller={() => setCurrentTab('sell')}
+        onResetLocalSession={handleResetLocalSession}
       />
 
-      {/* ======================================================== */}
-      {/* 4. OVERLAY DIALOGS, MODALS, AND MICRO-DRAWERS */}
-      {/* ======================================================== */}
-
-      {/* PRODUCT DETAIL MODAL */}
       <AnimatePresence>
         {activeProduct && (
           <ProductDetailModal
@@ -484,22 +592,10 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* BECOME SELLER FORM MODAL */}
       <AnimatePresence>
-        {isBecomeSellerOpen && (
-          <BecomeSellerModal
-            isOpen={isBecomeSellerOpen}
-            onClose={() => setIsBecomeSellerOpen(false)}
-            onAddListing={handleAddListing}
-          />
-        )}
+        {isBecomeSellerOpen && <SellPage />}
       </AnimatePresence>
 
-
-
-      {/* (The cart slide-over drawer has been fully upgraded to the full-page CheckoutPage component) */}
-
-      {/* SECURE IDENTITY PORTAL MODAL */}
       <AnimatePresence>
         {isAuthOpen && (
           <AuthModal
@@ -520,70 +616,55 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* TOAST NOTIFICATIONS STACK (APPLE-STYLE GREEN NOTIFICATION SYSTEM) */}
       <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-3.5 pointer-events-none w-full max-w-xs sm:max-w-sm px-4" id="toast-notifications-container">
         <AnimatePresence>
-          {toasts.map((toast) => {
-            const isCart = toast.type === 'cart';
-            const isWishlist = toast.type === 'wishlist';
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: 100, y: -15, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 80, scale: 0.9, transition: { duration: 0.25 } }}
+              className="relative pointer-events-auto bg-[#1F3E2B] border border-brand-accent/20 text-[#FFFEF2] rounded-xl p-3.5 pr-8 shadow-2xl overflow-hidden flex flex-col w-full"
+              id={`toast-${toast.id}`}
+            >
+              <div className="flex items-center justify-between border-b border-[#FFFEF2]/10 pb-1.5 mb-2 w-full">
+                <div className="flex items-center gap-1.5">
+                  <div className="bg-[#FFFEF2] text-[#1F3E2B] w-4.5 h-4.5 flex items-center justify-center rounded-md font-serif text-xs font-bold shadow-sm select-none">
+                    †
+                  </div>
+                  <span className="text-[9px] font-mono tracking-[0.25em] text-[#FFFEF2] font-black uppercase">KNOTIFY</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[#FFFEF2]/50 font-mono text-[8px] uppercase tracking-widest">
+                  <span>{toast.type === 'cart' ? 'BAG' : toast.type === 'wishlist' ? 'WISHLIST' : 'SYSTEM'}</span>
+                  <span>•</span>
+                  <span>now</span>
+                </div>
+              </div>
 
-            return (
-              <motion.div
-                key={toast.id}
-                initial={{ opacity: 0, x: 100, y: -15, scale: 0.95 }}
-                animate={{ opacity: 1, x: 0, y: 0, scale: 1 }}
-                exit={{ opacity: 0, x: 80, scale: 0.9, transition: { duration: 0.25 } }}
-                className="relative pointer-events-auto bg-[#1F3E2B] border border-brand-accent/20 text-[#FFFEF2] rounded-xl p-3.5 pr-8 shadow-2xl overflow-hidden flex flex-col w-full"
-                id={`toast-${toast.id}`}
+              <div className="text-left w-full">
+                <p className="text-xs font-sans text-white/95 leading-relaxed font-medium">{toast.message}</p>
+              </div>
+
+              <button
+                onClick={() => removeToast(toast.id)}
+                className="absolute top-2 right-2 text-[#FFFEF2]/50 hover:text-[#FFFEF2] p-1 hover:bg-white/10 rounded transition-colors cursor-pointer shrink-0"
+                title="Dismiss alert"
               >
-                {/* Apple App Header Line */}
-                <div className="flex items-center justify-between border-b border-[#FFFEF2]/10 pb-1.5 mb-2 w-full">
-                  <div className="flex items-center gap-1.5">
-                    <div className="bg-[#FFFEF2] text-[#1F3E2B] w-4.5 h-4.5 flex items-center justify-center rounded-md font-serif text-xs font-bold shadow-sm select-none">
-                      †
-                    </div>
-                    <span className="text-[9px] font-mono tracking-[0.25em] text-[#FFFEF2] font-black uppercase">
-                      KNOTIFY
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-[#FFFEF2]/50 font-mono text-[8px] uppercase tracking-widest">
-                    <span>{isCart ? 'BAG' : isWishlist ? 'WISHLIST' : 'SYSTEM'}</span>
-                    <span>•</span>
-                    <span>now</span>
-                  </div>
-                </div>
+                <X size={10} />
+              </button>
 
-                {/* Notification Message */}
-                <div className="text-left w-full">
-                  <p className="text-xs font-sans text-white/95 leading-relaxed font-medium">
-                    {toast.message}
-                  </p>
-                </div>
-
-                {/* Dismiss Button */}
-                <button
-                  onClick={() => removeToast(toast.id)}
-                  className="absolute top-2 right-2 text-[#FFFEF2]/50 hover:text-[#FFFEF2] p-1 hover:bg-white/10 rounded transition-colors cursor-pointer shrink-0"
-                  title="Dismiss alert"
-                >
-                  <X size={10} />
-                </button>
-
-                {/* Subtle Progress Bar */}
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/15 overflow-hidden">
-                  <motion.div
-                    initial={{ width: '100%' }}
-                    animate={{ width: '0%' }}
-                    transition={{ duration: 3.5, ease: 'linear' }}
-                    className="h-full bg-brand-bg/65"
-                  />
-                </div>
-              </motion.div>
-            );
-          })}
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-white/15 overflow-hidden">
+                <motion.div
+                  initial={{ width: '100%' }}
+                  animate={{ width: '0%' }}
+                  transition={{ duration: 3.5, ease: 'linear' }}
+                  className="h-full bg-brand-bg/65"
+                />
+              </div>
+            </motion.div>
+          ))}
         </AnimatePresence>
       </div>
-
     </div>
   );
 }

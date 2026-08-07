@@ -14,6 +14,7 @@ router = APIRouter(prefix="/quantity", tags=["Inventory and paid user metrics"])
 class TieInventoryResponse(BaseModel):
     tie_id: str
     tie_name: str
+    price: float = Field(ge=0)
     quantity: int = Field(ge=0)
     is_active: bool = True
     is_sold_out: bool = False
@@ -33,12 +34,14 @@ def _extract_tie_identity(row: dict[str, Any]) -> tuple[str, str]:
 
 def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     tie_id, tie_name = _extract_tie_identity(row)
+    price = float(row.get("price") or row.get("unit_price") or 0)
     quantity = int(row.get("quantity") or 0)
     is_active = bool(row.get("is_active", True))
 
     return TieInventoryResponse(
         tie_id=tie_id,
         tie_name=tie_name,
+        price=price,
         quantity=quantity,
         is_active=is_active,
         is_sold_out=quantity <= 0 or not is_active,
@@ -49,7 +52,7 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     response = (
         supabase.table("ties")
         .select("*")
-        .or_(f"tie_id.eq.{tie_id},id.eq.{tie_id},name.eq.{tie_id}")
+        .eq("tie_id", tie_id)
         .limit(1)
         .execute()
     )
@@ -98,7 +101,7 @@ def decrement_tie_stock(tie_id: str, quantity: int) -> TieInventoryResponse:
     updated = (
         supabase.table("ties")
         .update(update_payload)
-        .or_(f"tie_id.eq.{tie_id},id.eq.{tie_id},name.eq.{tie_id}")
+        .eq("tie_id", tie_id)
         .execute()
     )
 
@@ -120,6 +123,23 @@ def decrement_stock_for_order(cart_snapshot: list[dict[str, Any]]) -> list[TieIn
         updated_rows.append(decrement_tie_stock(tie_id, item_quantity))
 
     return updated_rows
+
+def compute_order_total(cart_snapshot: list[dict[str, Any]]) -> float:
+    total = 0.0
+    for item in cart_snapshot:
+        tie_id = str(item.get("tie_id") or item.get("item_id") or "").strip()
+        item_quantity = int(item.get("quantity") or 0)
+        if not tie_id:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Order item is missing tie_id")
+
+        tie_row = get_tie_by_id(tie_id)
+        if not tie_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{tie_id}' was not found")
+
+        price = float(tie_row.get("price") or 0)
+        total += price * item_quantity
+
+    return total
 
 
 @router.get("/ties", response_model=list[TieInventoryResponse])

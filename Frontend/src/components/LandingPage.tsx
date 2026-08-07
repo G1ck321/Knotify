@@ -39,6 +39,11 @@ interface LandingPageProps {
   onToggleWishlist: (product: Product, e: React.MouseEvent) => void;
   onAddToCart: (product: Product, e: React.MouseEvent) => void;
   isInWishlist: (productId: string) => boolean;
+  inventorySummary?: {
+    totalQuantity: number;
+    availableTies: number;
+    paidUsers: number;
+  };
 }
 
 export default function LandingPage({
@@ -50,6 +55,7 @@ export default function LandingPage({
   onToggleWishlist,
   onAddToCart,
   isInWishlist,
+  inventorySummary,
 }: LandingPageProps) {
 
   // Custom container transition variants
@@ -205,11 +211,11 @@ export default function LandingPage({
                   <div className="flex items-baseline gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block mb-0.5" />
                     <span id="active-user-count" className="font-display font-black text-5xl sm:text-6xl md:text-7xl text-[#FFFEF2] tracking-tight leading-none">
-                      1,850+
+                      1,050+
                     </span>
                   </div>
                   <span className="text-xs sm:text-sm font-mono tracking-[0.3em] uppercase text-[#FFFEF2]/60 mt-1">
-                    Scholars active this semester
+                    Students serving capacity
                   </span>
                 </div>
               </div>
@@ -446,6 +452,18 @@ export default function LandingPage({
               <span>↗</span>
             </button>
           </div>
+          <div className="space-y-3 text-center">
+            <div className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.35em] text-brand-secondary">
+              Live stock synced from Supabase
+            </div>
+            <div className="amount text-[30px] font-display font-black text-4xl sm:text-5xl text-brand-primary tracking-tight leading-none">
+              Be the <span className="font-serif italic font-light text-brand-secondary">No. {inventorySummary?.paidUsers+1}</span> student
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] font-mono uppercase tracking-[0.22em] text-brand-secondary/90">
+              <span>{inventorySummary?.totalQuantity ?? 0}+ ties in stock</span>
+              <span>{inventorySummary?.paidUsers ?? 0}+ paid scholars</span>
+            </div>
+          </div>         
   
           <motion.div 
             variants={containerVariants}
@@ -544,7 +562,7 @@ export default function LandingPage({
                           )}
                         </div>
                         <span className="text-[9px] font-mono text-brand-secondary/65 mt-0.5">
-                          {product.stock} in stock
+                          {product.stock!==0 ? product.stock+ " in stock": "out of stock"}
                         </span>
                       </div>
                       <div className="text-[9px] font-mono text-brand-secondary/65 tracking-wider uppercase">
