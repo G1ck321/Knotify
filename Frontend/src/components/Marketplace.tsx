@@ -262,8 +262,8 @@ export default function Marketplace({
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.3 }}
                     key={product.id}
-                    className="bg-transparent border-0 rounded-none p-0 flex flex-col relative group cursor-pointer transition-all duration-300 text-left"
-                    onClick={() => onOpenProductDetail(product)}
+                    className={`bg-transparent border-0 rounded-none p-0 flex flex-col relative group transition-all duration-300 text-left ${isOutOfStock ? 'opacity-40 blur-[1px] cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
+                    onClick={() => !isOutOfStock && onOpenProductDetail(product)}
                     id={`product-${product.id}`}
                   >
                     {/* Thumbnail Container (Flat Ugmonk Style, Pure Sharp Corners) */}

@@ -92,9 +92,9 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
         body: JSON.stringify({
           email: email.trim(),
           review: reviewText.trim(),
-          review_text: reviewText.trim(),
-          text: reviewText.trim(),
-          rating,
+          // review_text: reviewText.trim(),
+          // text: reviewText.trim(),
+          rating: Number(rating),
         }),
       });
 
@@ -371,7 +371,7 @@ export default function CheckoutPage({
         item_id: item.product.id,
         name: item.product.name,
         quantity: item.quantity,
-        unit_price: item.product.price,
+        unit_price: item.product.originalPrice,
         image_url: item.product.image || undefined,
       }));
 
@@ -562,16 +562,16 @@ export default function CheckoutPage({
                                   {item.product.category}
                                 </span>
                                 <span className="text-[9px] font-sans bg-brand-secondary/10 border border-brand-secondary/20 px-2 py-0.5 text-brand-secondary uppercase font-semibold">
-                                  Deposit required: ₦{(item.product.deposit).toLocaleString()}
+                                  Price: ₦{(item.product.price ?? item.product.originalPrice ?? 0).toLocaleString()}
                                 </span>
                               </div>
                             </div>
                             <div className="sm:text-right flex sm:flex-col justify-between sm:justify-start items-center sm:items-end gap-1">
                               <span className="font-sans text-sm font-bold text-brand-primary">
-                                ₦{((item.product.price) * (item.quantity)).toLocaleString()}
+                                ₦{((item.product.price ?? item.product.originalPrice ?? 0) * (item.quantity)).toLocaleString()}
                               </span>
                               <span className="text-[10px] text-brand-primary/60 font-sans hidden sm:block">
-                                (₦{item.product.price.toLocaleString()} each)
+                                (₦{(item.product.price ?? item.product.originalPrice ?? 0).toLocaleString()} each)
                               </span>
                             </div>
                           </div>

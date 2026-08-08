@@ -675,11 +675,11 @@ export default function Dashboard({
                           <div className="flex items-center justify-between text-xs mb-3 font-mono">
                             <div>
                               <span className="text-[8px] text-neutral-400 block uppercase">Full Price</span>
-                              <span className="font-bold text-brand-primary">₦{prod.price.toLocaleString()}</span>
+                              <span className="font-bold text-brand-primary">₦{(prod.price ?? prod.originalPrice ?? 0).toLocaleString()}</span>
                             </div>
                             <div className="text-right">
-                              <span className="text-[8px] text-neutral-400 block uppercase">Deposit Required</span>
-                              <span className="font-bold text-[#B8860B]">₦{prod.deposit.toLocaleString()}</span>
+                              <span className="text-[8px] text-neutral-400 block uppercase">Price (Full Payment)</span>
+                              <span className="font-bold text-[#B8860B]">₦{(prod.deposit ?? prod.price ?? prod.originalPrice ?? 0).toLocaleString()}</span>
                             </div>
                           </div>
 

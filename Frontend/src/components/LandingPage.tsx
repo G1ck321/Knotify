@@ -478,14 +478,15 @@ export default function LandingPage({
               const price = product?.price ?? 0;
               const discountPercent = originalPrice > 0 ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
               const isWishlisted = isInWishlist(product.id);
+              const isOutOfStock = product.stock === 0;
   
               return (
                 <motion.div
                   key={product.id}
                   variants={itemVariants}
-                  whileHover={{ y: -4 }}
-                  className="bg-transparent flex flex-col justify-between cursor-pointer relative group transition-all duration-300"
-                  onClick={() => onOpenProductDetail(product)}
+                  whileHover={isOutOfStock ? {} : { y: -4 }}
+                  className={`bg-transparent flex flex-col justify-between relative group transition-all duration-300 ${isOutOfStock ? 'opacity-40 blur-[1px] cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
+                  onClick={() => !isOutOfStock && onOpenProductDetail(product)}
                   id={`featured-${product.id}`}
                 >
                   
@@ -495,7 +496,7 @@ export default function LandingPage({
                       <img
                         src={product.image}
                         alt={product.name}
-                        className="w-full h-full object-cover grayscale-[5%] group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-500"
+                        className={`w-full h-full object-cover grayscale-[5%] group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-500 ${isOutOfStock ? 'opacity-40 grayscale' : ''}`}
                         referrerPolicy="no-referrer"
                       />
                     ) : (
@@ -507,40 +508,48 @@ export default function LandingPage({
                       />
                     )}
                     
-                    {discountPercent > 0 && (
+                    {isOutOfStock ? (
+                      <span className="absolute top-3 left-3 bg-brand-primary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded-sm shadow-sm">
+                        OUT OF STOCK
+                      </span>
+                    ) : discountPercent > 0 ? (
                       <span className="absolute top-3 left-3 bg-[#F5F2EB] text-[#0A0A0A] font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 font-bold rounded-sm shadow-sm">
                         -{discountPercent}%
                       </span>
-                    )}
+                    ) : null}
   
                     {/* Wishlist Icon */}
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleWishlist(product, e);
-                      }}
-                      className="absolute top-3 right-3 p-1.5 bg-black/40 backdrop-blur-sm rounded-full text-brand-secondary hover:bg-white hover:text-black transition-all duration-300 opacity-0 group-hover:opacity-100"
-                      aria-label="Add to Wishlist"
-                    >
-                      <Heart 
-                        size={12} 
-                        strokeWidth={2.5}
-                        className={isWishlisted ? 'fill-brand-primary text-brand-primary' : 'text-brand-secondary'} 
-                      />
-                    </button>
-  
-                    {/* Quick Add To Bag Hover bar */}
-                    <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                    {!isOutOfStock && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          onAddToCart(product, e);
+                          onToggleWishlist(product, e);
                         }}
-                        className="w-full bg-[#F5F2EB] hover:bg-white text-black text-[9px] font-mono tracking-widest py-3 hover:text-black transition-colors uppercase font-bold"
+                        className="absolute top-3 right-3 p-1.5 bg-black/40 backdrop-blur-sm rounded-full text-brand-secondary hover:bg-white hover:text-black transition-all duration-300 opacity-0 group-hover:opacity-100"
+                        aria-label="Add to Wishlist"
                       >
-                        + QUICK RESERVE
+                        <Heart 
+                          size={12} 
+                          strokeWidth={2.5}
+                          className={isWishlisted ? 'fill-brand-primary text-brand-primary' : 'text-brand-secondary'} 
+                        />
                       </button>
-                    </div>
+                    )}
+  
+                    {/* Quick Add To Bag Hover bar */}
+                    {!isOutOfStock && (
+                      <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAddToCart(product, e);
+                          }}
+                          className="w-full bg-[#F5F2EB] hover:bg-white text-black text-[9px] font-mono tracking-widest py-3 hover:text-black transition-colors uppercase font-bold"
+                        >
+                          + QUICK RESERVE
+                        </button>
+                      </div>
+                    )}
                   </div>
   
                   {/* Text labels inside card */}

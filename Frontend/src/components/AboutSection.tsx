@@ -68,7 +68,7 @@ function LayerWhoWeAre() {
             {/* Big stat */}
             <div className="bg-[#FFFEF2]/[0.055] border border-[#FFFEF2]/[0.09] rounded-2xl p-8 sm:p-10 relative overflow-hidden">
               <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-brand-accent/20 rounded-full filter blur-3xl pointer-events-none" />
-              <StatBlock value="1,850+" label="Scholars active this semester" large />
+              <StatBlock value="1,850+" label="Student Serving Capacity" large />
             </div>
 
             {/* Two smaller chips */}
