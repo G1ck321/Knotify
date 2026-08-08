@@ -64,8 +64,8 @@ class Settings(BaseSettings):
             v = v[1:-1]
         return v.strip()
 
-    #Load variables from the project-local .env file
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    #Load variables from the project-local .env file or Backend subdirectory
+    model_config = SettingsConfigDict(env_file=(".env", "Backend/.env"), env_file_encoding="utf-8")
 
 #create one shared settings instance so every module reads he configuration
 settings = Settings()

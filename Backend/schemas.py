@@ -1,7 +1,7 @@
 import re
 
-from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from pydantic import BaseModel, Field, field_validator, EmailStr
+from typing import Annotated, Optional
 
 class FrontendPayRequest(BaseModel):
     """Validate checkout payload sent from frontend before processing"""
@@ -18,3 +18,9 @@ class FrontendPayRequest(BaseModel):
     amount:float = Field(..., gt=0)
     room_number:str
     parentsNumber: str = Field(..., min_length=7)
+
+class UserReviews(BaseModel):
+    email:EmailStr
+    review:str= Field(min_length=8, max_length=1200)
+    #Similar syntax
+    rating: Annotated[int, Field(le=5, ge=1)]

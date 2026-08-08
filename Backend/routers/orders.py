@@ -6,6 +6,7 @@ import httpx
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 
+from schemas import UserReviews
 from database import supabase
 from config import settings
 from routers.quantity import compute_order_total, get_tie_by_id
@@ -245,3 +246,24 @@ async def get_order_by_tx_ref(tx_ref: str):
         raise HTTPException(status_code=404, detail="Transaction reference not found.")
         
     return response.data
+
+# --------------
+# 3. POST /api/reviews  Get user reviews from client
+@router.post("/reviews")
+async def submit_reviews(
+    reviewRequest: UserReviews,
+    current_user: Optional[str] = Depends(get_optional_current_user)
+                         ):
+    user_id = current_user.get("id") if current_user else "d7ce4a68-b6a3-4e0b-8090-ec9bc96afcba"
+
+    user_review = reviewRequest
+    review_payload = {
+        "user_id" : user_id,
+        "email": user_review.email.strip(),
+        "review": user_review.review.strip(),
+        "rating": user_review.rating,
+    }
+
+    response = supabase.table("user_reviews").insert(review_payload).execute()
+
+    return response.data, response.count
