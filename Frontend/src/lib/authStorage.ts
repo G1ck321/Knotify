@@ -68,7 +68,8 @@ export function clearClientSessionState() {
 export async function authFetch(
   url: string,
   options: RequestInit = {}
-){
+): Promise<Response>
+{
   const token = getAccessToken();
 
   // Create a Headers object from any headers the caller already supplied.
@@ -88,9 +89,9 @@ export async function authFetch(
 
   if (response.status == 401) {
     clearAuthSession();
+    //Tell react the auth expired
+    window.dispatchEvent(new Event("auth-expired"))
   }
 
-  //Tell react the auth expired
-  window.dispatchEvent(new Event("auth-expired"))
   return response;
 }

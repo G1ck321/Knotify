@@ -14,9 +14,10 @@ import Dashboard from './components/Dashboard';
 import SellPage from './components/SellPage';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
-import { clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
+import { authFetch, clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
 import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
+import { body } from 'motion/react-client';
 
 function normalizeUser(user: any) {
   if (!user) return user;
@@ -111,9 +112,8 @@ export default function App() {
         color: 'Plain Black',
         quantity: 1,
         hall: 'Daniel Hall',
-        productNames: 'Plain Black Tie (x1)',
-        deposit: 1500,
-        outstanding: 2000,
+        productNames: 'Plain Black Tie (x1)', 
+        originalPrice: 2000,
         status: 'Ready for Pickup',
         pickupPoint: 'Pickup Point A (Near Joseph Hall)',
         dateAdded: 'Jul 15, 2026',
@@ -124,6 +124,18 @@ export default function App() {
   const [orderHistoryReservations, setOrderHistoryReservations] = useState<Reservation[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
+
+useEffect(() => {
+        const handleAuthExpired = () => {
+          setCurrentUser(null);
+        }
+        
+        window.addEventListener("auth-expired", handleAuthExpired);
+
+        return () => {
+          window.removeEventListener("auth-expired", handleAuthExpired);
+        }
+      },[]);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,15 +149,19 @@ export default function App() {
         return;
       }
 
+      
       try {
-        const response = await fetch(`${getBackendUrl()}/api/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await authFetch(`${getBackendUrl()}/api/me`, 
+        );
 
         if (!response.ok) {
           if (!cancelled) setOrderHistoryReservations([]);
+
+          console.error("API ERROR:", {
+            url: `${getBackendUrl()}/api/me`,
+            status: response.status,
+          body: response.text,
+          })
           return;
         }
 
@@ -169,8 +185,7 @@ export default function App() {
             quantity: cartSnapshot.reduce((total, item) => total + Number(item.quantity || 0), 0) || 1,
             hall: order.delivery_address || order.room_number || currentUser.residenceHall || 'N/A',
             productNames,
-            deposit: Number(order.amount || 0),
-            outstanding: 0,
+            originalPrice: Number(order.amount || 0),
             status: order.status === 'paid' ? 'Ready for Pickup' : order.status === 'collected' ? 'Collected' : 'Reserved',
             pickupPoint: order.delivery_address || `${order.room_number || currentUser.roomNumber || 'N/A'} Lobby`,
             dateAdded: new Date(order.created_at).toLocaleDateString('en-US', {
@@ -230,7 +245,7 @@ export default function App() {
             return {
               ...product,
               name: liveTie.tie_name || product.name,
-              price: Number(liveTie.price ?? product.price),
+              price: Number(liveTie.price ?? product.originalPrice),
               stock: Number(liveTie.quantity ?? product.stock),
             };
           })

@@ -15,7 +15,7 @@ export interface Reservation {
   quantity: number;
   hall: string;
   productNames: string;
-  outstanding: number;
+  originalPrice: number;
   status: 'Reserved' | 'Ready for Pickup' | 'Collected';
   pickupPoint: string;
   dateAdded: string;

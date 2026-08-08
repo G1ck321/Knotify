@@ -243,6 +243,10 @@ export default function CheckoutPage({
   const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [generatedId, setGeneratedId]  = useState(
+  () => localStorage.getItem("tx") || ""
+);
+  
 
   const DELIVERY_FEE = 200;
 
@@ -264,6 +268,8 @@ export default function CheckoutPage({
     const finalizePaidOrder = (confirmedTxRef: string) => {
       const pending = loadPendingCheckout(confirmedTxRef);
       setGeneratedTxRef(confirmedTxRef);
+      localStorage.setItem("tx", confirmedTxRef)
+      
 
       if (pending) {
         setBuyerName(pending.buyerName);
@@ -295,6 +301,7 @@ export default function CheckoutPage({
       }
 
       setCheckoutStep('success');
+      loadgeneratedId();
       onClearCart();
     };
 
@@ -328,8 +335,16 @@ export default function CheckoutPage({
 
   // Pricing calculations
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
-  const itemsTotal = cartItems.reduce((acc, item) => acc + (item?.product?.price ?? 0) * (item?.quantity ?? 0), 0);
+  const itemsTotal = cartItems.reduce((acc, item) => acc + (item?.product?.originalPrice ?? 0) * (item?.quantity ?? 0), 0);
   const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
+  const loadgeneratedId = () => {
+    
+    const tx = localStorage.getItem("tx");
+    if (tx) {
+      
+      setGeneratedId(tx);
+    }
+  }
 
   // Determine assigned pickup point based on residence hall
   const getAssignedPickupPoint = (hall: string) => {
@@ -562,16 +577,16 @@ export default function CheckoutPage({
                                   {item.product.category}
                                 </span>
                                 <span className="text-[9px] font-sans bg-brand-secondary/10 border border-brand-secondary/20 px-2 py-0.5 text-brand-secondary uppercase font-semibold">
-                                  Price: ₦{(item.product.price ?? item.product.originalPrice ?? 0).toLocaleString()}
+                                  Price: ₦{(item.product.originalPrice ?? item.product.originalPrice ?? 0).toLocaleString()}
                                 </span>
                               </div>
                             </div>
                             <div className="sm:text-right flex sm:flex-col justify-between sm:justify-start items-center sm:items-end gap-1">
                               <span className="font-sans text-sm font-bold text-brand-primary">
-                                ₦{((item.product.price ?? item.product.originalPrice ?? 0) * (item.quantity)).toLocaleString()}
+                                ₦{((item.product.originalPrice ?? item.product.originalPrice ?? 0) * (item.quantity)).toLocaleString()}
                               </span>
                               <span className="text-[10px] text-brand-primary/60 font-sans hidden sm:block">
-                                (₦{(item.product.price ?? item.product.originalPrice ?? 0).toLocaleString()} each)
+                                (₦{(item.product.originalPrice ?? item.product.originalPrice ?? 0).toLocaleString()} each)
                               </span>
                             </div>
                           </div>
@@ -831,7 +846,7 @@ export default function CheckoutPage({
 
                       <div className="bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary px-4 py-2 rounded-xl text-center">
                         <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">DEPOSIT RECEIVED</span>
-                        <span className="font-sans text-base font-extrabold">₦{outstandingBalance.toLocaleString()}</span>
+                        <span className="font-sans text-base font-extrabold">₦{itemsTotal.toLocaleString()}</span>
                       </div>
                     </div>
 
@@ -851,7 +866,7 @@ export default function CheckoutPage({
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
                         <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">OUTSTANDING (AT PICKUP)</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">₦{outstandingBalance.toLocaleString()}</p>
+                        <p className="text-brand-primary font-bold text-xs mt-1">₦{totalAmountPayable.toLocaleString()}</p>
                       </div>
 
                       <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
