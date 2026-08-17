@@ -571,6 +571,7 @@ useEffect(() => {
               transition={{ duration: 0.3 }}
             >
               <CheckoutPage
+                products={products}
                 cartItems={cartItems}
                 onUpdateQuantity={handleUpdateCartQuantity}
                 onRemoveItem={handleRemoveCartItem}

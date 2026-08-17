@@ -124,15 +124,15 @@ export default function Marketplace({
         const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
         const matchesCondition = selectedCondition === 'All' || product.condition === selectedCondition;
         const matchesColor = selectedColor === 'All' || product.color === selectedColor;
-        const matchesPrice = product.price <= maxPrice;
+        const matchesPrice = (product.price ?? product.originalPrice) <= maxPrice;
         const matchesRating = product.rating >= minRating;
         const matchesStock = !onlyInStock || product.stock > 0;
 
         return matchesSearch && matchesCategory && matchesCondition && matchesColor && matchesPrice && matchesRating && matchesStock;
       })
       .sort((a, b) => {
-        if (sortBy === 'price-low') return a.price - b.price;
-        if (sortBy === 'price-high') return b.price - a.price;
+        if (sortBy === 'price-low') return (a.price ?? a.originalPrice) - (b.price ?? b.originalPrice);
+        if (sortBy === 'price-high') return (b.price ?? b.originalPrice) - (a.price ?? a.originalPrice);
         if (sortBy === 'rating') return b.rating - a.rating;
         if (sortBy === 'popular') return b.reviewsCount - a.reviewsCount;
         return b.isFeatured ? 1 : -1; // Featured default
@@ -250,7 +250,7 @@ export default function Marketplace({
             /* CRISTINE GRID OF ITEMS */
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-14" id="products-grid-list">
               {filteredProducts.map((product) => {
-                const discountPercent = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+                const discountPercent = Math.round(((product.originalPrice - (product.price ?? product.originalPrice)) / product.originalPrice) * 100);
                 const isWishlisted = isInWishlist(product.id);
                 const isOutOfStock = product.stock === 0;
 

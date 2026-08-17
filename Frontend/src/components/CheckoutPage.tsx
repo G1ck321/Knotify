@@ -22,7 +22,7 @@ import {
   Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CartItem, COVENANT_HALLS } from '../types';
+import { CartItem, Product, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
 import { getAccessToken } from '../lib/authStorage';
 import {
@@ -213,6 +213,11 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
 }
 
 interface CheckoutPageProps {
+  /**
+   * Live product catalog (App.tsx merges the backend's `/quantity/ties` price,
+   * including discount logic, into each product on every app load).
+   */
+  products: Product[];
   cartItems: CartItem[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
@@ -224,6 +229,7 @@ interface CheckoutPageProps {
 }
 
 export default function CheckoutPage({
+  products,
   cartItems,
   onUpdateQuantity,
   onRemoveItem,
@@ -248,7 +254,7 @@ export default function CheckoutPage({
 );
   
 
-  const DELIVERY_FEE = 200;
+  const DELIVERY_FEE = 250;
 
   // Pre-fill user details if logged in
   useEffect(() => {
@@ -335,7 +341,35 @@ export default function CheckoutPage({
 
   // Pricing calculations
   const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
-  const itemsTotal = cartItems.reduce((acc, item) => acc + (item?.product?.originalPrice ?? 0) * (item?.quantity ?? 0), 0);
+  // ─────────────────────────────────────────────────────────────────────────────
+  // LIVE PRICE RESOLUTION
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Why `originalPrice` is WRONG here (the bug this fixes):
+  //   `product.originalPrice` is the STATIC price hard-coded in types.ts
+  //   (INITIAL_PRODUCTS). It never changes at runtime, so it ignores the
+  //   early-bird discounts the backend applies (Backend/routers/quantity.py
+  //   -> disount_logic()) and shows/charges the full price on checkout while
+  //   the landing page shows the discounted price.
+  //
+  // Why `product.price` is RIGHT:
+  //   On app load, App.tsx fetches `GET /quantity/ties` and merges the backend
+  //   `price` (already discounted) into every product as `product.price`. The
+  //   landing page, marketplace and product modal all read `product.price`,
+  //   which is why they were already correct.
+  //
+  // Resolution order (freshest source first):
+  //   1. `products` prop — re-fetched by App.tsx on every load, so it carries
+  //      the backend's CURRENT price even if the cart snapshot is stale (e.g.
+  //      the 5-paid-user discount threshold was crossed mid-session).
+  //   2. `item.product.price` — the live price baked into the cart snapshot
+  //      when the item was added (fallback if the tie left the catalog).
+  //   3. `item.product.originalPrice` — the static types.ts value (last resort).
+  const getLiveUnitPrice = (item: CartItem): number => {
+    const freshProduct = products.find((product) => product.id === item.product.id);
+    return Number(freshProduct?.price ?? item.product.price ?? item.product.originalPrice ?? 0);
+  };
+
+  const itemsTotal = cartItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
   const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
   const loadgeneratedId = () => {
     
@@ -386,7 +420,7 @@ export default function CheckoutPage({
         item_id: item.product.id,
         name: item.product.name,
         quantity: item.quantity,
-        unit_price: item.product.originalPrice,
+        unit_price: getLiveUnitPrice(item),
         image_url: item.product.image || undefined,
       }));
 
@@ -577,16 +611,16 @@ export default function CheckoutPage({
                                   {item.product.category}
                                 </span>
                                 <span className="text-[9px] font-sans bg-brand-secondary/10 border border-brand-secondary/20 px-2 py-0.5 text-brand-secondary uppercase font-semibold">
-                                  Price: ₦{(item.product.originalPrice ?? item.product.originalPrice ?? 0).toLocaleString()}
+                                  Price: ₦{getLiveUnitPrice(item).toLocaleString()}
                                 </span>
                               </div>
                             </div>
                             <div className="sm:text-right flex sm:flex-col justify-between sm:justify-start items-center sm:items-end gap-1">
                               <span className="font-sans text-sm font-bold text-brand-primary">
-                                ₦{((item.product.originalPrice ?? item.product.originalPrice ?? 0) * (item.quantity)).toLocaleString()}
+                                ₦{(getLiveUnitPrice(item) * (item.quantity)).toLocaleString()}
                               </span>
                               <span className="text-[10px] text-brand-primary/60 font-sans hidden sm:block">
-                                (₦{(item.product.originalPrice ?? item.product.originalPrice ?? 0).toLocaleString()} each)
+                                (₦{getLiveUnitPrice(item).toLocaleString()} each)
                               </span>
                             </div>
                           </div>

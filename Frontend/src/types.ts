@@ -27,7 +27,28 @@ export interface Product {
   seller: string;
   sellerRating: number;
   sellerHall: string
+  /**
+   * STATIC list price hard-coded in INITIAL_PRODUCTS below.
+   * It NEVER changes at runtime — treat it as the "full / strikethrough" price.
+   * It is NOT what the customer should be charged.
+   */
   originalPrice: number;
+  /**
+   * LIVE price fetched from the backend (`GET /quantity/ties`) and merged into
+   * the product by App.tsx (`loadInventory`). The backend applies the discount
+   * logic there (Backend/routers/quantity.py -> disount_logic()), so this is
+   * the price the customer should SEE and PAY.
+   *
+   * It is OPTIONAL because:
+   *   1. INITIAL_PRODUCTS entries have no live price until the fetch completes.
+   *   2. Products persisted in localStorage (cart/marketplace cache) may
+   *      predate this field.
+   *
+   * ALWAYS read it with a fallback: `product.price ?? product.originalPrice`.
+   * When adding a discount/price change, update the BACKEND logic — never
+   * hard-code a discounted value here, or the same stale-price bug returns.
+   */
+  price?: number;
   condition: 'Brand New' | 'Like New' | 'Gently Used' | 'Used';
   category: 'Official Tie' | 'Premium' | 'Department' | 'Bow Tie' | 'Corporate' | 'Vintage';
   color: 'Navy' | 'Crimson' | 'Gold' | 'Forest Green' | 'Black' | 'Wine' | 'Stripes';
@@ -65,7 +86,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 5500,
+    originalPrice: 3500,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Stripes',
@@ -85,7 +106,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 6000,
+    originalPrice: 4000,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Stripes',
@@ -105,7 +126,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 5000,
+    originalPrice: 2200,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Wine',
@@ -125,7 +146,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 5500,
+    originalPrice: 3500,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Wine',
@@ -145,7 +166,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 5000,
+    originalPrice: 2100,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Black',
@@ -154,7 +175,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     materials: 'Smooth woven matte polyester.',
     pickupProcess: 'Reserve with a N1,500 deposit. Collect from your hall lobby.',
     image: '/ties/new ties/Plain Black Tie.png',
-    rating: 4.9,
+    rating: 5.0,
     reviewsCount: 31,
     isFeatured: true,
     reviews: []
@@ -166,7 +187,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 6000,
+    originalPrice: 4000,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Navy',
@@ -189,11 +210,11 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 6500,
+    originalPrice: 4500,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Navy',
-    stock: 25,
+    stock: 0,
     description: 'A sleek navy tie featuring a distinctive logo motif — a hallmark of sartorial precision. Approved for chapel, executive functions and departmental presentations.',
     materials: 'Premium satin-backed polyester, logo-embossed jacquard pattern, structured knot lining.',
     pickupProcess: 'Reserve with a N1,500 deposit. Collect from our designated pickup point at your hall lobby upon resumption and pay the outstanding balance.',
@@ -211,7 +232,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Admin Office',
-    originalPrice: 5000,
+    originalPrice: 3000,
     condition: 'Brand New',
     category: 'Corporate',
     color: 'Navy',

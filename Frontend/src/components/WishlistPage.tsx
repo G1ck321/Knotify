@@ -24,7 +24,7 @@ export default function WishlistPage({
     .map((id) => products.find((p) => p.id === id))
     .filter((p): p is Product => p !== undefined);
 
-  const totalPrice = savedProducts.reduce((acc, p) => acc + p.price, 0);
+  const totalPrice = savedProducts.reduce((acc, p) => acc + (p.price ?? p.originalPrice), 0);
 
   return (
     <div className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto" id="wishlist-page-container">
@@ -134,8 +134,8 @@ export default function WishlistPage({
                   {/* Pricing and Action */}
                   <div className="mt-6 pt-4 border-t border-brand-border/30 flex items-center justify-between gap-4">
                     <div className="font-sans text-sm font-semibold text-brand-primary">
-                      <span>₦{prod.price.toLocaleString()}</span>
-                      {prod.originalPrice > prod.price && (
+                      <span>₦{(prod.price ?? prod.originalPrice).toLocaleString()}</span>
+                      {prod.originalPrice > (prod.price ?? prod.originalPrice) && (
                         <span className="font-mono text-[9px] text-brand-primary/40 line-through ml-1.5">
                           ₦{prod.originalPrice.toLocaleString()}
                         </span>
