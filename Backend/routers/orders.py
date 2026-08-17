@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from schemas import UserReviews
 from database import supabase
 from config import settings
-from routers.quantity import compute_order_total, get_tie_by_id
+from routers.quantity import compute_order_total, disount_logic, get_tie_by_id
 
 from typing import Optional, List, Any
 from dependencies import get_optional_current_user, get_current_user
@@ -34,7 +34,13 @@ async def initialize_payment(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{item.tie_id}' was not found")
 
             available_quantity = int(tie_row.get("quantity") or 0)
-            server_price = float(tie_row.get("price") or item.unit_price or 0)
+            # Charge the SAME price the frontend displays: reuse the discount
+            # logic from /quantity/ties (early-bird price for the promo ties),
+            # so the amount charged always equals the price shown at checkout.
+            # The client-sent unit_price is only a last resort if the DB row
+            # has no price at all — never the primary source of truth.
+            tie_name = tie_row.get("tie_name") or tie_row.get("name") or item.name or ""
+            server_price = disount_logic(tie_row, tie_name) or float(item.unit_price or 0)
             if available_quantity < item.quantity:
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -53,8 +59,8 @@ async def initialize_payment(
                 }
             )
 
-        # Add delivery fee of 200 on the server so the frontend cannot alter it.
-        calculated_total = server_items_total + 200
+        # Add delivery fee of 250 on the server so the frontend cannot alter it.
+        calculated_total = server_items_total + 250
         tx_ref = generate_tx_ref("order")
 
         # Determine valid user_id UUID from authenticated session or lookup/auto-create guest user in Supabase
@@ -151,7 +157,7 @@ async def initialize_payment(
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{
                 "title":"KnotifyCu",
-                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 200"
+                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 250"
             }
         }
 

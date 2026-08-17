@@ -31,15 +31,44 @@ def _extract_tie_identity(row: dict[str, Any]) -> tuple[str, str]:
     tie_name = str(row.get("tie_name") or row.get("name") or tie_id).strip()
     return tie_id, tie_name
 
-def disount_logic(row:  dict[str, Any],tie_name: str):
+# Launch-window promotion: these ties sell at discount_price while no more
+# than DISCOUNT_USER_THRESHOLD unique users have paid.
+DISCOUNTED_TIE_NAMES = ("Plain Black Tie", "Plain Wine Tie")
+DISCOUNT_USER_THRESHOLD = 5
+
+
+def _paid_user_metrics() -> tuple[int, int]:
+    """Query paid orders once and return (paid_orders, unique_paid_users)."""
     response = supabase.table("orders").select("user_id", count="exact").eq("status", "paid").execute()
     rows = response.data or []
     unique_users = {str(row.get("user_id")) for row in rows if row.get("user_id")}
-    print(len(unique_users))
-    if len(unique_users) <=5 and tie_name == "Plain Black Tie" or tie_name=="Plain Wine Tie":
-        return float(row.get("discount_price") or row.get("unit_price") or 0)
-    else:
-        return float(row.get("price") or row.get("unit_price") or 0) 
+    return int(response.count or len(rows) or 0), len(unique_users)
+
+
+def disount_logic(row: dict[str, Any], tie_name: str) -> float:
+    """
+    Decide the price a customer should SEE and PAY for a tie.
+
+    This is the single source of truth for pricing: the inventory endpoints
+    (/quantity/ties) AND the payment pipeline (/api/pay, compute_order_total)
+    all call it, so the price shown on the frontend checkout always equals the
+    amount actually charged.
+
+    Early-bird rule: while DISCOUNT_USER_THRESHOLD or fewer unique users have
+    paid, the ties in DISCOUNTED_TIE_NAMES sell at discount_price; every other
+    tie (and these ties after the window) sells at the regular price.
+
+    NOTE: each call queries Supabase for the paid-user count so the rule stays
+    live. If a caller needs many prices in one request, hoist
+    _paid_user_metrics() and pass the count in instead.
+    """
+    _, unique_users = _paid_user_metrics()
+
+    if tie_name in DISCOUNTED_TIE_NAMES and unique_users <= DISCOUNT_USER_THRESHOLD:
+        # Prefer the discounted column; fall back to the regular price so a
+        # missing/zero discount_price never turns into a free tie.
+        return float(row.get("discount_price") or row.get("price") or 0)
+    return float(row.get("price") or row.get("unit_price") or 0)
 
 
 #change logic for checkout to add recieve_discount true/false to db. 
@@ -47,8 +76,9 @@ def disount_logic(row:  dict[str, Any],tie_name: str):
 #column may also be removed, to reduce cb write
 def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     tie_id, tie_name = _extract_tie_identity(row)
-    price =   disount_logic(row, tie_name)
-    # price = float(row.get("price") or row.get("unit_price") or 0) if tie_name == "Plain Black Tie" or tie_name=="Plain Wine Tie" else float(row.get("discount") or row.get("unit_price") or 0) 
+    # The backend decides the price here (launch discount applied to the two
+    # promo ties), and the frontend displays/charges exactly this value.
+    price = disount_logic(row, tie_name)
     quantity = int(row.get("quantity") or 0)
     is_active = bool(row.get("is_active", True))
 
@@ -84,13 +114,10 @@ def get_all_ties() -> list[TieInventoryResponse]:
 
 
 def get_paid_user_totals() -> PaidUsersResponse:
-    response = supabase.table("orders").select("user_id", count="exact").eq("status", "paid").execute()
-    rows = response.data or []
-    unique_users = {str(row.get("user_id")) for row in rows if row.get("user_id")}
-
+    paid_orders, unique_users = _paid_user_metrics()
     return PaidUsersResponse(
-        paid_orders=int(response.count or len(rows) or 0),
-        unique_paid_users=len(unique_users),
+        paid_orders=paid_orders,
+        unique_paid_users=unique_users,
     )
 
 
@@ -150,7 +177,10 @@ def compute_order_total(cart_snapshot: list[dict[str, Any]]) -> float:
         if not tie_row:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{tie_id}' was not found")
 
-        price = float(tie_row.get("price") or 0)
+        # Same pricing the frontend displays and /api/pay charges: the launch
+        # discount for the promo ties is applied here too.
+        _, tie_name = _extract_tie_identity(tie_row)
+        price = disount_logic(tie_row, tie_name)
         total += price * item_quantity
 
     return total
