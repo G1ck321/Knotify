@@ -31,10 +31,24 @@ def _extract_tie_identity(row: dict[str, Any]) -> tuple[str, str]:
     tie_name = str(row.get("tie_name") or row.get("name") or tie_id).strip()
     return tie_id, tie_name
 
+def disount_logic(row:  dict[str, Any],tie_name: str):
+    response = supabase.table("orders").select("user_id", count="exact").eq("status", "paid").execute()
+    rows = response.data or []
+    unique_users = {str(row.get("user_id")) for row in rows if row.get("user_id")}
+    print(len(unique_users))
+    if len(unique_users) <=5 and tie_name == "Plain Black Tie" or tie_name=="Plain Wine Tie":
+        return float(row.get("discount_price") or row.get("unit_price") or 0)
+    else:
+        return float(row.get("price") or row.get("unit_price") or 0) 
 
+
+#change logic for checkout to add recieve_discount true/false to db. 
+# This discout logic will be removed once first 5 have obtained discount, 
+#column may also be removed, to reduce cb write
 def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     tie_id, tie_name = _extract_tie_identity(row)
-    price = float(row.get("price") or row.get("unit_price") or 0)
+    price =   disount_logic(row, tie_name)
+    # price = float(row.get("price") or row.get("unit_price") or 0) if tie_name == "Plain Black Tie" or tie_name=="Plain Wine Tie" else float(row.get("discount") or row.get("unit_price") or 0) 
     quantity = int(row.get("quantity") or 0)
     is_active = bool(row.get("is_active", True))
 
