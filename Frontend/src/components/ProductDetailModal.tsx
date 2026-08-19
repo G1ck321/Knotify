@@ -100,6 +100,12 @@ export default function ProductDetailModal({
                 <CheckCircle size={10} className="text-brand-secondary" />
                 CHAPEL COMPLIANT
               </div>
+              {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+
+                <div className="absolute top-4 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
+                  HOT
+              </div>
+                : ""}
             </div>
 
             {/* TAB SELECTORS: Pickup Info vs FAQs */}

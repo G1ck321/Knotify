@@ -535,7 +535,12 @@ export default function LandingPage({
                         />
                       </button>
                     )}
-  
+            {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+
+                <div className="absolute text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5  rounded shadow border border-brand-border flex items-center gap-1 ">
+                  HOT
+              </div>
+                : ""}
                     {/* Quick Add To Bag Hover bar */}
                     {!isOutOfStock && (
                       <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
