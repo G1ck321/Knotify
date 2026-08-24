@@ -211,7 +211,7 @@ export default function LandingPage({
                   <div className="flex items-baseline gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block mb-0.5" />
                     <span id="active-user-count" className="font-display font-black text-5xl sm:text-6xl md:text-7xl text-[#FFFEF2] tracking-tight leading-none">
-                      1,050+
+                      1,850+
                     </span>
                   </div>
                   <span className="text-xs sm:text-sm font-mono tracking-[0.3em] uppercase text-[#FFFEF2]/60 mt-1">
