@@ -63,7 +63,7 @@ Stay updated on your orders and new listings:
 | Styling | Tailwind CSS |
 | Animations | Framer Motion |
 | Payments | Flutterwave |
-| Backend | Node.js / Express |
+| Backend | FastAPI & Supabase |
 
 ---
 
