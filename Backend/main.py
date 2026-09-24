@@ -8,7 +8,7 @@ import uvicorn
 from routers import auth, orders, quantity, webhooks
 # , webhooks
 
-app = FastAPI(title="Knotify COvenant University", version="2026.1.0")
+app = FastAPI(title="Knotify Covenant University", version="2026.1.0")
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
@@ -26,7 +26,9 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3001",
+        "https://knotifycu.vercel.app",
+                   "https://knotify.knotifycu.workers.dev/"],
 )
 
 app.include_router(auth.router)
