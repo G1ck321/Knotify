@@ -461,7 +461,7 @@ export default function LandingPage({
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] font-mono uppercase tracking-[0.22em] text-brand-secondary/90">
               <span>{inventorySummary?.totalQuantity ?? 0}+ ties in stock</span>
-              <span>{inventorySummary?.paidUsers ?? 0}+ paid scholars</span>
+              <span>{inventorySummary?.paidUsers ?? 0}+ paid student</span>
             </div>
           </div>         
   

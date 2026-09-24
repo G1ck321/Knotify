@@ -28,6 +28,10 @@ function SkeletonCard() {
   );
 }
 
+function hasStock(stock: Product['stock']) {
+  return Number(stock) !== 0;
+}
+
 interface MarketplaceProps {
   products: Product[];
   onOpenProductDetail: (product: Product) => void;
@@ -126,16 +130,22 @@ export default function Marketplace({
         const matchesColor = selectedColor === 'All' || product.color === selectedColor;
         const matchesPrice = (product.price ?? product.originalPrice) <= maxPrice;
         const matchesRating = product.rating >= minRating;
-        const matchesStock = !onlyInStock || product.stock > 0;
+        const matchesStock = !onlyInStock || hasStock(product.stock);
 
         return matchesSearch && matchesCategory && matchesCondition && matchesColor && matchesPrice && matchesRating && matchesStock;
       })
       .sort((a, b) => {
+        const aHasStock = hasStock(a.stock);
+        const bHasStock = hasStock(b.stock);
+
+        // Keep purchasable ties ahead of sold-out ties for every sort mode.
+        if (aHasStock !== bHasStock) return bHasStock ? 1 : -1;
+
         if (sortBy === 'price-low') return (a.price ?? a.originalPrice) - (b.price ?? b.originalPrice);
         if (sortBy === 'price-high') return (b.price ?? b.originalPrice) - (a.price ?? a.originalPrice);
         if (sortBy === 'rating') return b.rating - a.rating;
         if (sortBy === 'popular') return b.reviewsCount - a.reviewsCount;
-        return b.isFeatured ? 1 : -1; // Featured default
+        return Number(b.isFeatured) - Number(a.isFeatured); // Featured default
       });
   }, [products, searchQuery, selectedCategory, selectedCondition, selectedColor, maxPrice, minRating, onlyInStock, sortBy]);
 

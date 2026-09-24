@@ -31,10 +31,10 @@ def _extract_tie_identity(row: dict[str, Any]) -> tuple[str, str]:
     tie_name = str(row.get("tie_name") or row.get("name") or tie_id).strip()
     return tie_id, tie_name
 
-# Launch-window promotion: these ties sell at discount_price while no more
-# than DISCOUNT_USER_THRESHOLD unique users have paid.
+# Launch-window promotion: these ties sell at discount_price for the first
+# DISCOUNT_USER_THRESHOLD unique users who complete a paid order.
 DISCOUNTED_TIE_NAMES = ("Plain Black Tie", "Plain Wine Tie")
-DISCOUNT_USER_THRESHOLD = 5
+DISCOUNT_USER_THRESHOLD = 3
 
 
 def _paid_user_metrics() -> tuple[int, int]:
@@ -54,20 +54,20 @@ def disount_logic(row: dict[str, Any], tie_name: str) -> float:
     all call it, so the price shown on the frontend checkout always equals the
     amount actually charged.
 
-    Early-bird rule: while DISCOUNT_USER_THRESHOLD or fewer unique users have
-    paid, the ties in DISCOUNTED_TIE_NAMES sell at discount_price; every other
-    tie (and these ties after the window) sells at the regular price.
+    Discounts are currently disabled. The promotion code is kept below for
+    future use, while all ties use their regular price.
 
     NOTE: each call queries Supabase for the paid-user count so the rule stays
     live. If a caller needs many prices in one request, hoist
     _paid_user_metrics() and pass the count in instead.
     """
-    _, unique_users = _paid_user_metrics()
+    # _, unique_users = _paid_user_metrics()
+    #
+    # if tie_name in DISCOUNTED_TIE_NAMES and unique_users < DISCOUNT_USER_THRESHOLD:
+    #     # Prefer the discounted column; fall back to the regular price so a
+    #     # missing/zero discount_price never turns into a free tie.
+    #     return float(row.get("discount_price") or row.get("price") or 0)
 
-    if tie_name in DISCOUNTED_TIE_NAMES and unique_users <= DISCOUNT_USER_THRESHOLD:
-        # Prefer the discounted column; fall back to the regular price so a
-        # missing/zero discount_price never turns into a free tie.
-        return float(row.get("discount_price") or row.get("price") or 0)
     return float(row.get("price") or row.get("unit_price") or 0)
 
 
