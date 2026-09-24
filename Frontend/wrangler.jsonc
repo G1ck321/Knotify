@@ -7,4 +7,11 @@
 "vars": {
     "VITE_API_BASE_URL": "https://knotify-p9i2.onrender.com/"
   },
+ "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true
+    }
+  },
 }
