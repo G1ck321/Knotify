@@ -3,7 +3,7 @@
   "compatibility_date": "2026-09-21",
   "assets": {
     "directory": "./dist"
-  }
+  },
 "vars": {
     "VITE_API_BASE_URL": "https://knotify-p9i2.onrender.com/"
   },
