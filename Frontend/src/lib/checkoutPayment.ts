@@ -53,7 +53,7 @@ export async function fetchOrderStatus(txRef: string) {
     return null;
   }
 
-  return response.json() as Promise<{
+  const order = await response.json() as {
     tx_ref: string;
     status: string;
     amountpaid?: number;
@@ -65,7 +65,12 @@ export async function fetchOrderStatus(txRef: string) {
     room_number?: string;
     delivery_address?: string;
     paid_at?: string;
-  }>;
+  };
+
+  return {
+    ...order,
+    status: order.status?.toLowerCase() || '',
+  };
 }
 
 export function parsePaymentReturnParams() {
