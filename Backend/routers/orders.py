@@ -122,7 +122,8 @@ async def initialize_payment(
         if not fw_key:
             print("WARNING: FW_SECRET_KEY is empty in backend .env file.")
             # Return demo payment checkout redirect to prevent crash during key setup
-            demo_url = f"https://knotifycu.vercel.app/?status=successful&tx_ref={tx_ref}"
+            demo_url = f"
+                   "https://knotify.knotifycu.workers.dev/?status=successful&tx_ref={tx_ref}"
             return {
                 "checkout_url": demo_url,
                 "tx_ref": tx_ref,
@@ -140,7 +141,8 @@ async def initialize_payment(
         flutter_payload = {
             "tx_ref":tx_ref,
             "amount": calculated_total,
-            "redirect_url":"https://knotifycu.vercel.app/",
+            "redirect_url":"
+                   "https://knotify.knotifycu.workers.dev/",
             "currency": "NGN",
             "customer":{
                 "name": payload.name,
