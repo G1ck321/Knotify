@@ -5,6 +5,7 @@ import re
 from urllib import response
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, HTTPException, status, Header, Request, BackgroundTasks
+import hmac
 from database import supabase
 from config import settings
 from datetime import timezone, datetime
@@ -58,7 +59,10 @@ async def flutterwave_webhook(
 
     # Verify the shared secret header before trusting the payload
     # Psst, this occurs after payment
-    if not verif_hash or verif_hash != settings.FLW_SECRET_HASH:
+    expected_hash = settings.FLW_SECRET_HASH.strip()
+    received_hash = (verif_hash or "").strip()
+    if not expected_hash or not received_hash or not hmac.compare_digest(received_hash, expected_hash):
+        print("Flutterwave webhook rejected: invalid or missing verif-hash")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Signature validation handshake mismatch"
