@@ -313,10 +313,18 @@ export default function CheckoutPage({
 
     const handlePaymentReturn = async () => {
       if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
-        const order = await fetchOrderStatus(txRef);
-        if (order && (order.status === 'paid' || order.status === 'pending')) {
-          finalizePaidOrder(txRef);
-          return;
+        // Flutterwave can redirect before its webhook finishes updating Supabase.
+        // Poll briefly so a successful payment is not shown as a failed checkout.
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          const order = await fetchOrderStatus(txRef);
+          if (order?.status === 'paid') {
+            finalizePaidOrder(txRef);
+            return;
+          }
+
+          if (attempt < 5) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
         }
 
         setSubmitError('We could not confirm your payment yet. Please contact support with your tx_ref.');
