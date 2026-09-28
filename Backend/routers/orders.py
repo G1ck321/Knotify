@@ -55,7 +55,8 @@ async def initialize_payment(
                     "tie_name": tie_row.get("tie_name") or tie_row.get("name") or item.name,
                     "quantity": item.quantity,
                     "unit_price": server_price,
-                    "image_url": item.image_url,
+                    # Use the inventory image, not a client-supplied URL.
+                    "image_url": tie_row.get("image_url") or tie_row.get("image") or item.image_url,
                 }
             )
 

@@ -32,6 +32,7 @@ function normalizeUser(user: any) {
 type InventoryRow = {
   tie_id: string;
   tie_name: string;
+  image_url?: string | null;
   price: number;
   quantity: number;
   is_active: boolean;
@@ -245,6 +246,7 @@ useEffect(() => {
             return {
               ...product,
               name: liveTie.tie_name || product.name,
+              image: liveTie.image_url || product.image,
               price: Number(liveTie.price ?? product.originalPrice),
               stock: Number(liveTie.quantity ?? product.stock),
             };
@@ -370,6 +372,7 @@ useEffect(() => {
     });
     addToast(`"${product.name}" added to bag`, 'cart');
     setCurrentTab('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const executeDirectBuyNow = (product: Product) => {

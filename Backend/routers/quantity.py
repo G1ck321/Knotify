@@ -14,6 +14,7 @@ router = APIRouter(prefix="/quantity", tags=["Inventory and paid user metrics"])
 class TieInventoryResponse(BaseModel):
     tie_id: str
     tie_name: str
+    image_url: Optional[str] = None
     price: float = Field(ge=0)
     quantity: int = Field(ge=0)
     is_active: bool = True
@@ -85,6 +86,7 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     return TieInventoryResponse(
         tie_id=tie_id,
         tie_name=tie_name,
+        image_url=str(row.get("image_url") or row.get("image") or "").strip() or None,
         price=price,
         quantity=quantity,
         is_active=is_active,
