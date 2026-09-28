@@ -247,12 +247,19 @@ async def get_order_by_tx_ref(tx_ref: str):
     """
     Called by CheckoutPage.tsx to confirm if an order status is 'completed' or 'successful'.
     """
-    response = supabase.table("orders").select("*").eq("tx_ref", tx_ref).single().execute()
-    
+    normalized_tx_ref = tx_ref.strip()
+    response = (
+        supabase.table("orders")
+        .select("*")
+        .eq("tx_ref", normalized_tx_ref)
+        .limit(1)
+        .execute()
+    )
+
     if not response.data:
         raise HTTPException(status_code=404, detail="Transaction reference not found.")
-        
-    return response.data
+
+    return response.data[0]
 
 # --------------
 # 3. POST /api/reviews  Get user reviews from client
