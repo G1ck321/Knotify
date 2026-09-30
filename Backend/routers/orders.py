@@ -114,7 +114,7 @@ async def initialize_payment(
         #Insert order into database before payment gateway
         print("Attempting to insert into Supabase..")
         order_insert = supabase.table("orders").insert(db_payload).execute()
-        print("Inserted Boyy!")
+        print(f"Order inserted: tx_ref={tx_ref}, rows={len(order_insert.data or [])}")
 
         fw_key = settings.FW_SECRET_KEY.strip() if settings.FW_SECRET_KEY else ""
 
@@ -255,6 +255,8 @@ async def get_order_by_tx_ref(tx_ref: str):
         .limit(1)
         .execute()
     )
+
+    print(f"Order status lookup: tx_ref={normalized_tx_ref}, rows={len(response.data or [])}")
 
     if not response.data:
         raise HTTPException(status_code=404, detail="Transaction reference not found.")
