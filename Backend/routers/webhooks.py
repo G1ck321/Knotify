@@ -61,6 +61,10 @@ async def flutterwave_webhook(
     # Psst, this occurs after payment
     expected_hash = settings.FLW_SECRET_HASH.strip()
     received_hash = (verif_hash or "").strip()
+    print(
+        "Flutterwave webhook received: "
+        f"hash_present={bool(received_hash)}, expected_hash_configured={bool(expected_hash)}"
+    )
     if not expected_hash or not received_hash or not hmac.compare_digest(received_hash, expected_hash):
         print("Flutterwave webhook rejected: invalid or missing verif-hash")
         raise HTTPException(
@@ -73,11 +77,24 @@ async def flutterwave_webhook(
 
     if payload.get("status") == "successful" or payload.get("data", {}).get("status")=="successful":
 
-        data_block = payload.get("data",payload)
-        tx_ref = data_block.get("tx_ref")
+        data_block = payload.get("data") or payload
+        tx_ref = str(data_block.get("tx_ref") or payload.get("tx_ref") or "").strip()
+        print(f"Flutterwave webhook transaction: tx_ref={tx_ref or '<missing>'}")
+
+        if not tx_ref:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Flutterwave webhook did not include tx_ref",
+            )
 
         # Ignore duplicate webhook orders for the same orders
-        existing_order =  supabase.table("orders").select("*").eq("tx_ref",tx_ref).execute()
+        existing_order = (
+            supabase.table("orders")
+            .select("*")
+            .eq("tx_ref", tx_ref)
+            .limit(1)
+            .execute()
+        )
 
         if not existing_order.data:
             raise HTTPException(
