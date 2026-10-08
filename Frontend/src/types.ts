@@ -180,6 +180,30 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFeatured: true,
     reviews: []
   },
+  {
+    id: 'corp-blue-floral',
+    name: 'Blue Floral Corporate Tie',
+    seller: 'Knotify Official',
+    sellerRating: 4.9,
+    sellerHall: 'Admin Office',
+    originalPrice: 4000,
+    price: 1,
+    condition: 'Brand New',
+    category: 'Corporate',
+    color: 'Navy',
+    stock: 0,
+    description: 'A refined navy blue floral-patterned corporate tie. Crisp, professional and chapel-compliant — ideal for formal lectures, executive presentations and Sunday chapel services.',
+    materials: "A refined navy blue floral-patterned corporate tie.",
+    pickupProcess: 'Reserve with a full deposit. Collect from our designated pickup point at your hall lobby upon resumption and pay the outstanding balance, Or by delivery. Join community for info',
+    image: '/ties/Corporate Ties/Blue Floral Corporate Tie.jpg',
+    rating: 4.8,
+    reviewsCount: 42,
+    isFeatured: true,
+    reviews: [
+      { id: 'r-cf1', author: 'KnotifyCu', rating: 5, date: '2026-06-10', comment: 'Very smart looking. The floral pattern is subtle and elegant — perfect for chapel.' },
+      { id: 'r-cf2', author: 'KnotifyCu', rating: 5, date: '2026-06-08', comment: 'Great quality. Ordered for my brother and it fits perfectly.' }
+    ]
+  },
     {
     id: 'new-wine-striped',
     name: 'Wine Striped Tie',
@@ -299,29 +323,6 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   
   // ── CORPORATE TIES ──────────────────────────────────────────────────────────
-  {
-    id: 'corp-blue-floral',
-    name: 'Blue Floral Corporate Tie',
-    seller: 'Knotify Official',
-    sellerRating: 4.9,
-    sellerHall: 'Admin Office',
-    originalPrice: 4000,
-    condition: 'Brand New',
-    category: 'Corporate',
-    color: 'Navy',
-    stock: 0,
-    description: 'A refined navy blue floral-patterned corporate tie. Crisp, professional and chapel-compliant — ideal for formal lectures, executive presentations and Sunday chapel services.',
-    materials: "A refined navy blue floral-patterned corporate tie.",
-    pickupProcess: 'Reserve with a full deposit. Collect from our designated pickup point at your hall lobby upon resumption and pay the outstanding balance, Or by delivery. Join community for info',
-    image: '/ties/Corporate Ties/Blue Floral Corporate Tie.jpg',
-    rating: 4.8,
-    reviewsCount: 42,
-    isFeatured: true,
-    reviews: [
-      { id: 'r-cf1', author: 'KnotifyCu', rating: 5, date: '2026-06-10', comment: 'Very smart looking. The floral pattern is subtle and elegant — perfect for chapel.' },
-      { id: 'r-cf2', author: 'KnotifyCu', rating: 5, date: '2026-06-08', comment: 'Great quality. Ordered for my brother and it fits perfectly.' }
-    ]
-  },
   {
     id: 'corp-blue-logo',
     name: 'Blue Logo Corporate Tie',

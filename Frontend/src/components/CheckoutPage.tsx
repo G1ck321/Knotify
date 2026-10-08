@@ -65,6 +65,7 @@ interface ReviewFormProps {
 function ReviewForm({ initialEmail }: ReviewFormProps) {
   const [email, setEmail] = useState(initialEmail);
   const [reviewText, setReviewText] = useState('');
+  const [trimmedReview, setTrimmedReview] = useState('');
   const [rating, setRating] = useState(5);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,12 +78,19 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !reviewText) {
+    if (!email || !trimmedReview) {
       setSubmitError('Please fill in both your email and review.');
       return;
     }
+
+    if (trimmedReview.length < 8) {
+      setSubmitError('Your review must be at least 8 characters long.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError('');
+
     try {
       const response = await fetch(`${getBackendUrl()}/api/reviews`, {
         method: 'POST',
@@ -91,9 +99,7 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
         },
         body: JSON.stringify({
           email: email.trim(),
-          review: reviewText.trim(),
-          // review_text: reviewText.trim(),
-          // text: reviewText.trim(),
+          review: trimmedReview,
           rating: Number(rating),
         }),
       });
@@ -105,7 +111,7 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
       setSubmitSuccess(true);
       setReviewText('');
     } catch (err) {
-      setSubmitError('Failed to submit review. Please try again.');
+      setSubmitError(`${err} Failed to submit review. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -187,7 +193,10 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
               required
               rows={4}
               value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
+              onChange={(e) => {
+                setReviewText(e.target.value);
+                setTrimmedReview(e.target.value.trim());
+              }}
               placeholder="Tell us what you think of your tie and reservation experience..."
               className="w-full px-3 py-2 bg-brand-bg border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xl font-sans text-xs focus:outline-none transition-all resize-none"
             />

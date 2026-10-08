@@ -124,7 +124,7 @@ export default function Dashboard({
       setReviewSuccess(true);
       setReviewText('');
     } catch (err) {
-      setReviewError('Failed to submit review. Please try again.');
+      setReviewError(`${err} Failed to submit review. Please try again.`);
     } finally {
       setReviewSubmitting(false);
     }
