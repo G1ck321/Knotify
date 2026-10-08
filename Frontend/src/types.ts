@@ -152,7 +152,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Wine',
     stock: 22,
     description: 'A solid rich wine-colored tie, offering a smooth matte texture that pairs wonderfully with cream and white shirts.',
-    materials: "A solid rich wine-colored tie, aside from plain black, he's the right man for the job guy.",
+    materials: "A solid rich wine-colored tie, aside from plain black, he's the right man for the job.",
     pickupProcess: 'Pay via transfer, pick up at school.',
     image: '/ties/new ties/Plain Wine Tie.png',
     rating: 4.7,
