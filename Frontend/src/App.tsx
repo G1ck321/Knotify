@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 
@@ -125,6 +125,8 @@ export default function App() {
   });
   const [orderHistoryReservations, setOrderHistoryReservations] = useState<Reservation[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
+  const [isBlueFloralMemeOpen, setIsBlueFloralMemeOpen] = useState(false);
+  const blueFloralMemeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
 
 useEffect(() => {
@@ -371,6 +373,30 @@ useEffect(() => {
     setReservations((previous) => previous.map((reservation) => (reservation.id === updatedReservation.id ? updatedReservation : reservation)));
   };
 
+  const showBlueFloralMeme = () => {
+    if (blueFloralMemeTimer.current) {
+      clearTimeout(blueFloralMemeTimer.current);
+    }
+
+    setActiveProduct(null);
+    setCurrentTab('marketplace');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsBlueFloralMemeOpen(true);
+
+    blueFloralMemeTimer.current = setTimeout(() => {
+      setIsBlueFloralMemeOpen(false);
+    }, 3500);
+  };
+
+  const handleProductClick = (product: Product) => {
+    if (product.id === 'corp-blue-floral') {
+      showBlueFloralMeme();
+      return;
+    }
+
+    setActiveProduct(product);
+  };
+
   const executeAddToCart = (product: Product, quantity: number = 1) => {
     setCartItems((previous) => {
       const safeQuantity = Number(quantity) || 0;
@@ -394,6 +420,11 @@ useEffect(() => {
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
+    if (product.id === 'corp-blue-floral') {
+      showBlueFloralMeme();
+      return;
+    }
+
     executeAddToCart(product, quantity);
   };
 
@@ -493,7 +524,7 @@ useEffect(() => {
                 onBrowseWithFilter={handleBrowseWithFilter}
                 products={products}
                 featuredProducts={featuredProducts}
-                onOpenProductDetail={setActiveProduct}
+                onOpenProductDetail={handleProductClick}
                 onToggleWishlist={handleToggleWishlist}
                 onAddToCart={(product) => handleAddToCart(product, 1)}
                 isInWishlist={isInWishlist}
@@ -510,7 +541,7 @@ useEffect(() => {
             >
               <Marketplace
                 products={products}
-                onOpenProductDetail={setActiveProduct}
+                onOpenProductDetail={handleProductClick}
                 onToggleWishlist={handleToggleWishlist}
                 onAddToCart={(product, event) => {
                   event.stopPropagation();
@@ -621,6 +652,31 @@ useEffect(() => {
             isInWishlist={isInWishlist}
             onDirectBuy={handleDirectBuyNow}
           />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isBlueFloralMemeOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
+            onClick={() => setIsBlueFloralMemeOpen(false)}
+            role="dialog"
+            aria-label="Blue Floral Tie notice"
+          >
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              src="/meme/ragebait.jpg"
+              alt="Blue Floral Tie notice"
+              className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </motion.div>
         )}
       </AnimatePresence>
 

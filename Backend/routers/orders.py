@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/api", tags=["Payment Initiaion pipeline"])
+NON_PURCHASABLE_TIE_IDS = {"corp-blue-floral"}
 
 @router.post("/pay")
 async def initialize_payment(
@@ -32,6 +33,12 @@ async def initialize_payment(
             tie_row = get_tie_by_id(item.tie_id)
             if not tie_row:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{item.tie_id}' was not found")
+
+            if item.tie_id in NON_PURCHASABLE_TIE_IDS:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Tie '{item.tie_id}' is display-only and cannot be purchased",
+                )
 
             available_quantity = int(tie_row.get("quantity") or 0)
             # Charge the SAME price the frontend displays: reuse the discount
