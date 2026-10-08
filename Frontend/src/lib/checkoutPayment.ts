@@ -18,7 +18,7 @@ export interface PendingCheckout {
 }
 
 export function getBackendUrl() {
-  const raw = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5500';
+  const raw = import.meta.env.VITE_API_BASE_URL || 'https://knotify-p9i2.onrender.com';
   return raw.replace(/\/$/, '');
 }
 
