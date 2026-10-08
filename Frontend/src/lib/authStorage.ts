@@ -10,6 +10,10 @@ const CLIENT_STORAGE_KEYS = [
   'knotify_reservations',
 ] as const;
 
+export function clearProductCatalogCache() {
+  localStorage.removeItem('cu_marketplace_products_v4');
+}
+
 export function getStoredUser<T = Record<string, unknown>>(): T | null {
   const saved = localStorage.getItem(USER_KEY);
   if (!saved) return null;

@@ -14,7 +14,7 @@ import Dashboard from './components/Dashboard';
 import SellPage from './components/SellPage';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
-import { authFetch, clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
+import { authFetch, clearAuthSession, clearClientSessionState, clearProductCatalogCache, getStoredUser, persistAuthSession } from './lib/authStorage';
 import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
 import { body } from 'motion/react-client';
@@ -90,6 +90,7 @@ export default function App() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [sharedSearchQuery, setSharedSearchQuery] = useState('');
   const [sharedCategory, setSharedCategory] = useState('All');
+  const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [products, setProducts] = useState<Product[]>(() => {
     const saved = localStorage.getItem('cu_marketplace_products_v4');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
@@ -269,7 +270,7 @@ useEffect(() => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [inventoryRefreshKey]);
 
   useEffect(() => {
     localStorage.setItem('cu_marketplace_products_v4', JSON.stringify(products));
@@ -308,22 +309,26 @@ useEffect(() => {
     setToasts((previous) => previous.filter((toast) => toast.id !== id));
   };
 
+  const refreshCatalog = () => {
+    clearProductCatalogCache();
+    setProducts(INITIAL_PRODUCTS);
+    setInventoryRefreshKey((key) => key + 1);
+  };
+
   const handleAuthSuccess = (user: any, accessToken?: string) => {
     const normalizedUser = normalizeUser(user);
     setCurrentUser(normalizedUser);
     persistAuthSession(normalizedUser, accessToken);
+    refreshCatalog();
     setIsAuthOpen(false);
     addToast(`Successfully signed in as ${normalizedUser.name}!`, 'success');
 
     if (pendingAction) {
       if (pendingAction.type === 'add_to_cart' && pendingAction.product) {
-        window.location.reload();
         executeAddToCart(pendingAction.product, pendingAction.quantity || 1);
       } else if (pendingAction.type === 'buy_now' && pendingAction.product) {
-        window.location.reload();
         executeDirectBuyNow(pendingAction.product);
       } else if (pendingAction.type === 'checkout') {
-        window.location.reload();
         setCurrentTab('checkout');
       }
       setPendingAction(null);
@@ -342,10 +347,8 @@ useEffect(() => {
   };
   const handleReturnMarket = () => {
     setPendingAction(null);
-    setTimeout(() => {
-      setCurrentTab("marketplace")
-    },700)
-    // window.location.reload();
+    setCurrentTab('marketplace');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   const handleBrowseWithFilter = (category: string, searchQuery: string = '') => {
     setSharedCategory(category);
@@ -471,7 +474,6 @@ useEffect(() => {
         onOpenAuth={() => {
           setPendingAction(null);
           setIsAuthOpen(true);
-          clearClientSessionState()
         }}
         onLogout={handleLogout}
       />
@@ -570,6 +572,7 @@ useEffect(() => {
                 onLogout={handleLogout}
                 onOpenAuth={() => {
                   setPendingAction(null);
+                  refreshCatalog();
                   setIsAuthOpen(true);
                 }}
                 setCurrentTab={setCurrentTab}
@@ -595,7 +598,7 @@ useEffect(() => {
                   setPendingAction({ type: 'checkout' });
                   setIsAuthOpen(true);
                 }}
-                          onContinueShopping={() => { setCurrentTab('marketplace'); clearAuthSession(); setTimeout(() => {handleReturnMarket() },400)}}
+                          onContinueShopping={handleReturnMarket}
               />
             </motion.div>
           )}

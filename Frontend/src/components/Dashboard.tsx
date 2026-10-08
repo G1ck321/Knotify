@@ -688,15 +688,15 @@ export default function Dashboard({
                               onAddToCart(prod, 1);
                               setCurrentTab?.('checkout');
                             }}
-                            disabled={prod.stock === 0}
+                            disabled={Number(prod.stock) <= 0}
                             className={`w-full py-2 font-mono tracking-widest uppercase text-[9px] font-bold flex items-center justify-center gap-1.5 transition-all rounded-xs cursor-pointer border ${
-                              prod.stock === 0
+                              Number(prod.stock) <= 0
                                 ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed'
                                 : 'bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] border-[#1F3E2B]'
                             }`}
                           >
                             <ShoppingBag size={11} />
-                            {prod.stock === 0 ? 'Out of Stock' : 'Reserve Now'}
+                            {Number(prod.stock) <= 0 ? 'Out of Stock' : 'Reserve Now'}
                           </button>
                         </div>
                       </div>

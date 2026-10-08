@@ -478,7 +478,7 @@ export default function LandingPage({
               const price = product?.price ?? 0;
               const discountPercent = originalPrice > 0 ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
               const isWishlisted = isInWishlist(product.id);
-              const isOutOfStock = product.stock === 0;
+              const isOutOfStock = Number(product.stock) <= 0;
   
               return (
                 <motion.div
@@ -575,8 +575,8 @@ export default function LandingPage({
                             </span>
                           )}
                         </div>
-                        <span className="text-[9px] font-mono text-brand-secondary/65 mt-0.5">
-                          {product.stock!==0 ? product.stock+ " in stock": "out of stock"}
+                        <span className="text-[11px] font-mono text-brand-secondary/65 mt-0.5">
+                          {Number(product.stock) > 0 ? `${product.stock} in stock` : 'out of stock'}
                         </span>
                       </div>
                       <div className="text-[9px] font-mono text-brand-secondary/65 tracking-wider uppercase">

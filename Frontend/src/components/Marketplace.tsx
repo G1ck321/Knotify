@@ -29,7 +29,7 @@ function SkeletonCard() {
 }
 
 function hasStock(stock: Product['stock']) {
-  return Number(stock) !== 0;
+  return Number(stock) > 0;
 }
 
 interface MarketplaceProps {
@@ -262,7 +262,7 @@ export default function Marketplace({
               {filteredProducts.map((product) => {
                 const discountPercent = Math.round(((product.originalPrice - (product.price ?? product.originalPrice)) / product.originalPrice) * 100);
                 const isWishlisted = isInWishlist(product.id);
-                const isOutOfStock = product.stock === 0;
+                const isOutOfStock = !hasStock(product.stock);
 
                 return (
                   <motion.div
