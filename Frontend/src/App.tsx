@@ -317,10 +317,13 @@ useEffect(() => {
 
     if (pendingAction) {
       if (pendingAction.type === 'add_to_cart' && pendingAction.product) {
+        window.location.reload();
         executeAddToCart(pendingAction.product, pendingAction.quantity || 1);
       } else if (pendingAction.type === 'buy_now' && pendingAction.product) {
+        window.location.reload();
         executeDirectBuyNow(pendingAction.product);
       } else if (pendingAction.type === 'checkout') {
+        window.location.reload();
         setCurrentTab('checkout');
       }
       setPendingAction(null);
@@ -337,7 +340,13 @@ useEffect(() => {
     clearClientSessionState();
     window.location.reload();
   };
-
+  const handleReturnMarket = () => {
+    setPendingAction(null);
+    setTimeout(() => {
+      setCurrentTab("marketplace")
+    },700)
+    // window.location.reload();
+  }
   const handleBrowseWithFilter = (category: string, searchQuery: string = '') => {
     setSharedCategory(category);
     setSharedSearchQuery(searchQuery);
@@ -462,6 +471,7 @@ useEffect(() => {
         onOpenAuth={() => {
           setPendingAction(null);
           setIsAuthOpen(true);
+          clearClientSessionState()
         }}
         onLogout={handleLogout}
       />
@@ -585,7 +595,7 @@ useEffect(() => {
                   setPendingAction({ type: 'checkout' });
                   setIsAuthOpen(true);
                 }}
-                onContinueShopping={() => setCurrentTab('marketplace')}
+                          onContinueShopping={() => { setCurrentTab('marketplace'); clearAuthSession(); setTimeout(() => {handleReturnMarket() },400)}}
               />
             </motion.div>
           )}
@@ -622,6 +632,8 @@ useEffect(() => {
             onClose={() => {
               setIsAuthOpen(false);
               setPendingAction(null);
+              window.location.reload();
+
             }}
             onSuccess={handleAuthSuccess}
             pendingActionName={

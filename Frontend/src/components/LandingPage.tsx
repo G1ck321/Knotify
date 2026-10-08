@@ -591,7 +591,17 @@ export default function LandingPage({
           </motion.div>
         </div>
       </motion.section>
+      <div className=" flex justify-center">
 
+              <button
+              onClick={onBrowseMarketplace}
+              className="px-8 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg rounded-full text-xs font-mono font-bold tracking-widest uppercase flex items-center gap-2 self-start md:self-end transition-all duration-300 shadow-md cursor-pointer"
+              id="btn-see-all-featured"
+              >
+              See More
+              <span>↗</span>
+            </button>
+              </div>
       {/* 5. THE COMMUNITY: REDESIGNED WITH ASYMMETRIC MINIMALIST LISTS */}
       <motion.section 
         initial={{ opacity: 0, y: 20 }}
