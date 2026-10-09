@@ -204,6 +204,30 @@ export const INITIAL_PRODUCTS: Product[] = [
       { id: 'r-cf2', author: 'KnotifyCu', rating: 5, date: '2026-06-08', comment: 'Great quality. Ordered for my brother and it fits perfectly.' }
     ]
   },
+  {
+    id: 'corp-black-floral',
+    name: 'Black Floral Corporate Tie',
+    seller: 'Knotify Official',
+    sellerRating: 4.9,
+    sellerHall: 'Admin Office',
+    originalPrice: 4000,
+    price: 1,
+    condition: 'Brand New',
+    category: 'Corporate',
+    color: 'Navy',
+    stock: 0,
+    description: 'A refined black floral-patterned corporate tie. Crisp, professional and chapel-compliant — ideal for formal lectures, executive presentations and Sunday chapel services.',
+    materials: "A red rose on a dark rainy day, why not?",
+    pickupProcess: 'Reserve with a full deposit. Collect from our designated pickup point at your hall lobby upon resumption and pay the outstanding balance, Or by delivery. Join community for info',
+    image: '/ties/new ties/latest/corp-black-floral.jpg',
+    rating: 4.9,
+    reviewsCount: 42,
+    isFeatured: true,
+    reviews: [
+      { id: 'r-cf1', author: 'KnotifyCu', rating: 5, date: '2026-06-10', comment: 'Very smart looking. The floral pattern is subtle and elegant — perfect for chapel.' },
+      { id: 'r-cf2', author: 'KnotifyCu', rating: 5, date: '2026-06-08', comment: 'Great quality. Ordered for my brother and it fits perfectly.' }
+    ]
+  },
     {
     id: 'new-wine-striped',
     name: 'Wine Striped Tie',
@@ -223,7 +247,26 @@ export const INITIAL_PRODUCTS: Product[] = [
     reviewsCount: 8,
     isFeatured: true,
     reviews: []
-  },   {
+  },  {
+    id: 'new-black-logo',
+    name: 'Black Bold Logo Tie',
+    seller: 'Knotify Official',
+    sellerRating: 4.9,
+    sellerHall: 'Admin Office',
+    originalPrice: 2100,
+    condition: 'Brand New',
+    category: 'Corporate',
+    color: 'Black',
+    stock: 35,
+    description: "The black that stands out! It's giving. vintage, formal, and matching virtually every suit or blazer in your collection, Or by delivery. Join community for info",
+    materials: "Do you have the confidence to wear this unbranded Knot. Nah",
+    pickupProcess: 'Pay via transfer, pick up at school.',
+    image: '/ties/new ties/latest/new-black-logo.jpg',
+    rating: 5.0,
+    reviewsCount: 31,
+    isFeatured: true,
+    reviews: []
+  },  {
     id: 'wine-blue-striped',
     name: 'Wine Blue Striped Tie',
     seller: 'Knotify Official',
