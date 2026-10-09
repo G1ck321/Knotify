@@ -43,6 +43,25 @@ export function clearPendingCheckout() {
   sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
 }
 
+export async function checkInventoryAvailability(items: Array<{ tie_id: string; quantity: number }>) {
+  const response = await fetch(`${getBackendUrl()}/quantity/availability`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not verify live tie availability');
+  }
+
+  return response.json() as Promise<Array<{
+    tie_id: string;
+    requested_quantity: number;
+    available_quantity: number;
+    available: boolean;
+  }>>;
+}
+
 export async function fetchOrderStatus(txRef: string) {
   const backendUrl = getBackendUrl();
   const response = await fetch(

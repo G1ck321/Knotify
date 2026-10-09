@@ -28,6 +28,7 @@ import { getAccessToken } from '../lib/authStorage';
 import {
   clearPaymentReturnParams,
   clearPendingCheckout,
+  checkInventoryAvailability,
   fetchOrderStatus,
   getBackendUrl,
   loadPendingCheckout,
@@ -71,6 +72,9 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   useEffect(() => {
     setEmail(initialEmail);
@@ -257,6 +261,9 @@ export default function CheckoutPage({
   const [copiedId, setCopiedId] = useState(false);
   const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedId, setGeneratedId]  = useState(
   () => localStorage.getItem("tx") || ""
@@ -273,6 +280,35 @@ export default function CheckoutPage({
       setBuyerEmail(currentUser.email || '');
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshAvailability = async () => {
+      if (cartItems.length === 0) {
+        setUnavailableItemIds([]);
+        return;
+      }
+
+      try {
+        const availability = await checkInventoryAvailability(
+          cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity }))
+        );
+        if (!cancelled) {
+          setUnavailableItemIds(
+            availability.filter((item) => !item.available).map((item) => item.tie_id)
+          );
+        }
+      } catch {
+        // The payment endpoint performs the authoritative availability check.
+      }
+    };
+
+    refreshAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartItems]);
 
   useEffect(() => {
     const { status, txRef } = parsePaymentReturnParams();
@@ -357,7 +393,8 @@ export default function CheckoutPage({
   }, []);
 
   // Pricing calculations
-  const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
+  const checkoutItems = cartItems.filter((item) => !unavailableItemIds.includes(item.product.id));
+  const totalItems = checkoutItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
   // ─────────────────────────────────────────────────────────────────────────────
   // LIVE PRICE RESOLUTION
   // ─────────────────────────────────────────────────────────────────────────────
@@ -386,7 +423,7 @@ export default function CheckoutPage({
     return Number(freshProduct?.price ?? item.product.price ?? item.product.originalPrice ?? 0);
   };
 
-  const itemsTotal = cartItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
+  const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
   const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
   const loadgeneratedId = () => {
     
@@ -411,13 +448,32 @@ export default function CheckoutPage({
     return 'Main Administration Station';
   };
 
-  const handleStartCheckout = () => {
-    if (cartItems.length > 0) {
+  const handleStartCheckout = async () => {
+    if (checkoutItems.length > 0) {
       if (!currentUser) {
         onOpenAuth();
       } else {
-        setCheckoutStep('form');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setIsCheckingAvailability(true);
+        setSubmitError('');
+        try {
+          const availability = await checkInventoryAvailability(
+            cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity }))
+          );
+          const unavailable = availability.filter((item) => !item.available).map((item) => item.tie_id);
+          setUnavailableItemIds(unavailable);
+
+          if (unavailable.length > 0) {
+            setShowAvailabilityPrompt(true);
+            return;
+          }
+
+          setCheckoutStep('form');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (error) {
+          setSubmitError(error instanceof Error ? error.message : 'Could not verify live tie availability');
+        } finally {
+          setIsCheckingAvailability(false);
+        }
       }
     }
   };
@@ -433,7 +489,7 @@ export default function CheckoutPage({
     setIsSubmitting(true);
 
     try {
-      const orderItems = cartItems.map((item) => ({
+      const orderItems = checkoutItems.map((item) => ({
         item_id: item.product.id,
         name: item.product.name,
         quantity: item.quantity,
@@ -441,8 +497,8 @@ export default function CheckoutPage({
         image_url: item.product.image || undefined,
       }));
 
-      const preferredColor = cartItems.map((item) => item.product.color).join(', ');
-      const productNames = cartItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ');
+      const preferredColor = checkoutItems.map((item) => item.product.color).join(', ');
+      const productNames = checkoutItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ');
 
       const response = await createCheckoutSession({
         name: buyerName,
@@ -528,7 +584,7 @@ export default function CheckoutPage({
             </button>
             <div className="h-px w-6 bg-brand-border"></div>
             <button 
-              disabled={cartItems.length === 0}
+              disabled={checkoutItems.length === 0 || isCheckingAvailability}
               onClick={handleStartCheckout}
               className={`px-3.5 py-1.5 rounded-full border transition-all cursor-pointer ${
                 checkoutStep === 'form' 
@@ -536,7 +592,7 @@ export default function CheckoutPage({
                   : 'bg-brand-card text-brand-primary/60 border-brand-border hover:text-brand-primary disabled:opacity-40'
               }`}
             >
-              02 PAYMENT DETAILS
+              {isCheckingAvailability ? 'CHECKING STOCK...' : '02 PAYMENT DETAILS'}
             </button>
             <div className="h-px w-6 bg-brand-border"></div>
             <span className="px-3.5 py-1.5 rounded-full border bg-brand-card text-brand-primary/30 border-brand-border/60">
@@ -545,6 +601,38 @@ export default function CheckoutPage({
           </div>
         )}
       </div>
+
+      {showAvailabilityPrompt && unavailableItemIds.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-left" role="alert">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-amber-900">Some ties are temporarily unavailable</h2>
+          <p className="mt-2 text-xs leading-relaxed text-amber-900/80">
+            Another customer is checking out with: {cartItems
+              .filter((item) => unavailableItemIds.includes(item.product.id))
+              .map((item) => item.product.name)
+              .join(', ')}. They are held for up to 10 minutes.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAvailabilityPrompt(false);
+                setCheckoutStep('form');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="rounded-full bg-brand-primary px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-bg"
+            >
+              Continue with available ties
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAvailabilityPrompt(false)}
+              className="rounded-full border border-amber-900/30 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-amber-900"
+            >
+              Keep reviewing my bag
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2. CHOSEN CONTENT GRID OR EMPTY STATE */}
       {cartItems.length === 0 && checkoutStep !== 'success' ? (
@@ -595,7 +683,7 @@ export default function CheckoutPage({
 
                   <div className="divide-y divide-brand-border">
                     {cartItems.map((item) => (
-                      <div key={item.product.id} className="flex py-6 gap-4 sm:gap-6 text-left" id={`page-cart-item-${item.product.id}`}>
+                      <div key={item.product.id} className={`flex py-6 gap-4 sm:gap-6 text-left ${unavailableItemIds.includes(item.product.id) ? 'opacity-70' : ''}`} id={`page-cart-item-${item.product.id}`}>
                         <div className="h-24 w-20 flex-shrink-0 overflow-hidden rounded-2xl border border-brand-border bg-brand-bg">
                           {item.product.image ? (
                             <img
@@ -620,6 +708,11 @@ export default function CheckoutPage({
                               <h4 className="text-sm font-bold font-sans text-brand-primary uppercase tracking-tight">
                                 {item.product.name}
                               </h4>
+                              {unavailableItemIds.includes(item.product.id) && (
+                                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                                  Temporarily unavailable. Another customer is checking out with this tie.
+                                </p>
+                              )}
                               <p className="text-[10px] text-emerald-800 font-sans mt-0.5 font-semibold">
                                 Verified Seller: {item.product.seller}
                               </p>

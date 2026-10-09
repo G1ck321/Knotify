@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -25,6 +26,13 @@ class PaidUsersResponse(BaseModel):
     status: str = "paid"
     paid_orders: int = Field(ge=0)
     unique_paid_users: int = Field(ge=0)
+
+
+class InventoryAvailabilityRequest(BaseModel):
+    items: list[dict[str, Any]]
+
+
+HOLD_MINUTES = 10
 
 
 def _extract_tie_identity(row: dict[str, Any]) -> tuple[str, str]:
@@ -94,6 +102,26 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     )
 
 
+def _active_hold_quantities() -> dict[str, int]:
+    try:
+        supabase.rpc("expire_inventory_holds").execute()
+        response = (
+            supabase.table("inventory_holds")
+            .select("tie_id, quantity")
+            .eq("status", "active")
+            .gt("expires_at", datetime.now(timezone.utc).isoformat())
+            .execute()
+        )
+    except Exception:
+        return {}
+
+    held: dict[str, int] = {}
+    for hold in response.data or []:
+        tie_id = str(hold.get("tie_id") or "")
+        held[tie_id] = held.get(tie_id, 0) + int(hold.get("quantity") or 0)
+    return held
+
+
 def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     response = (
         supabase.table("ties")
@@ -112,7 +140,16 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
 def get_all_ties() -> list[TieInventoryResponse]:
     response = supabase.table("ties").select("*").order("tie_name", desc=False).execute()
     rows = response.data or []
-    return [_normalize_inventory_row(row) for row in rows]
+    held_quantities = _active_hold_quantities()
+    normalized_rows = []
+    for row in rows:
+        available_row = dict(row)
+        available_row["quantity"] = max(
+            int(row.get("quantity") or 0) - held_quantities.get(str(row.get("tie_id")), 0),
+            0,
+        )
+        normalized_rows.append(_normalize_inventory_row(available_row))
+    return normalized_rows
 
 
 def get_paid_user_totals() -> PaidUsersResponse:
@@ -121,6 +158,32 @@ def get_paid_user_totals() -> PaidUsersResponse:
         paid_orders=paid_orders,
         unique_paid_users=unique_users,
     )
+
+
+def check_inventory_availability(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    response = supabase.rpc("check_inventory_availability", {"p_items": items}).execute()
+    return response.data or []
+
+
+def reserve_inventory(tx_ref: str, items: list[dict[str, Any]]) -> None:
+    try:
+        supabase.rpc(
+            "reserve_inventory",
+            {"p_tx_ref": tx_ref, "p_items": items, "p_minutes": HOLD_MINUTES},
+        ).execute()
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Some requested ties are no longer available. Refresh your bag and try again.",
+        ) from error
+
+
+def release_inventory_hold(tx_ref: str, hold_status: str = "released") -> None:
+    supabase.rpc("release_inventory_hold", {"p_tx_ref": tx_ref, "p_status": hold_status}).execute()
+
+
+def consume_inventory_hold(tx_ref: str) -> None:
+    supabase.rpc("consume_inventory_hold", {"p_tx_ref": tx_ref}).execute()
 
 
 def decrement_tie_stock(tie_id: str, quantity: int) -> TieInventoryResponse:
@@ -202,6 +265,11 @@ async def read_tie_quantity(tie_id: str):
     if not tie_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{tie_id}' was not found")
     return _normalize_inventory_row(tie_row)
+
+
+@router.post("/availability")
+async def read_inventory_availability(payload: InventoryAvailabilityRequest):
+    return check_inventory_availability(payload.items)
 
 
 @router.get("/paid-users", response_model=PaidUsersResponse)
