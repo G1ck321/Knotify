@@ -9,7 +9,7 @@ import hmac
 from database import supabase
 from config import settings
 from datetime import timezone, datetime
-from routers.quantity import decrement_stock_for_order
+from routers.quantity import consume_inventory_hold, decrement_stock_for_order, release_inventory_hold
 
 
 router = APIRouter(prefix="/webhook", tags=["Third Party Web Hooks"])
@@ -75,10 +75,18 @@ async def flutterwave_webhook(
     # parse the webhook body after the signature check passes
     payload = await request.json()
 
-    if payload.get("status") == "successful" or payload.get("data", {}).get("status")=="successful":
+    data_block = payload.get("data") or payload
+    payment_status = str(data_block.get("status") or payload.get("status") or "").lower()
+    tx_ref = str(data_block.get("tx_ref") or payload.get("tx_ref") or "").strip()
 
-        data_block = payload.get("data") or payload
-        tx_ref = str(data_block.get("tx_ref") or payload.get("tx_ref") or "").strip()
+    if payment_status in {"failed", "cancelled", "canceled", "error"}:
+        if tx_ref:
+            supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
+            release_inventory_hold(tx_ref)
+        return {"status": "acknowledged", "order_status": "failed"}
+
+    if payment_status == "successful":
+
         print(f"Flutterwave webhook transaction: tx_ref={tx_ref or '<missing>'}")
 
         if not tx_ref:
@@ -131,6 +139,7 @@ async def flutterwave_webhook(
             # background_tasks.add_task(send_email_order_receipt, order_record)
             if cart_snapshot:
                 background_tasks.add_task(decrement_stock_for_order, cart_snapshot)
+            background_tasks.add_task(consume_inventory_hold, tx_ref)
         else:
             print("DEBUG: Supabase update failed or returned empty data.")
 

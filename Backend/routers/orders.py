@@ -2,6 +2,7 @@ import traceback
 import os
 import json
 import httpx
+from datetime import datetime, timedelta, timezone
 
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status, Header
@@ -9,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from schemas import UserReviews
 from database import supabase
 from config import settings
-from routers.quantity import compute_order_total, disount_logic, get_tie_by_id
+from routers.quantity import compute_order_total, disount_logic, get_tie_by_id, reserve_inventory
 
 from typing import Optional, List, Any
 from dependencies import get_optional_current_user, get_current_user
@@ -27,6 +28,7 @@ async def initialize_payment(
     current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
     try:
+        tx_ref = generate_tx_ref("order")
         normalized_items = []
         server_items_total = 0.0
         for item in payload.items:
@@ -69,8 +71,6 @@ async def initialize_payment(
 
         # Add delivery fee of 250 on the server so the frontend cannot alter it.
         calculated_total = server_items_total + 250
-        tx_ref = generate_tx_ref("order")
-
         # Determine valid user_id UUID from authenticated session or lookup/auto-create guest user in Supabase
         user_id = current_user.get("id") if current_user else None
 
@@ -122,6 +122,16 @@ async def initialize_payment(
         print("Attempting to insert into Supabase..")
         order_insert = supabase.table("orders").insert(db_payload).execute()
         print(f"Order inserted: tx_ref={tx_ref}, rows={len(order_insert.data or [])}")
+
+        try:
+            reserve_inventory(tx_ref, normalized_items)
+        except HTTPException:
+            supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
+            raise
+
+        supabase.table("orders").update({
+            "hold_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+        }).eq("tx_ref", tx_ref).execute()
 
         fw_key = settings.FW_SECRET_KEY.strip() if settings.FW_SECRET_KEY else ""
 
@@ -188,6 +198,8 @@ async def initialize_payment(
                     detail=f"Gateway Error {flw_data.get("message")}"
                 )
 
+    except HTTPException:
+        raise
     except Exception as e: 
     
         print("!! Look Out Error Occured Mehn!!")
