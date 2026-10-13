@@ -311,6 +311,12 @@ export default function Marketplace({
                             NEW
                           </span>
                         )}
+                        {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+
+                <div className="absolute top-6 text-white left-0 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
+                  HOT
+              </div>
+                : ""}
                       </div>
 
                       {/* Wishlist Button */}
