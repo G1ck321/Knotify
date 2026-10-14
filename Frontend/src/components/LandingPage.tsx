@@ -1,34 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Heart, 
-  ArrowRight,
-  Shield,
-  Sparkles,
-  Users,
-  Award,
+  ArrowRight, 
+  ShoppingBag, 
+  Package, 
+  MapPin, 
+  CheckCircle2, 
+  ChevronLeft, 
   ChevronRight,
-  Bookmark,
   MessageCircle,
   Send,
-  Check,
-  AlertTriangle,
-  BookOpen,
-  HelpCircle,
-  Clock,
-  CheckCircle2,
-  Calendar,
-  AlertCircle,
-  Search,
-  MapPin,
-  FileCheck,
-  CheckCircle,
-  Loader
+  Sparkles,
+  ShieldCheck,
+  ExternalLink,
+  MessageSquareQuote
 } from 'lucide-react';
-import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
-import { Product, Reservation } from './Frontend/src/types';
-import TiePlaceholder from './TiePlaceholder';
-import FAQSection from './FAQSection';
-import AboutSection from './AboutSection';
+import { motion, AnimatePresence } from 'motion/react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { Product } from '../types';
+
+gsap.registerPlugin(ScrollTrigger);
 
 interface LandingPageProps {
   onBrowseMarketplace: () => void;
@@ -46,700 +37,634 @@ interface LandingPageProps {
   };
 }
 
+// ── Models for Hero Inspo Card Fan (Reference Image 2) ──
+const HERO_MODELS = [
+  { id: 1, src: '/models/model1.jpg', label: 'Classic Executive', hall: 'Peter Hall' },
+  { id: 2, src: '/models/model2.jpg', label: 'Regal Stripe', hall: 'Daniel Hall' },
+  { id: 3, src: '/models/model3.jpg', label: 'The Resumption Fit', hall: 'Paul Hall' },
+  { id: 4, src: '/models/model4.jpg', label: 'Dapper Senior', hall: 'PG Hall' },
+  { id: 5, src: '/models/model6.jpg', label: 'Chapel Standard', hall: 'Esther Hall' },
+];
+
+// ── Showcase Ties for CTA Gallery Carousel (Reference Image 1) ──
+const CTA_GALLERY_TIES = [
+  { id: 'cta-1', name: 'Plain Black Tie', price: '₦2,100', image: '/ties/new ties/Plain Black Tie.png' },
+  { id: 'cta-2', name: 'Plain Wine Tie', price: '₦2,200', image: '/ties/new ties/Plain Wine Tie.png' },
+  { id: 'cta-3', name: 'Blue Regimental White Striped', price: '₦3,500', image: '/ties/new ties/Blue Regimental White Striped Tie.png' },
+  { id: 'cta-4', name: 'Navy & Wine Striped Tie', price: '₦4,000', image: '/ties/new ties/Nave and WIne Striped Tie.png' },
+  { id: 'cta-5', name: 'Wine Striped Tie', price: '₦3,500', image: '/ties/new ties/Wine Striped Tie.png' },
+  { id: 'cta-6', name: 'Blue Floral Corporate', price: '₦4,000', image: '/ties/Corporate Ties/Blue Floral Corporate Tie.jpg' },
+  { id: 'cta-7', name: 'Floral Vintage Tie', price: '₦4,200', image: '/ties/Vintage Ties/Floral Vintage Tie.jpg' },
+  { id: 'cta-8', name: 'Green Diamond Vintage Tie', price: '₦3,800', image: '/ties/Vintage Ties/Green Diamond Vintage Tie.jpg' },
+];
+
+// Fallback in case products list is short, ensuring 2 full rows (6 ties)
+const FALLBACK_TIES = [
+  { id: 'new-plain-black', name: 'Plain Black Tie', price: 2100, originalPrice: 2500, image: '/ties/new ties/Plain Black Tie.png', stock: 35 },
+  { id: 'new-plain-wine', name: 'Plain Wine Tie', price: 2200, originalPrice: 2800, image: '/ties/new ties/Plain Wine Tie.png', stock: 22 },
+  { id: 'new-blue-regimental', name: 'Blue Regimental White Striped', price: 3500, originalPrice: 4000, image: '/ties/new ties/Blue Regimental White Striped Tie.png', stock: 15 },
+  { id: 'new-navy-wine-striped', name: 'Navy & Wine Striped Tie', price: 4000, originalPrice: 4500, image: '/ties/new ties/Nave and WIne Striped Tie.png', stock: 18 },
+  { id: 'new-wine-striped', name: 'Wine Striped Tie', price: 3500, originalPrice: 4000, image: '/ties/new ties/Wine Striped Tie.png', stock: 12 },
+  { id: 'corp-blue-floral', name: 'Blue Floral Corporate Tie', price: 4000, originalPrice: 4500, image: '/ties/Corporate Ties/Blue Floral Corporate Tie.jpg', stock: 30 },
+];
+
 export default function LandingPage({
   onBrowseMarketplace,
-  onBrowseWithFilter,
-  products,
   featuredProducts,
-  onOpenProductDetail,
-  onToggleWishlist,
+  products,
   onAddToCart,
-  isInWishlist,
-  inventorySummary,
 }: LandingPageProps) {
+  const [activeModelIndex, setActiveModelIndex] = useState(2); // Center model default
+  const [isCarouselPaused, setIsCarouselPaused] = useState(false);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
-  // Custom container transition variants
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.15
-      }
-    }
+  // 4-Second Automatic Carousel Interval
+  useEffect(() => {
+    if (isCarouselPaused) return;
+    const interval = setInterval(() => {
+      setActiveModelIndex((prev) => (prev + 1) % HERO_MODELS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isCarouselPaused]);
+
+  // GSAP Entrance
+  useEffect(() => {
+    const ctx = gsap.context(() => {
+      gsap.fromTo(
+        '.hero-anim-item',
+        { y: 20, opacity: 0 },
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.65,
+          stagger: 0.1,
+          ease: 'power3.out',
+        }
+      );
+    }, heroRef);
+    return () => ctx.revert();
+  }, []);
+
+  const handlePrevModel = () => {
+    setActiveModelIndex((prev) => (prev === 0 ? HERO_MODELS.length - 1 : prev - 1));
   };
 
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { 
-      opacity: 1, 
-      y: 0,
-      transition: { type: 'spring', stiffness: 80 }
-    }
+  const handleNextModel = () => {
+    setActiveModelIndex((prev) => (prev + 1) % HERO_MODELS.length);
   };
 
-  const heroLeftContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.12,
-        delayChildren: 0.1
-      }
-    }
-  };
+  // ── Available ties (stock > 0) strictly above unavailable ties (stock <= 0) ──
+  const baseTiesList = products.length >= 6 ? products : FALLBACK_TIES;
+  const sortedProducts = [...baseTiesList].sort((a, b) => {
+    const aInStock = Number(a.stock) > 0;
+    const bInStock = Number(b.stock) > 0;
+    if (aInStock && !bInStock) return -1;
+    if (!aInStock && bInStock) return 1;
+    return (b.price ?? b.originalPrice ?? 0) - (a.price ?? a.originalPrice ?? 0);
+  });
 
-  const heroLeftItem = {
-    hidden: { opacity: 0, x: -25 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: { type: 'spring', stiffness: 70, damping: 14 }
-    }
-  };
-
-  const bentoContainer = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.15
-      }
-    }
-  };
-
-  const bentoItem = {
-    hidden: { opacity: 0, scale: 0.94, y: 25 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      transition: { type: 'spring', stiffness: 65, damping: 14 }
-    }
-  };
-
-  // Parallax scroll effects
-  const { scrollY } = useScroll();
-  
-  // Elements move at different rates to create high-end modern depth
-  const yKnotifyBg = useTransform(scrollY, [0, 800], [0, 100]);
-  const yHeroLeft = useTransform(scrollY, [0, 800], [0, -40]);
-  const yHeroRightMain = useTransform(scrollY, [0, 800], [0, -20]);
-  const yHeroRightSub = useTransform(scrollY, [0, 800], [0, 30]);
-  const yHeroPattern = useTransform(scrollY, [0, 800], [0, 60]);
-  
-  // Floating parallax ambient backgrounds
-  const yGlow1 = useTransform(scrollY, [0, 1200], [0, 120]);
-  const yGlow2 = useTransform(scrollY, [0, 1800], [0, -150]);
-
-
+  // 2 rows of 3 ties = 6 ties
+  const displayTies = sortedProducts.slice(0, 6);
 
   return (
-    <div className="w-full pb-16 bg-brand-bg font-sans" id="landing-page-root">
+    <div className="w-full bg-[#FFFEF2] text-brand-primary overflow-x-hidden font-sans pb-16 sm:pb-0" id="landing-page-root">
       
-      {/* 1. HERO SECTION (Redesigned to replicate Image One's clean, classical serif and polaroid collage aesthetic) */}
-      <section className="relative overflow-hidden pt-20 pb-28 md:pt-24 md:pb-36 bg-brand-secondary border-b border-brand-border/20" id="hero-section">
-        {/* Ivory dot overlays on the gorgeous green background */}
-        <motion.div 
-          style={{ y: yHeroPattern }}
-          className="absolute inset-0 bg-[radial-gradient(rgba(255,254,242,0.06)_1.5px,transparent_1.5px)] bg-[size:24px_24px] pointer-events-none" 
-        />
-
-        {/* Ambient glows on green background for subtle texture */}
-        <motion.div style={{ y: yGlow1 }} className="absolute top-1/2 left-1/4 -translate-y-1/2 w-96 h-96 bg-brand-accent/20 rounded-full filter blur-[120px] pointer-events-none z-0" />
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          
-          {/* Scroll Down & Establish Indicators (Desktop Only) */}
-          <div className="hidden lg:flex absolute left-4 top-1/3 flex-col items-center gap-10 text-brand-bg/50 select-none pointer-events-none">
-            <span className="text-[9px] font-mono tracking-[0.25em] uppercase rotate-270 origin-left inline-block -translate-y-6">
-              SCROLL DOWN
-            </span>
-            <div className="h-10 w-[1px] bg-brand-bg/30"></div>
-          </div>
-
-          <div className="hidden lg:flex absolute right-4 top-1/3 flex-col items-center gap-2 text-right text-brand-bg/50 select-none pointer-events-none">
-            <span className="text-[14px] font-display font-bold tracking-wider">MCMXXVI</span>
-            <span className="text-[8px] font-mono tracking-widest uppercase opacity-75">ESTABLISHED 2026</span>
-          </div>
-
-          {/* Centered Minimalist Hero Typography */}
-          <div className="max-w-5xl mx-auto text-center space-y-12 relative z-10 animate-fade-in" id="hero-minimalist-container">
-            
-            <div className="space-y-6">
-              {/* Vintage Double-Rectangular Badge Accent (Touches of Old Money) */}
-              <div className="inline-flex items-center justify-center px-6 py-2 border-2 border-brand-bg/30 relative before:absolute before:inset-0.5 before:border before:border-brand-bg/15 before:pointer-events-none mx-auto mb-3 bg-brand-primary/20 rounded-sm shadow-md" id="knotify-hero-badge">
-                <span className="text-xs sm:text-sm font-mono uppercase tracking-[0.45em] text-[#FFFEF2] font-black">
-                  Made by Students. Built for Students.
-                </span>
-              </div>
- 
-              <h1 className="font-display font-extrabold text-6xl sm:text-8xl md:text-[98px] lg:text-[116px] text-[#FFFEF2] tracking-tight leading-[0.85] uppercase max-w-5xl mx-auto">
-                Resume at Covenant <br />
-                <span className="font-serif italic font-light text-brand-bg relative inline-block">
-                  With Confidence
-                  <span className="absolute -bottom-2 left-0 right-0 h-[1.5px] bg-brand-bg/40"></span>
-                  <span className="absolute -bottom-3 left-1/4 right-1/4 h-[0.5px] bg-brand-bg/25"></span>
-                </span>
-              </h1>
- 
-              <div className="h-[1px] w-20 bg-[#FFFEF2]/25 mx-auto my-6"></div>
-              
-              <p className="text-base sm:text-xl font-display italic text-[#FFFEF2]/95 max-w-2xl mx-auto leading-relaxed">
-                Whether you're resuming for your first semester or returning to campus, there's already enough to prepare for. Knotify makes getting your Covenant University tie simple, so you can arrive prepared and focus on what really matters.
-              </p>
-              <p className="text-xs sm:text-sm font-mono tracking-widest uppercase text-[#FFFEF2]/75 mt-3">
-                One less thing to worry about before resumption.
-              </p>
-
-              {/* Number of users active — prominent stat block */}
-              <div className="flex flex-col items-center gap-5 pt-6">
-                {/* Avatar stack */}
-                <div className="flex -space-x-3">
-                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model1.jpg" alt="Scholar 1" />
-                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model2.jpg" alt="Scholar 2" />
-                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model3.jpg" alt="Scholar 3" />
-                  <img className="inline-block h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary object-cover shadow-md" src="/models/model4.jpg" alt="Scholar 4" />
-                  <div className="inline-flex h-11 w-11 rounded-full ring-[2.5px] ring-brand-secondary bg-brand-primary/60 items-center justify-center shadow-md">
-                    <span className="text-[9px] font-mono font-bold text-[#FFFEF2]/80">+1K</span>
-                  </div>
-                </div>
-
-                {/* Large user count */}
-                <div className="flex flex-col items-center gap-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse inline-block mb-0.5" />
-                    <span id="active-user-count" className="font-display font-black text-5xl sm:text-6xl md:text-7xl text-[#FFFEF2] tracking-tight leading-none">
-                      1,850+
-                    </span>
-                  </div>
-                  <span className="text-xs sm:text-sm font-mono tracking-[0.3em] uppercase text-[#FFFEF2]/60 mt-1">
-                    Students serving capacity
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* SEVEN POLAROID CAROUSEL/COLLAGE (Asymmetric overlapping premium layout - Augmented Bigger Sizes) */}
-            <div className="flex overflow-x-auto md:overflow-x-visible md:flex-nowrap items-center justify-start md:justify-center gap-6 md:gap-0 max-w-full md:max-w-7xl mx-auto pt-10 pb-16 relative scrollbar-none snap-x snap-mandatory px-6 md:px-0" id="hero-polaroid-collage">
-              
-              {/* Polaroid 1 (Extreme Left - Tilted Left) */}
-              <motion.div 
-                initial={{ opacity: 0, rotate: -20 }}
-                animate={{ opacity: 1, rotate: -14 }}
-                style={{ y: yHeroRightSub }}
-                transition={{ duration: 0.8, delay: 0.05 }}
-                whileHover={{ rotate: -5, scale: 1.05, zIndex: 30 }}
-                className="bg-white p-3 pb-6 shadow-[0_12px_28px_rgba(0,0,0,0.22)] rounded-sm border border-black/5 w-[165px] sm:w-[195px] shrink-0 md:-mr-8 relative group transition-all duration-300 z-5 cursor-pointer snap-center"
-              >
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5 relative">
-                  <img 
-                    src="/models/model1.jpg" 
-                    alt="Premium Wear"
-                    className="w-full h-full object-cover grayscale-[18%] group-hover:grayscale-0 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Polaroid 2 (Far Left - Tilted Left) */}
-              <motion.div 
-                initial={{ opacity: 0, rotate: -14 }}
-                animate={{ opacity: 1, rotate: -8 }}
-                style={{ y: yHeroRightMain }}
-                transition={{ duration: 0.8, delay: 0.1 }}
-                whileHover={{ rotate: -2, scale: 1.05, zIndex: 30 }}
-                className="bg-white p-3.5 pb-7 shadow-[0_15px_35px_rgba(0,0,0,0.25)] rounded-sm border border-black/5 w-[185px] sm:w-[220px] shrink-0 md:-mr-6 relative group transition-all duration-300 z-10 cursor-pointer snap-center"
-              >
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5 relative">
-                  <img 
-                    src="/models/model2.jpg" 
-                    alt="Striped necktie"
-                    className="w-full h-full object-cover grayscale-[15%] group-hover:grayscale-0 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Polaroid 3 (Mid Left - Tilted slightly Left) */}
-              <motion.div 
-                initial={{ opacity: 0, rotate: -8 }}
-                animate={{ opacity: 1, rotate: -3 }}
-                style={{ y: yHeroLeft }}
-                transition={{ duration: 0.8, delay: 0.15 }}
-                whileHover={{ rotate: 0, scale: 1.05, zIndex: 30 }}
-                className="bg-white p-3.5 pb-7 shadow-[0_15px_35px_rgba(0,0,0,0.25)] rounded-sm border border-black/5 w-[190px] sm:w-[230px] shrink-0 md:-mr-6 relative group transition-all duration-300 z-15 cursor-pointer snap-center"
-              >
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5 relative">
-                  <img 
-                    src="/models/model3.jpg" 
-                    alt="Oxford Stripe"
-                    className="w-full h-full object-cover grayscale-[10%] group-hover:grayscale-0 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Polaroid 4 (Center - Upright, Tall, Majestic, Elevated) - Knotify Logo middle spot */}
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                style={{ y: yHeroRightMain }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                whileHover={{ scale: 1.08, zIndex: 30 }}
-                className="bg-white p-4 pb-9 shadow-[0_25px_50px_rgba(0,0,0,0.35)] rounded-sm border border-black/5 w-[215px] sm:w-[265px] shrink-0 z-20 relative group transition-all duration-300 transform md:scale-105 cursor-pointer snap-center"
-              >
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5">
-                  <img 
-                    src="/logo.png" 
-                    alt="Knotify Logo"
-                    className="w-full h-full object-cover group-hover:scale-102 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Polaroid 5 (Mid Right - Tilted slightly Right) */}
-              <motion.div 
-                initial={{ opacity: 0, rotate: 8 }}
-                animate={{ opacity: 1, rotate: 3 }}
-                style={{ y: yHeroLeft }}
-                transition={{ duration: 0.8, delay: 0.25 }}
-                whileHover={{ rotate: 0, scale: 1.05, zIndex: 30 }}
-                className="bg-white p-3.5 pb-7 shadow-[0_15px_35px_rgba(0,0,0,0.25)] rounded-sm border border-black/5 w-[190px] sm:w-[230px] shrink-0 md:-mr-6 relative group transition-all duration-300 z-15 cursor-pointer snap-center"
-              >
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5 relative">
-                  <img 
-                    src="/models/model4.jpg" 
-                    alt="Tweed Signatures"
-                    className="w-full h-full object-cover grayscale-[15%] group-hover:grayscale-0 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Polaroid 6 (Far Right - Tilted Right with Tape Effect) - Incorporating model6.jpg */}
-              <motion.div 
-                initial={{ opacity: 0, rotate: 14 }}
-                animate={{ opacity: 1, rotate: 8 }}
-                style={{ y: yHeroRightMain }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-                whileHover={{ rotate: 2, scale: 1.05, zIndex: 30 }}
-                className="bg-white p-3.5 pb-7 shadow-[0_15px_35px_rgba(0,0,0,0.25)] rounded-sm border border-black/5 w-[185px] sm:w-[220px] shrink-0 md:-mr-8 relative group transition-all duration-300 z-10 cursor-pointer snap-center"
-              >
-                {/* CSS Scotch Tape Representation */}
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 w-12 h-5 bg-neutral-200/45 backdrop-blur-[1.5px] border border-white/20 rotate-[-12deg] shadow-[0_1px_2px_rgba(0,0,0,0.05)] z-20" />
-
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5">
-                  <img 
-                    src="/models/model6.jpg" 
-                    alt="Regal Traditional"
-                    className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-              {/* Polaroid 7 (Extreme Right - Tilted Right) */}
-              <motion.div 
-                initial={{ opacity: 0, rotate: 20 }}
-                animate={{ opacity: 1, rotate: 14 }}
-                style={{ y: yHeroRightSub }}
-                transition={{ duration: 0.8, delay: 0.35 }}
-                whileHover={{ rotate: 5, scale: 1.05, zIndex: 30 }}
-                className="bg-white p-3 pb-6 shadow-[0_12px_28px_rgba(0,0,0,0.22)] rounded-sm border border-black/5 w-[165px] sm:w-[195px] shrink-0 relative group transition-all duration-300 z-5 cursor-pointer snap-center"
-              >
-                <div className="aspect-[4/5] bg-neutral-100 overflow-hidden rounded-xs border border-black/5">
-                  <img 
-                    src="/models/model3.jpg" 
-                    alt="Signature Style"
-                    className="w-full h-full object-cover grayscale-[18%] group-hover:grayscale-0 transition-all duration-500"
-                  />
-                </div>
-              </motion.div>
-
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-4 pt-4">
-              <button
-                onClick={onBrowseMarketplace}
-                className="inline-flex items-center gap-2.5 bg-[#FFFEF2] hover:bg-brand-primary text-brand-secondary hover:text-brand-bg rounded px-8 py-4 transition-all duration-300 cursor-pointer text-[10px] font-mono font-bold tracking-widest uppercase group border border-[#FFFEF2]/10 shadow-lg hover:scale-105"
-              >
-                Get Your Tie Before Resumption
-                <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button
-                onClick={() => {
-                  const el = document.getElementById('about-scroll-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="inline-flex items-center gap-2.5 bg-transparent hover:bg-[#FFFEF2]/10 text-[#FFFEF2] rounded px-8 py-4 transition-all duration-300 cursor-pointer text-[10px] font-mono font-bold tracking-widest uppercase group border border-[#FFFEF2]/20 shadow-lg hover:scale-105 animate-pulse"
-              >
-                Learn More
-              </button>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* 2. CONTINUOUS SCROLLING MARQUEE (Classical Professional Burgundy Bar Stripe) */}
-      <section className="bg-brand-secondary text-brand-bg py-3 overflow-hidden border-y border-brand-border select-none animate-fade-in" id="marquee-banner">
-        <div className="relative w-full overflow-hidden">
-          <div className="animate-marquee whitespace-nowrap flex items-center gap-16 text-[10px] font-mono tracking-[0.25em] uppercase font-semibold">
-            <span>SARTORIAL ACCENT</span>
-            <span>✦</span>
-            <span>DAPPER SENIORS STYLE</span>
-            <span>✦</span>
-            <span>INCOMING FRESHERS SPECIAL</span>
-            <span>✦</span>
-            <span>BLEND IN INSTANTLY</span>
-            <span>✦</span>
-            <span>ANTI-NEWBIE AESTHETIC</span>
-            <span>✦</span>
-            <span>VERIFIED CAMPUS TIES</span>
-            <span>✦</span>
-            
-            {/* Duplicated for smooth loop */}
-            <span>SARTORIAL ACCENT</span>
-            <span>✦</span>
-            <span>DAPPER SENIORS STYLE</span>
-            <span>✦</span>
-            <span>INCOMING FRESHERS SPECIAL</span>
-            <span>✦</span>
-            <span>BLEND IN INSTANTLY</span>
-            <span>✦</span>
-            <span>ANTI-NEWBIE AESTHETIC</span>
-            <span>✦</span>
-            <span>VERIFIED CAMPUS TIES</span>
-            <span>✦</span>
-          </div>
-        </div>
-      </section>
-
-
-
-      {/* 3. ABOUT SCROLL-DRIVEN SECTION — sticky 3-layer cinematic reveal */}
-      <AboutSection />
-
-             {/* 4. CURATED FEATURED TIES: ULTRA-PREMIUM ASYMMETRIC GRID GALLERY */}
-      <motion.section 
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="py-28 bg-brand-bg border-b border-brand-border/30 relative overflow-hidden" 
-        id="featured-products"
+      {/* ── 1. HERO SECTION (High readability font, covenant tag removed, 4s auto carousel + manual controls) ── */}
+      <section
+        ref={heroRef}
+        className="relative pt-24 sm:pt-32 pb-10 sm:pb-16 px-3 sm:px-6 max-w-7xl mx-auto flex flex-col items-center justify-center text-center overflow-hidden"
+        id="hero-section"
       >
-        {/* Decorative background glow */}
-        <motion.div style={{ y: yGlow1 }} className="absolute top-1/4 right-0 w-96 h-96 bg-brand-secondary/[0.03] rounded-full filter blur-[120px] pointer-events-none"></motion.div>
-        <motion.div style={{ y: yGlow2 }} className="absolute bottom-1/4 left-0 w-80 h-80 bg-brand-accent/[0.05] rounded-full filter blur-[100px] pointer-events-none"></motion.div>
+        {/* Subtle dot pattern */}
+        <div className="absolute inset-0 bg-[radial-gradient(rgba(31,62,43,0.04)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 border-b border-brand-border/40 pb-8">
-            <div className="text-left space-y-2">
-              <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-brand-secondary block">The Assemblage Collection</span>
-              <h2 className="font-display font-black text-4xl sm:text-5xl text-brand-primary tracking-tight uppercase leading-none">
-                Featured Ties
-              </h2>
-              <p className="text-sm text-brand-secondary max-w-lg leading-relaxed">
-                A selection of high-end, handpicked neckwear. Verified against all university administrative standards and chapel dress criteria.
-              </p>
-            </div>
-            <button
-              onClick={onBrowseMarketplace}
-              className="px-8 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg rounded-full text-xs font-mono font-bold tracking-widest uppercase flex items-center gap-2 self-start md:self-end transition-all duration-300 shadow-md cursor-pointer"
-              id="btn-see-all-featured"
-            >
-              View Catalog
-              <span>↗</span>
-            </button>
-          </div>
-          <div className="space-y-3 text-center">
-            <div className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.35em] text-brand-secondary">
-              Live stock synced from Supabase
-            </div>
-            <div className="amount text-[30px] font-display font-black text-4xl sm:text-5xl text-brand-primary tracking-tight leading-none">
-              Be the <span className="font-serif italic font-light text-brand-secondary">No. {inventorySummary?.paidUsers+1}</span> student
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-6 text-[10px] font-mono uppercase tracking-[0.22em] text-brand-secondary/90">
-              <span>{inventorySummary?.totalQuantity ?? 0}+ ties in stock</span>
-              <span>{inventorySummary?.paidUsers ?? 0}+ paid scholars</span>
-            </div>
-          </div>         
-  
-          <motion.div 
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-8" 
-            id="featured-grid"
+        {/* Main Headline — High Readability Sans/Bold hierarchy (Covenant tag removed) */}
+        <h1 className="hero-anim-item font-sans font-black text-3xl sm:text-5xl md:text-6xl lg:text-[62px] text-brand-primary tracking-tight leading-[1.12] max-w-3xl mx-auto">
+          No need to borrow ties <br className="hidden sm:inline" />
+          in school anymore.
+          <span className="block font-sans font-extrabold text-brand-secondary mt-1.5 sm:mt-2">
+            We gat you.
+          </span>
+        </h1>
+
+        {/* Crisp Subtitle with tie humor */}
+        <p className="hero-anim-item text-xs sm:text-sm md:text-base font-sans text-brand-primary/80 max-w-lg mx-auto mt-3.5 sm:mt-4 leading-relaxed px-2 font-medium">
+          Hand-inspected, chapel-approved ties delivered right to your hall lobby before resumption.
+          <span className="block mt-1 font-serif italic text-brand-secondary font-semibold">
+            "Knots happen. Being untidy is a choice."
+          </span>
+        </p>
+
+        {/* Action Buttons */}
+        <div className="hero-anim-item flex flex-wrap items-center justify-center gap-3 mt-6 sm:mt-7 z-10 w-full max-w-xs sm:max-w-none">
+          <button
+            onClick={onBrowseMarketplace}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs sm:text-sm font-sans font-semibold px-7 sm:px-8 py-3.5 rounded-full transition-all duration-300 shadow-md hover:shadow-xl hover:scale-105 cursor-pointer min-h-[44px]"
+            id="hero-cta-shop"
           >
-            {featuredProducts.slice(0, 10).map((product) => {
-              const originalPrice = product?.originalPrice ?? 0;
-              const price = product?.price ?? 0;
-              const discountPercent = originalPrice > 0 ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
-              const isWishlisted = isInWishlist(product.id);
-              const isOutOfStock = product.stock === 0;
-  
+            <span>Shop Collection</span>
+            <ArrowRight size={14} />
+          </button>
+          <button
+            onClick={() => {
+              const el = document.getElementById('bestsellers');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}
+            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 bg-[#F4F2E6] hover:bg-brand-secondary/10 text-brand-primary text-xs sm:text-sm font-sans font-medium px-6 sm:px-7 py-3.5 rounded-full border border-brand-secondary/20 transition-all duration-200 cursor-pointer min-h-[44px]"
+          >
+            View Top Ties
+          </button>
+        </div>
+
+        {/* ── ASCENDING MODEL CARD FAN WITH MANUAL CONTROLLERS & 4s ROTATION (Reference Image 2) ── */}
+        <div 
+          className="hero-anim-item w-full max-w-4xl mx-auto mt-12 sm:mt-16 pt-2 relative select-none"
+          onMouseEnter={() => setIsCarouselPaused(true)}
+          onMouseLeave={() => setIsCarouselPaused(false)}
+        >
+          {/* Card Fan Display */}
+          <div className="flex items-end justify-center gap-2 sm:gap-4 md:gap-5 px-1 sm:px-4">
+            {HERO_MODELS.map((model, index) => {
+              const isActive = index === activeModelIndex;
+              const distFromCenter = Math.abs(index - activeModelIndex);
+              
+              let heightClass = 'h-48 sm:h-64 md:h-76';
+              let widthClass = 'w-20 sm:w-36 md:w-44';
+              let translateClass = 'translate-y-6 sm:translate-y-8';
+              let opacityClass = 'opacity-85 hover:opacity-100';
+
+              if (distFromCenter === 0) {
+                heightClass = 'h-64 sm:h-80 md:h-96';
+                widthClass = 'w-28 sm:w-48 md:w-60';
+                translateClass = 'translate-y-0';
+                opacityClass = 'opacity-100 ring-2 ring-brand-secondary/35 shadow-2xl';
+              } else if (distFromCenter === 1) {
+                heightClass = 'h-56 sm:h-72 md:h-84';
+                widthClass = 'w-24 sm:w-40 md:w-48';
+                translateClass = 'translate-y-3 sm:translate-y-4';
+                opacityClass = 'opacity-90 hover:opacity-100';
+              }
+
               return (
                 <motion.div
-                  key={product.id}
-                  variants={itemVariants}
-                  whileHover={isOutOfStock ? {} : { y: -4 }}
-                  className={`bg-transparent flex flex-col justify-between relative group transition-all duration-300 ${isOutOfStock ? 'opacity-40 blur-[1px] cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
-                  onClick={() => !isOutOfStock && onOpenProductDetail(product)}
-                  id={`featured-${product.id}`}
+                  key={model.id}
+                  onClick={() => setActiveModelIndex(index)}
+                  layout
+                  transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                  className={`shrink-0 cursor-pointer rounded-2xl sm:rounded-3xl overflow-hidden bg-white shadow-lg border border-black/8 relative transition-all duration-300 ${heightClass} ${widthClass} ${translateClass} ${opacityClass}`}
                 >
+                  <img
+                    src={model.src}
+                    alt={model.label}
+                    className="w-full h-full object-cover object-top"
+                    loading="lazy"
+                  />
                   
-                  {/* Image container with fine aesthetics */}
-                  <div className="aspect-[4/5] w-full rounded-lg overflow-hidden bg-brand-light-gray/40 border border-brand-border/20 relative mb-4 flex items-center justify-center">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className={`w-full h-full object-cover grayscale-[5%] group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-500 ${isOutOfStock ? 'opacity-40 grayscale' : ''}`}
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <TiePlaceholder
-                        color={product.color}
-                        category={product.category}
-                        name={product.name}
-                        className="w-full h-full"
-                      />
-                    )}
-                    
-                    {isOutOfStock ? (
-                      <span className="absolute top-3 left-3 bg-brand-primary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded-sm shadow-sm">
-                        OUT OF STOCK
-                      </span>
-                    ) : discountPercent > 0 ? (
-                      <span className="absolute top-3 left-3 bg-[#F5F2EB] text-[#0A0A0A] font-mono text-[9px] tracking-widest uppercase px-2 py-0.5 font-bold rounded-sm shadow-sm">
-                        -{discountPercent}%
-                      </span>
-                    ) : null}
-  
-                    {/* Wishlist Icon */}
-                    {!isOutOfStock && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleWishlist(product, e);
-                        }}
-                        className="absolute top-3 right-3 p-1.5 bg-black/40 backdrop-blur-sm rounded-full text-brand-secondary hover:bg-white hover:text-black transition-all duration-300 opacity-0 group-hover:opacity-100"
-                        aria-label="Add to Wishlist"
-                      >
-                        <Heart 
-                          size={12} 
-                          strokeWidth={2.5}
-                          className={isWishlisted ? 'fill-brand-primary text-brand-primary' : 'text-brand-secondary'} 
-                        />
-                      </button>
-                    )}
-            {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
-
-                <div className="absolute text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5  rounded shadow border border-brand-border flex items-center gap-1 ">
-                  HOT
-              </div>
-                : ""}
-                    {/* Quick Add To Bag Hover bar */}
-                    {!isOutOfStock && (
-                      <div className="absolute bottom-0 left-0 right-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAddToCart(product, e);
-                          }}
-                          className="w-full bg-[#F5F2EB] hover:bg-white text-black text-[9px] font-mono tracking-widest py-3 hover:text-black transition-colors uppercase font-bold"
-                        >
-                          + QUICK RESERVE
-                        </button>
-                      </div>
-                    )}
-                  </div>
-  
-                  {/* Text labels inside card */}
-                  <div className="text-left space-y-1.5 px-0.5">
-                    <h3 className="font-sans font-medium text-sm text-brand-primary tracking-tight leading-snug group-hover:text-brand-secondary transition-colors line-clamp-1">
-                      {product.name}
-                    </h3>
-                    
-                    <div className="flex items-baseline justify-between pt-2 border-t border-brand-border/10 mt-2">
-                      <div className="flex flex-col text-left">
-                        <div className="flex items-baseline gap-2">
-                          <span className="font-sans text-xs font-bold text-brand-primary">
-                            ₦{(product?.price ?? 0).toLocaleString()}
-                          </span>
-                          {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
-                            <span className="font-sans text-[9px] text-brand-secondary/30 line-through">
-                              ₦{(product?.originalPrice ?? 0).toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[9px] font-mono text-brand-secondary/65 mt-0.5">
-                          {product.stock!==0 ? product.stock+ " in stock": "out of stock"}
-                        </span>
-                      </div>
-                      <div className="text-[9px] font-mono text-brand-secondary/65 tracking-wider uppercase">
-                        {product.rating} / 5.0
-                      </div>
+                  {isActive && (
+                    <div className="absolute inset-x-0 bottom-0 p-2 sm:p-3 bg-gradient-to-t from-black/80 via-black/30 to-transparent text-[#FFFEF2] text-left">
+                      <p className="font-serif font-bold text-[10px] sm:text-xs truncate">
+                        {model.label}
+                      </p>
+                      <p className="font-sans text-[8px] sm:text-[9px] text-[#FFFEF2]/75">
+                        {model.hall}
+                      </p>
                     </div>
-                  </div>
-  
+                  )}
                 </motion.div>
               );
             })}
-          </motion.div>
-        </div>
-      </motion.section>
+          </div>
 
-      {/* 5. THE COMMUNITY: REDESIGNED WITH ASYMMETRIC MINIMALIST LISTS */}
-      <motion.section 
-        initial={{ opacity: 0, y: 20 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        className="py-28 bg-brand-bg border-b border-brand-border relative overflow-hidden" 
-        id="community"
-      >
-        {/* Subtle background element */}
-        <div className="absolute top-1/2 left-1/4 w-96 h-96 bg-brand-secondary/[0.02] rounded-full filter blur-[120px] pointer-events-none" />
+          {/* Manual Controller Controls Bar (Previous, Next, Timer indicator) */}
+          <div className="flex items-center justify-center gap-3 sm:gap-4 mt-6">
+            <button
+              onClick={handlePrevModel}
+              className="w-9 h-9 rounded-full bg-[#F4F2E6] hover:bg-white border border-brand-secondary/20 flex items-center justify-center text-brand-primary transition-all hover:scale-105 cursor-pointer shadow-xs active:scale-95"
+              aria-label="Previous style"
+            >
+              <ChevronLeft size={16} />
+            </button>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-20 items-start">
-            
-            {/* Left Column: Trust Section */}
-            <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-28">
-              <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-brand-secondary font-bold block">
-                Built by Students
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F4F2E6] border border-brand-secondary/15">
+              {HERO_MODELS.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveModelIndex(i)}
+                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                    i === activeModelIndex ? 'w-5 bg-brand-secondary' : 'w-1.5 bg-brand-secondary/20 hover:bg-brand-secondary/40'
+                  }`}
+                  aria-label={`Slide ${i + 1}`}
+                />
+              ))}
+              <span className="text-[10px] font-mono text-brand-secondary/60 ml-1.5 pl-1.5 border-l border-brand-secondary/20">
+                4s
               </span>
-              <h2 className="font-display font-black text-4xl sm:text-5xl text-brand-primary tracking-tight uppercase leading-[1.05]">
-                BUILT BY <br />
-                STUDENTS
-              </h2>
-              <div className="h-[1px] w-12 bg-brand-secondary"></div>
-              <p className="text-sm text-brand-primary/70 leading-relaxed font-sans">
-                We understand the resumption experience because we've lived it. That's why we created Knotify—to make preparing for Covenant University just a little easier for every student.
+            </div>
+
+            <button
+              onClick={handleNextModel}
+              className="w-9 h-9 rounded-full bg-[#F4F2E6] hover:bg-white border border-brand-secondary/20 flex items-center justify-center text-brand-primary transition-all hover:scale-105 cursor-pointer shadow-xs active:scale-95"
+              aria-label="Next style"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 2. SHORT ABOUT SECTION (Green background, punchy & witty) ── */}
+      <section
+        id="about-section"
+        className="bg-brand-secondary text-[#FFFEF2] py-16 sm:py-20 px-3 sm:px-6 relative overflow-hidden"
+      >
+        <div className="max-w-5xl mx-auto">
+          
+          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
+            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] text-[#FFFEF2]/60 block mb-2">
+              Why Knotify
+            </span>
+            <h2 className="font-display font-bold text-2xl sm:text-4xl text-[#FFFEF2] tracking-tight leading-snug">
+              Built for students who have better things to do than scramble for ties.
+            </h2>
+            <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 mt-3 leading-relaxed">
+              We know the drill: Sunday chapel bell ringing, wardrobe missing a compliant necktie, and your roommate's tie is mysteriously "borrowed." Knotify eliminates the scramble.
+            </p>
+          </div>
+
+          {/* 3 Quick Value Pillars */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6">
+            <div className="bg-[#FFFEF2]/8 border border-[#FFFEF2]/15 rounded-xl p-5 text-left">
+              <div className="w-9 h-9 rounded-lg bg-[#FFFEF2]/10 flex items-center justify-center mb-3">
+                <ShieldCheck size={18} className="text-emerald-300" />
+              </div>
+              <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
+                Chapel Compliant
+              </h3>
+              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/70 leading-relaxed">
+                Zero dress-code queries. Every tie is vetted for width, color, and finish before it ever reaches your room.
               </p>
             </div>
- 
-            {/* Right Column: Premium High-Contrast Rows */}
-            <div className="lg:col-span-8 divide-y divide-brand-border/40" id="community-channels-list">
-              
-              {/* Channel 1: WhatsApp */}
-              <div className="py-8 first:pt-0 group">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                  <div className="space-y-3 max-w-xl">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span className="text-[9px] font-mono text-emerald-600 font-bold tracking-widest uppercase">WhatsApp Community</span>
-                    </div>
-                    <h3 className="font-display font-black text-xl sm:text-2xl text-brand-primary uppercase tracking-tight group-hover:text-brand-secondary transition-colors">
-                      Notify Charge
-                    </h3>
-                    <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Coordinate with fellow scholars to get your class-ready ties directly in your hall lobby. Simple. Reliable. Stress-free.
-                    </p>
-                  </div>
-                  
-                  <div className="shrink-0">
-                    <a
-                      href="https://chat.whatsapp.com/Kiwu2BWP1NuE0z0wC61to0"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-6 py-3 border border-brand-primary/20 hover:border-brand-secondary hover:bg-brand-secondary hover:text-brand-bg rounded-sm transition-all duration-300 text-xs font-mono tracking-widest uppercase font-bold group/btn cursor-pointer bg-transparent text-brand-primary"
-                    >
-                      Connect Chat
-                      <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform" />
-                    </a>
-                  </div>
-                </div>
-              </div>
- 
-              {/* Channel 2: Telegram */}
-              <div className="py-8 group">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                  <div className="space-y-3 max-w-xl">
-                    <div className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-brand-secondary animate-pulse"></span>
-                      <span className="text-[9px] font-mono text-brand-secondary font-bold tracking-widest uppercase">Instant Notification</span>
-                    </div>
-                    <h3 className="font-display font-black text-xl sm:text-2xl text-brand-primary uppercase tracking-tight group-hover:text-brand-secondary transition-colors">
-                      Telegram Channels
-                    </h3>
-                    <p className="text-sm text-brand-primary/75 leading-relaxed font-sans">
-                      Receive notifications about available ties in your hall, helping you prepare before you arrive on campus.
-                    </p>
-                  </div>
-                  
-                  <div className="shrink-0">
-                    <a
-                      href="https://t.me/+go-lAiSrbJ5hNGVk"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 px-6 py-3 border border-brand-primary/20 hover:border-brand-secondary hover:bg-brand-secondary hover:text-brand-bg rounded-sm transition-all duration-300 text-xs font-mono tracking-widest uppercase font-bold group/btn cursor-pointer bg-transparent text-brand-primary"
-                    >
-                      Subscribe
-                      <ArrowRight size={12} className="group-hover/btn:translate-x-1 transition-transform" />
-                    </a>
-                  </div>
-                </div>
-              </div>
 
+            <div className="bg-[#FFFEF2]/8 border border-[#FFFEF2]/15 rounded-xl p-5 text-left">
+              <div className="w-9 h-9 rounded-lg bg-[#FFFEF2]/10 flex items-center justify-center mb-3">
+                <MapPin size={18} className="text-emerald-300" />
+              </div>
+              <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
+                Lobby Drop-Off
+              </h3>
+              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/70 leading-relaxed">
+                Peter, Paul, Daniel, PG, Esther, or Lydia Hall—collect your packaged tie directly in your hall lobby.
+              </p>
             </div>
 
+            <div className="bg-[#FFFEF2]/8 border border-[#FFFEF2]/15 rounded-xl p-5 text-left">
+              <div className="w-9 h-9 rounded-lg bg-[#FFFEF2]/10 flex items-center justify-center mb-3">
+                <Sparkles size={18} className="text-emerald-300" />
+              </div>
+              <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
+                60-Second Reserve
+              </h3>
+              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/70 leading-relaxed">
+                Add to bag, reserve securely in one minute, and arrive prepared without morning stress.
+              </p>
+            </div>
           </div>
+
+          <div className="mt-8 pt-6 border-t border-[#FFFEF2]/10 text-center">
+            <p className="text-[11px] sm:text-xs font-serif italic text-[#FFFEF2]/70">
+              Tie fact: A well-knotted tie increases presentation confidence by at least 42%. (Tested in Covenant lecture halls).
+            </p>
+          </div>
+
         </div>
-      </motion.section>
+      </section>
 
-      {/* FAQ Accordions Section */}
-      <FAQSection />
-
-      {/* 6. OUTCOME-FOCUSED PREMIUM HIGH-CONTRAST GREEN HERO CTA (SHOUTS AT THE USER) */}
-      <motion.section 
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: "-60px" }}
-        className="py-28 px-4 sm:px-8 bg-brand-secondary text-center relative overflow-hidden" 
-        id="final-cta"
+      {/* ── 3. TIE SHOWCASE / BEST SELLERS SECTION (WHITE BACKGROUND, 2 ROWS = 6 TIES, IN-STOCK FIRST) ── */}
+      <section
+        id="bestsellers"
+        className="bg-white text-brand-primary py-16 sm:py-24 px-3 sm:px-6 border-y border-black/8"
       >
-        {/* Soft, Warm Background Radial Glows */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,254,242,0.06)_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none" />
-        <motion.div style={{ y: yGlow2 }} className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-brand-accent/25 rounded-full filter blur-[120px] pointer-events-none" />
+        <div className="max-w-6xl mx-auto">
+          
+          {/* Centralized Heading */}
+          <div className="text-center max-w-xl mx-auto mb-10 sm:mb-14">
+            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] text-brand-secondary font-semibold block mb-2">
+              Hall Favorites
+            </span>
+            <h2 className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-brand-primary tracking-tight">
+              Best Sellers
+            </h2>
+            <p className="font-sans text-xs sm:text-sm text-brand-primary/65 mt-2">
+              Curated university-approved neckwear in stock for resumption week.
+            </p>
+          </div>
 
-        <motion.div 
-          variants={containerVariants}
-          className="max-w-3xl mx-auto space-y-8 relative z-10 py-10"
-        >
-          {/* Large display text that literally shouts at the user */}
-          <motion.h2 
-            variants={itemVariants} 
-            className="font-display font-black text-4xl sm:text-6xl md:text-7xl text-brand-bg tracking-tight uppercase leading-[1.05]"
-          >
-            Ready for Resumption?
-          </motion.h2>
+          {/* 2 Full Rows of Ties (3 columns × 2 rows = 6 Ties) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+            {displayTies.map((tie) => {
+              const currentPrice = tie.price ?? tie.originalPrice ?? 2000;
+              const isAvailable = Number(tie.stock) > 0;
 
-          <motion.p 
-            variants={itemVariants} 
-            className="text-xs sm:text-sm text-brand-bg/85 font-sans max-w-xl mx-auto leading-relaxed"
-          >
-            Order your Covenant University tie today and arrive on campus prepared, confident, and ready for the semester ahead.
-          </motion.p>
+              return (
+                <div
+                  key={tie.id}
+                  className="bg-[#FBF9F3]/40 border border-black/8 hover:border-brand-secondary/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group"
+                >
+                  <div>
+                    {/* Tie Image Canvas */}
+                    <div className="aspect-[4/5] rounded-xl overflow-hidden bg-white border border-black/5 mb-4 relative flex items-center justify-center p-3 shadow-xs">
+                      <img
+                        src={tie.image}
+                        alt={tie.name}
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                      />
+                      <span className={`absolute top-2.5 right-2.5 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full font-semibold border ${
+                        isAvailable 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                          : 'bg-rose-50 text-rose-800 border-rose-200'
+                      }`}>
+                        {isAvailable ? `${tie.stock} In Stock` : 'Sold Out'}
+                      </span>
+                    </div>
 
-          <motion.div variants={itemVariants} className="pt-6">
+                    {/* Tie Details */}
+                    <h3 className="font-serif font-bold text-sm sm:text-base text-brand-primary mb-1 line-clamp-1 group-hover:text-brand-secondary transition-colors">
+                      {tie.name}
+                    </h3>
+                    <div className="flex items-baseline gap-2 mb-4">
+                      <span className="text-base sm:text-lg font-bold font-sans text-brand-secondary">
+                        ₦{currentPrice.toLocaleString()}
+                      </span>
+                      {tie.originalPrice && tie.originalPrice > currentPrice && (
+                        <span className="text-xs text-brand-primary/40 line-through font-sans">
+                          ₦{tie.originalPrice.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 1-Click Add to Bag */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isAvailable) onAddToCart(tie as Product, e);
+                    }}
+                    disabled={!isAvailable}
+                    className={`w-full inline-flex items-center justify-center gap-2 font-sans font-semibold text-xs sm:text-sm py-2.5 sm:py-3 rounded-xl transition-all duration-200 min-h-[42px] ${
+                      isAvailable
+                        ? 'bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] hover:shadow-md cursor-pointer active:scale-98'
+                        : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                    }`}
+                  >
+                    <ShoppingBag size={15} />
+                    <span>{isAvailable ? 'Add to Bag' : 'Out of Stock'}</span>
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* View Full Catalog Button */}
+          <div className="text-center mt-12">
             <button
               onClick={onBrowseMarketplace}
-              className="px-12 py-4.5 bg-brand-bg text-brand-secondary hover:text-brand-bg hover:bg-brand-primary font-mono text-xs tracking-widest uppercase font-black rounded-md shadow-2xl transition-all duration-300 hover:scale-105 inline-flex items-center gap-3.5 cursor-pointer"
-              id="cta-bottom-browse"
+              className="inline-flex items-center gap-2 text-xs sm:text-sm font-sans font-medium text-brand-secondary hover:text-brand-accent border border-brand-secondary/30 hover:border-brand-secondary px-7 py-3 rounded-full transition-colors cursor-pointer"
             >
-              Order Before Resumption
+              <span>Explore full catalog</span>
               <ArrowRight size={14} />
             </button>
-          </motion.div>
+          </div>
 
+        </div>
+      </section>
 
-        </motion.div>
-      </motion.section>
+      {/* ── 4. CTA SECTION (Inspired by Image 0: CTA text + Gallery Carousel of ties + CTA button) ── */}
+      <section
+        id="cta-section"
+        className="bg-[#FFFEF2] py-20 sm:py-28 px-3 sm:px-6 text-center relative overflow-hidden"
+      >
+        <div className="max-w-6xl mx-auto">
+          
+          {/* Eyebrow & Headline from Image 0 */}
+          <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.35em] text-brand-secondary/70 block mb-2 font-semibold">
+            JOIN THE SARTORIAL COMMUNITY
+          </span>
+
+          <h2 className="font-display font-bold text-3xl sm:text-5xl md:text-6xl text-brand-primary tracking-tight leading-tight mb-3">
+            Walk into chapel with confidence.
+          </h2>
+
+          <p className="font-sans text-xs sm:text-sm md:text-base text-brand-primary/65 max-w-lg mx-auto mb-10 leading-relaxed">
+            Every tie is inspected, ironed, and ready for your first Sunday service and Monday 8:00 AM presentation.
+          </p>
+
+          {/* ── TIE GALLERY CAROUSEL (Sweeping Panoramic Format from Reference Image 0) ── */}
+          <div className="relative w-full overflow-hidden py-4 my-6">
+            <div 
+              ref={galleryRef}
+              className="flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none py-4 px-4 snap-x snap-mandatory"
+            >
+              {CTA_GALLERY_TIES.map((tie) => (
+                <div
+                  key={tie.id}
+                  onClick={onBrowseMarketplace}
+                  className="snap-center shrink-0 w-44 sm:w-56 md:w-64 rounded-2xl sm:rounded-3xl p-3 sm:p-4 bg-white border border-black/8 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group text-left"
+                >
+                  <div className="aspect-[3/4] rounded-xl sm:rounded-2xl overflow-hidden bg-[#F8F6F0] p-4 flex items-center justify-center mb-3">
+                    <img
+                      src={tie.image}
+                      alt={tie.name}
+                      className="w-full h-full object-contain group-hover:scale-108 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                  </div>
+                  <h4 className="font-serif font-bold text-xs sm:text-sm text-brand-primary group-hover:text-brand-secondary transition-colors truncate">
+                    {tie.name}
+                  </h4>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="font-sans font-bold text-xs sm:text-sm text-brand-secondary">
+                      {tie.price}
+                    </span>
+                    <span className="text-[9px] font-mono uppercase tracking-wider text-brand-primary/45 group-hover:text-brand-secondary transition-colors">
+                      View tie →
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Edge fades */}
+            <div className="hidden sm:block absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#FFFEF2] to-transparent pointer-events-none" />
+            <div className="hidden sm:block absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-[#FFFEF2] to-transparent pointer-events-none" />
+          </div>
+
+          {/* CTA Button Below Gallery Carousel leading to Store */}
+          <div className="mt-8">
+            <button
+              onClick={onBrowseMarketplace}
+              className="inline-flex items-center gap-3 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] font-sans font-medium text-xs sm:text-sm px-9 py-4 rounded-full transition-all duration-300 shadow-md hover:shadow-2xl hover:scale-105 cursor-pointer min-h-[48px]"
+              id="cta-shop-btn"
+            >
+              <span>Explore the Entire Store</span>
+              <ArrowRight size={16} />
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 5. REVAMPED CONTACT HUB (Rich Cards & Icons instead of plain link) ── */}
+      <section
+        id="contact-section"
+        className="bg-[#F8F6EC] py-16 sm:py-24 px-3 sm:px-6 border-t border-brand-border/20 text-center"
+      >
+        <div className="max-w-4xl mx-auto">
+          
+          <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] text-brand-secondary font-semibold block mb-2">
+            Get in Touch
+          </span>
+
+          <h2 className="font-display font-bold text-2xl sm:text-4xl text-brand-primary tracking-tight mb-3">
+            Need Help or Custom Inquiries?
+          </h2>
+
+          <p className="font-sans text-xs sm:text-sm text-brand-primary/65 max-w-md mx-auto mb-8">
+            Connect directly with student coordinators across all Covenant residence halls.
+          </p>
+
+          {/* Tie Quote Banner Card with Icon */}
+          <div className="bg-[#FFFEF2] border border-brand-secondary/20 rounded-2xl p-4 sm:p-5 mb-8 shadow-xs max-w-xl mx-auto flex items-center gap-3.5 text-left">
+            <div className="w-10 h-10 rounded-full bg-brand-secondary/10 flex items-center justify-center shrink-0 text-brand-secondary">
+              <MessageSquareQuote size={20} />
+            </div>
+            <div>
+              <p className="font-serif italic text-xs sm:text-sm text-brand-secondary font-semibold leading-relaxed">
+                "If you want to Contact Knotify, please notify our Telegram channel!"
+              </p>
+              <p className="text-[10px] font-sans text-brand-primary/55 mt-0.5">
+                Response time is typically faster than tying a Full Windsor knot.
+              </p>
+            </div>
+          </div>
+
+          {/* Interactive Icon Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
+            
+            {/* Telegram Card */}
+            <a
+              href="https://t.me/+go-lAiSrbJ5hNGVk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white hover:bg-[#FFFEF2] border border-black/8 hover:border-brand-secondary/40 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 group flex flex-col justify-between cursor-pointer"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Send size={20} />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full">
+                    Instant Channel
+                  </span>
+                </div>
+                <h4 className="font-serif font-bold text-base text-brand-primary group-hover:text-brand-secondary transition-colors">
+                  Telegram Channel
+                </h4>
+                <p className="font-sans text-xs text-brand-primary/65 mt-1 leading-relaxed">
+                  Real-time tie drop alerts, hall inventory updates, and live queries.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs font-sans font-semibold text-brand-secondary mt-4 group-hover:translate-x-0.5 transition-transform">
+                <span>Join Channel</span>
+                <ExternalLink size={13} />
+              </div>
+            </a>
+
+            {/* WhatsApp Community Card */}
+            <a
+              href="https://chat.whatsapp.com/Kiwu2BWP1NuE0z0wC61to0"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-white hover:bg-[#FFFEF2] border border-black/8 hover:border-brand-secondary/40 rounded-2xl p-5 shadow-xs hover:shadow-md transition-all duration-300 group flex flex-col justify-between cursor-pointer"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <MessageCircle size={20} />
+                  </div>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                    Active Chat
+                  </span>
+                </div>
+                <h4 className="font-serif font-bold text-base text-brand-primary group-hover:text-brand-secondary transition-colors">
+                  WhatsApp Community
+                </h4>
+                <p className="font-sans text-xs text-brand-primary/65 mt-1 leading-relaxed">
+                  Direct hostel coordinators & fellow scholar tie coordination.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs font-sans font-semibold text-brand-secondary mt-4 group-hover:translate-x-0.5 transition-transform">
+                <span>Open Community</span>
+                <ExternalLink size={13} />
+              </div>
+            </a>
+
+          </div>
+
+        </div>
+      </section>
+
+      {/* ── 6. MINIMAL FOOTER ── */}
+      <footer id="site-footer" className="bg-[#FFFEF2] border-t border-black/8 py-8 sm:py-10 px-3 sm:px-6">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+          
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/logo-k.svg"
+              alt="Knotify"
+              className="h-6 sm:h-7 w-auto object-contain"
+            />
+            <span className="font-serif font-bold text-sm sm:text-base text-brand-secondary">
+              Knotify Ties
+            </span>
+          </div>
+
+          <div className="flex items-center gap-5 text-xs font-sans text-brand-primary/60">
+            <a
+              href="https://chat.whatsapp.com/Kiwu2BWP1NuE0z0wC61to0"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-secondary transition-colors"
+            >
+              WhatsApp
+            </a>
+            <a
+              href="https://t.me/+go-lAiSrbJ5hNGVk"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-secondary transition-colors"
+            >
+              Telegram
+            </a>
+            <button
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              className="hover:text-brand-secondary transition-colors cursor-pointer"
+            >
+              Back to Top ↑
+            </button>
+          </div>
+
+          <p className="text-[11px] font-sans text-brand-primary/40">
+            © 2026 Knotify • Covenant University
+          </p>
+
+        </div>
+      </footer>
+
     </div>
   );
 }
-
