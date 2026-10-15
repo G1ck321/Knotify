@@ -581,27 +581,27 @@ export default function CheckoutPage({
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-12 text-left animate-fadeIn" id="full-page-checkout">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
       
       {/* 1. PROGRESS BARS / HEADER */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/60 pb-6">
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-6">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary tracking-tight">
-              Checkout & Reservation
+              Checkout
             </h1>
             <button
               type="button"
               onClick={handleUseSampleAccount}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-800 text-[11px] font-sans font-medium border border-amber-500/25 transition-all cursor-pointer shadow-xs"
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 text-[11px] font-sans font-medium border border-amber-500/25 transition-all cursor-pointer shadow-xs"
               title="Click to test workflow with Daniel Adeleke's credentials"
             >
               <Sparkles size={12} className="text-amber-600" />
               <span>Sample Account</span>
             </button>
           </div>
-          <p className="text-xs text-brand-primary/70 mt-1 font-sans">
-            Direct online payment via Flutterwave. Instant confirmation &amp; hall lobby delivery.
+          <p className="text-xs text-brand-primary/65 mt-1 font-sans">
+            Direct Covenant hall delivery · Reserve online via Flutterwave
           </p>
         </div>
 
@@ -612,30 +612,30 @@ export default function CheckoutPage({
               onClick={() => cartItems.length > 0 && setCheckoutStep('cart')}
               className={`px-3 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                 checkoutStep === 'cart' 
-                  ? 'bg-brand-secondary text-brand-bg font-semibold shadow-sm' 
-                  : 'bg-brand-card text-brand-primary/60 border border-brand-border hover:text-brand-primary'
+                  ? 'bg-brand-secondary text-brand-bg font-semibold shadow-xs' 
+                  : 'bg-brand-card/70 text-brand-primary/60 border border-brand-border/60 hover:text-brand-primary'
               }`}
             >
               <span className="w-4 h-4 rounded-full bg-white/20 text-[9px] flex items-center justify-center font-mono">1</span>
-              <span>01 BAG</span>
+              <span>Bag</span>
             </button>
-            <div className="h-px w-4 bg-brand-border"></div>
+            <div className="h-px w-4 bg-brand-border/60"></div>
             <button 
               disabled={cartItems.length === 0}
               onClick={handleStartCheckout}
               className={`px-3 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                 checkoutStep === 'form' 
-                  ? 'bg-brand-secondary text-brand-bg font-semibold shadow-sm' 
-                  : 'bg-brand-card text-brand-primary/60 border border-brand-border hover:text-brand-primary disabled:opacity-40'
+                  ? 'bg-brand-secondary text-brand-bg font-semibold shadow-xs' 
+                  : 'bg-brand-card/70 text-brand-primary/60 border border-brand-border/60 hover:text-brand-primary disabled:opacity-40'
               }`}
             >
               <span className="w-4 h-4 rounded-full bg-white/20 text-[9px] flex items-center justify-center font-mono">2</span>
-              <span>02 DETAILS</span>
+              <span>Details</span>
             </button>
-            <div className="h-px w-4 bg-brand-border"></div>
-            <span className="px-3 py-1.5 rounded-full border bg-brand-card/60 text-brand-primary/30 border-brand-border/60 flex items-center gap-1.5">
+            <div className="h-px w-4 bg-brand-border/60"></div>
+            <span className="px-3 py-1.5 rounded-full border bg-brand-card/40 text-brand-primary/30 border-brand-border/40 flex items-center gap-1.5">
               <span className="w-4 h-4 rounded-full bg-black/10 text-[9px] flex items-center justify-center font-mono">3</span>
-              <span>03 RECEIPT</span>
+              <span>Receipt</span>
             </span>
           </div>
         )}
@@ -682,18 +682,18 @@ export default function CheckoutPage({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 15 }}
                   transition={{ duration: 0.25 }}
-                  className="bg-brand-card border border-brand-border rounded-3xl p-6 sm:p-8 shadow-sm"
+                  className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 sm:p-8 shadow-xs"
                 >
-                  <div className="flex items-center justify-between mb-6 border-b border-brand-border pb-4">
-                    <h2 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-secondary flex items-center gap-2">
+                  <div className="flex items-center justify-between mb-6 border-b border-brand-border/40 pb-4">
+                    <h2 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-secondary flex items-center gap-2">
                       <ShoppingBag size={14} className="text-brand-secondary" />
-                      Queued Reservations ({cartItems.length})
+                      Bag Items ({cartItems.length})
                     </h2>
                     <button 
                       onClick={onClearCart}
-                      className="text-[10px] font-sans text-brand-primary/60 hover:text-red-600 transition-colors uppercase font-bold cursor-pointer bg-transparent border-none"
+                      className="text-[11px] font-sans text-brand-primary/50 hover:text-red-600 transition-colors font-medium cursor-pointer bg-transparent border-none"
                     >
-                      Clear All
+                      Clear Bag
                     </button>
                   </div>
 
@@ -812,7 +812,7 @@ export default function CheckoutPage({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 15 }}
                   transition={{ duration: 0.25 }}
-                  className="bg-brand-card border border-brand-border rounded-3xl p-6 sm:p-8 shadow-sm"
+                  className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 sm:p-8 shadow-xs"
                 >
                   <div className="mb-6 border-b border-brand-border/60 pb-4">
                     <button 
@@ -1189,25 +1189,25 @@ export default function CheckoutPage({
           {checkoutStep !== 'success' ? (
             <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
               
-              <div className="bg-brand-card border border-brand-border rounded-3xl p-6 shadow-sm text-left">
-                <h3 className="text-xs font-sans tracking-widest uppercase font-bold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border">
+              <div className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 shadow-xs text-left">
+                <h3 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border/40">
                   Billing Overview
                 </h3>
 
-                <div className="space-y-3.5 text-xs font-sans uppercase pb-5 border-b border-brand-border">
+                <div className="space-y-3 text-xs font-sans pb-4 border-b border-brand-border/40">
                   <div className="flex justify-between text-brand-primary/70">
                     <span>Total items ({totalItems})</span>
                     <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
                   </div>
                   
-                  <div className="flex justify-between text-brand-secondary font-bold">
-                    <span>Delivery & Development</span>
+                  <div className="flex justify-between text-brand-secondary font-semibold">
+                    <span>Delivery & Hall Handoff</span>
                     <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
                   </div>
 
-                  <div className="flex justify-between text-brand-primary/60 text-[11px] pt-1 border-t border-brand-border">
-                    <span>Total Payable</span>
-                    <span className="font-sans font-bold">₦{totalAmountPayable.toLocaleString()}</span>
+                  <div className="flex justify-between text-brand-primary/80 text-xs pt-1.5 border-t border-brand-border/40">
+                    <span className="font-semibold">Total Payable</span>
+                    <span className="font-sans font-bold text-base text-brand-primary">₦{totalAmountPayable.toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -1215,9 +1215,9 @@ export default function CheckoutPage({
                 {checkoutStep === 'cart' ? (
                   <button
                     onClick={handleStartCheckout}
-                    className="w-full mt-5 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                    className="w-full mt-4 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-98"
                   >
-                    PROCEED TO DETAILS
+                    Proceed to Details
                     <ArrowRight size={13} />
                   </button>
                 ) : (
@@ -1225,9 +1225,9 @@ export default function CheckoutPage({
                     type="button"
                     onClick={handleInitiatePayment}
                     disabled={isSubmitting}
-                    className="w-full mt-5 py-4 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                    className="w-full mt-4 py-3.5 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 active:scale-98"
                   >
-                    {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE`}
+                    {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()} via Flutterwave`}
                   </button>
                 )}
 
@@ -1243,17 +1243,17 @@ export default function CheckoutPage({
                 </button>
 
                 <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
-                  🔒 Encrypted connection. Student-verified handoffs.
+                  🔒 Encrypted connection · Student-verified handoffs
                 </div>
               </div>
 
               {/* TRUST REASSURANCE CARD */}
-              <div className="bg-brand-card p-4.5 rounded-2xl border border-brand-border text-[11px] font-sans leading-relaxed text-brand-primary/80 text-left space-y-2">
-                <p className="font-bold text-brand-primary flex items-center gap-2 text-xs">
+              <div className="bg-brand-card/70 p-4 rounded-2xl border border-brand-border/60 text-[11px] font-sans leading-relaxed text-brand-primary/80 text-left space-y-1.5">
+                <p className="font-bold text-brand-primary flex items-center gap-1.5 text-xs">
                   <ShieldCheck size={14} className="text-brand-secondary" />
                   Low-Risk Student Guarantee
                 </p>
-                <p className="text-xs text-brand-primary/70 leading-relaxed">
+                <p className="text-xs text-brand-primary/65 leading-relaxed">
                   Direct delivery to your residence hall lobby on resumption week. Full cash refund or tie exchange directly at pickup if unsuited.
                 </p>
               </div>
