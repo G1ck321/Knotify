@@ -110,7 +110,10 @@ export default function Navbar({
               {currentUser ? (
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setCurrentTab('dashboard')}
+                    onClick={() => {
+                      setCurrentTab('dashboard');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
                     className="text-xs sm:text-sm font-sans font-medium text-brand-secondary bg-brand-secondary/10 px-3 py-1.5 rounded-full hover:bg-brand-secondary/15 transition-all max-w-[100px] truncate cursor-pointer"
                   >
                     {currentUser.name?.split(' ')[0]}
@@ -217,6 +220,7 @@ export default function Navbar({
             onClick={() => {
               if (currentUser) {
                 setCurrentTab('dashboard');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
               } else {
                 onOpenAuth();
               }

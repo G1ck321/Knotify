@@ -286,6 +286,10 @@ useEffect(() => {
   }, [reservations]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentTab]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = (params.get('status') || params.get('tx_status') || '').toLowerCase();
     const txRef = params.get('tx_ref') || params.get('transaction_id');

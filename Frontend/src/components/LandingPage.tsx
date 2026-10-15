@@ -274,67 +274,67 @@ export default function LandingPage({
         </div>
       </section>
 
-      {/* ── 2. SHORT ABOUT SECTION (Green background, punchy & witty) ── */}
+      {/* ── 2. SHORT ABOUT SECTION (Summarized, clear & simple English) ── */}
       <section
         id="about-section"
-        className="bg-brand-secondary text-[#FFFEF2] py-16 sm:py-20 px-3 sm:px-6 relative overflow-hidden"
+        className="bg-brand-secondary text-[#FFFEF2] py-14 sm:py-18 px-3 sm:px-6 relative overflow-hidden"
       >
         <div className="max-w-5xl mx-auto">
           
-          <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
-            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] text-[#FFFEF2]/60 block mb-2">
+          <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+            <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] text-[#FFFEF2]/70 block mb-2">
               Why Knotify
             </span>
             <h2 className="font-display font-bold text-2xl sm:text-4xl text-[#FFFEF2] tracking-tight leading-snug">
-              Built for students who have better things to do than scramble for ties.
+              Getting your ties shouldn't be stressful.
             </h2>
-            <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 mt-3 leading-relaxed">
-              We know the drill: Sunday chapel bell ringing, wardrobe missing a compliant necktie, and your roommate's tie is mysteriously "borrowed." Knotify eliminates the scramble.
+            <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/80 mt-2.5 leading-relaxed">
+              We make it quick and easy to get dress-code approved ties delivered straight to your hostel lobby before you resume.
             </p>
           </div>
 
           {/* 3 Quick Value Pillars */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6">
-            <div className="bg-[#FFFEF2]/8 border border-[#FFFEF2]/15 rounded-xl p-5 text-left">
-              <div className="w-9 h-9 rounded-lg bg-[#FFFEF2]/10 flex items-center justify-center mb-3">
-                <ShieldCheck size={18} className="text-emerald-300" />
+            <div className="bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-2xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-[#FFFEF2]/15 flex items-center justify-center mb-3.5">
+                <ShieldCheck size={20} className="text-emerald-300" />
               </div>
               <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
-                Chapel Compliant
+                100% Chapel Approved
               </h3>
-              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/70 leading-relaxed">
-                Zero dress-code queries. Every tie is vetted for width, color, and finish before it ever reaches your room.
+              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 leading-relaxed">
+                Every tie matches Covenant dress guidelines. No dress-code worries on Sunday mornings.
               </p>
             </div>
 
-            <div className="bg-[#FFFEF2]/8 border border-[#FFFEF2]/15 rounded-xl p-5 text-left">
-              <div className="w-9 h-9 rounded-lg bg-[#FFFEF2]/10 flex items-center justify-center mb-3">
-                <MapPin size={18} className="text-emerald-300" />
+            <div className="bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-2xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-[#FFFEF2]/15 flex items-center justify-center mb-3.5">
+                <MapPin size={20} className="text-emerald-300" />
               </div>
               <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
-                Lobby Drop-Off
+                Hostel Lobby Pickup
               </h3>
-              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/70 leading-relaxed">
-                Peter, Paul, Daniel, PG, Esther, or Lydia Hall—collect your packaged tie directly in your hall lobby.
+              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 leading-relaxed">
+                Pick up your packaged tie right in your hall lobby (Peter, Paul, Daniel, PG, Esther, or Lydia).
               </p>
             </div>
 
-            <div className="bg-[#FFFEF2]/8 border border-[#FFFEF2]/15 rounded-xl p-5 text-left">
-              <div className="w-9 h-9 rounded-lg bg-[#FFFEF2]/10 flex items-center justify-center mb-3">
-                <Sparkles size={18} className="text-emerald-300" />
+            <div className="bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-colors">
+              <div className="w-10 h-10 rounded-xl bg-[#FFFEF2]/15 flex items-center justify-center mb-3.5">
+                <Sparkles size={20} className="text-emerald-300" />
               </div>
               <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
-                60-Second Reserve
+                Order in 60 Seconds
               </h3>
-              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/70 leading-relaxed">
-                Add to bag, reserve securely in one minute, and arrive prepared without morning stress.
+              <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 leading-relaxed">
+                Choose your tie, pay securely online, and have it ready waiting for you when you arrive.
               </p>
             </div>
           </div>
 
-          <div className="mt-8 pt-6 border-t border-[#FFFEF2]/10 text-center">
-            <p className="text-[11px] sm:text-xs font-serif italic text-[#FFFEF2]/70">
-              Tie fact: A well-knotted tie increases presentation confidence by at least 42%. (Tested in Covenant lecture halls).
+          <div className="mt-8 pt-5 border-t border-[#FFFEF2]/15 text-center">
+            <p className="text-xs font-sans text-[#FFFEF2]/80">
+              Simple, affordable, and built specifically for Covenant University students.
             </p>
           </div>
 
