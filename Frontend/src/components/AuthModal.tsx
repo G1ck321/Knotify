@@ -12,6 +12,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
+import { persistAuthSession } from '../lib/authStorage';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -143,6 +144,24 @@ export default function AuthModal({
     }
   };
 
+  const handleUseSampleAccount = () => {
+    const sampleUser = {
+      id: 'sample-student-daniel',
+      name: 'Daniel Adeleke',
+      full_name: 'Daniel Adeleke',
+      email: 'daniel.adeleke@student.covenant.edu.ng',
+      telegramPhone: '08012345678',
+      phone: '08012345678',
+      whatsApp: '08012345678',
+      parentsNumber: '08098765432',
+      address: 'Daniel Hall',
+      roomNumber: 'B204',
+    };
+    persistAuthSession(sampleUser, 'sample_jwt_token_for_daniel');
+    onSuccess(sampleUser);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/40 backdrop-blur-sm">
       
@@ -177,7 +196,7 @@ export default function AuthModal({
             </div>
 
             {/* Heading & Subtitle */}
-            <div className="mb-6">
+            <div className="mb-5">
               <h2 className="font-display font-bold text-2xl sm:text-3xl text-brand-primary tracking-tight">
                 {isLogin ? 'Welcome back!' : 'Create your account'}
               </h2>
@@ -186,6 +205,18 @@ export default function AuthModal({
                   ? 'Please enter your account details to continue.' 
                   : 'Join Covenant students getting chapel-ready ties without hassle.'}
               </p>
+            </div>
+
+            {/* Quick Sample Account Button for testing */}
+            <div className="mb-4">
+              <button
+                type="button"
+                onClick={handleUseSampleAccount}
+                className="w-full py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 rounded-xl font-sans text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              >
+                <Sparkles size={14} className="text-amber-600" />
+                <span>⚡ Use Sample Account (Instant Sign In)</span>
+              </button>
             </div>
 
             {/* Error Message Alert */}

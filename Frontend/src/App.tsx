@@ -584,6 +584,8 @@ useEffect(() => {
                 onClearCart={handleClearCart}
                 onAddReservation={handleAddReservation}
                 currentUser={currentUser}
+                onSetCurrentUser={handleUpdateUser}
+                onAddToCart={handleAddToCart}
                 onOpenAuth={() => {
                   setPendingAction({ type: 'checkout' });
                   setIsAuthOpen(true);

@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @theme {
+  --font-clean: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-sans: "Libre Baskerville", "Baskerville", "Bodoni MT", serif;
   --font-display: "Bodoni Moda", "Bodoni MT", "Libre Baskerville", "Baskerville", serif;
   --font-serif: "Bodoni Moda", "Bodoni MT", "Libre Baskerville", "Baskerville", serif;
