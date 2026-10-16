@@ -49,10 +49,11 @@ export interface Product {
    * hard-code a discounted value here, or the same stale-price bug returns.
    */
   price?: number;
+  deposit?: number;
   condition: 'Brand New' | 'Like New' | 'Gently Used' | 'Used';
   category: 'Official Tie' | 'Premium' | 'Department' | 'Bow Tie' | 'Corporate' | 'Vintage';
   color: 'Navy' | 'Crimson' | 'Gold' | 'Forest Green' | 'Black' | 'Wine' | 'Stripes';
-  stock: number | string;
+  stock: number;
   description: string;
   materials: string;
   pickupProcess: string;

@@ -17,7 +17,7 @@ import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { authFetch, clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
 import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
-import { body } from 'motion/react-client';
+
 
 function normalizeUser(user: any) {
   if (!user) return user;
@@ -286,6 +286,10 @@ useEffect(() => {
   }, [reservations]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentTab]);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = (params.get('status') || params.get('tx_status') || '').toLowerCase();
     const txRef = params.get('tx_ref') || params.get('transaction_id');
@@ -368,14 +372,12 @@ useEffect(() => {
       }
       return [...previous, { product, quantity: Math.min(safeQuantity, maxStock) }];
     });
-    addToast(`"${product.name}" added to bag`, 'cart');
-    setCurrentTab('checkout');
+    addToast(`"${product.name}" added to bag!`, 'cart');
   };
 
   const executeDirectBuyNow = (product: Product) => {
     executeAddToCart(product, 1);
     setActiveProduct(null);
-    setCurrentTab('checkout');
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
@@ -440,7 +442,15 @@ useEffect(() => {
   const isInWishlist = (productId: string) => wishlist.includes(productId);
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const wishlistCount = wishlist.length;
-  const featuredProducts = products.filter((product) => product.isFeatured);
+  const featuredProducts = products
+    .filter((product) => product.isFeatured)
+    .sort((a, b) => {
+      const aInStock = Number(a.stock) > 0;
+      const bInStock = Number(b.stock) > 0;
+      if (aInStock && !bInStock) return -1;
+      if (!aInStock && bInStock) return 1;
+      return 0;
+    });
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-brand-bg relative antialiased" id="marketplace-viewport">
@@ -578,6 +588,8 @@ useEffect(() => {
                 onClearCart={handleClearCart}
                 onAddReservation={handleAddReservation}
                 currentUser={currentUser}
+                onSetCurrentUser={handleUpdateUser}
+                onAddToCart={handleAddToCart}
                 onOpenAuth={() => {
                   setPendingAction({ type: 'checkout' });
                   setIsAuthOpen(true);
@@ -589,24 +601,15 @@ useEffect(() => {
         </AnimatePresence>
       </main>
 
-      <Footer
-        setCurrentTab={setCurrentTab}
-        onOpenBecomeSeller={() => setCurrentTab('sell')}
-        onResetLocalSession={handleResetLocalSession}
-      />
+      {currentTab !== 'home' && (
+        <Footer
+          setCurrentTab={setCurrentTab}
+          onOpenBecomeSeller={() => setCurrentTab('sell')}
+          onResetLocalSession={handleResetLocalSession}
+        />
+      )}
 
-      <AnimatePresence>
-        {activeProduct && (
-          <ProductDetailModal
-            product={activeProduct}
-            onClose={() => setActiveProduct(null)}
-            onAddToCart={handleAddToCart}
-            onToggleWishlist={handleToggleWishlist}
-            isInWishlist={isInWishlist}
-            onDirectBuy={handleDirectBuyNow}
-          />
-        )}
-      </AnimatePresence>
+
 
       <AnimatePresence>
         {isBecomeSellerOpen && <SellPage />}

@@ -135,11 +135,11 @@ export default function Marketplace({
         return matchesSearch && matchesCategory && matchesCondition && matchesColor && matchesPrice && matchesRating && matchesStock;
       })
       .sort((a, b) => {
-        const aHasStock = hasStock(a.stock);
-        const bHasStock = hasStock(b.stock);
-
-        // Keep purchasable ties ahead of sold-out ties for every sort mode.
-        if (aHasStock !== bHasStock) return bHasStock ? 1 : -1;
+        // ALWAYS put available ties (stock > 0) above ties that are not available
+        const aAvailable = Number(a.stock) > 0;
+        const bAvailable = Number(b.stock) > 0;
+        if (aAvailable && !bAvailable) return -1;
+        if (!aAvailable && bAvailable) return 1;
 
         if (sortBy === 'price-low') return (a.price ?? a.originalPrice) - (b.price ?? b.originalPrice);
         if (sortBy === 'price-high') return (b.price ?? b.originalPrice) - (a.price ?? a.originalPrice);
@@ -273,7 +273,7 @@ export default function Marketplace({
                     transition={{ duration: 0.3 }}
                     key={product.id}
                     className={`bg-transparent border-0 rounded-none p-0 flex flex-col relative group transition-all duration-300 text-left ${isOutOfStock ? 'opacity-40 blur-[1px] cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
-                    onClick={() => !isOutOfStock && onOpenProductDetail(product)}
+                    onClick={(e) => !isOutOfStock && onAddToCart(product, e)}
                     id={`product-${product.id}`}
                   >
                     {/* Thumbnail Container (Flat Ugmonk Style, Pure Sharp Corners) */}

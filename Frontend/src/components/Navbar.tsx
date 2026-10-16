@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
-import { ShoppingBag, Heart, PlusCircle, Menu, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  ShoppingBag, 
+  Home, 
+  Compass, 
+  User, 
+  Menu, 
+  X,
+  LogOut
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NavbarProps {
@@ -19,258 +27,221 @@ export default function Navbar({
   currentTab,
   setCurrentTab,
   cartCount,
-  wishlistCount,
   onOpenCart,
-  onOpenWishlist,
-  onOpenBecomeSeller,
   currentUser,
   onOpenAuth,
   onLogout,
 }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 15);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <motion.header
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      className="sticky top-0 z-40 w-full bg-[#FFFEF2] border-b border-brand-border/40 backdrop-blur-md transition-all duration-300"
-      id="main-navbar"
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 sm:h-20">
-          
-          {/* Left Segment: Brand Logo */}
-          <div className="flex items-center" id="navbar-left-portal">
+    <>
+      {/* ── TOP NAVBAR ────────────────────────────────────────── */}
+      <motion.header
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: 'easeOut' }}
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+          scrolled || currentTab !== 'home' 
+            ? 'bg-[#FFFEF2]/95 backdrop-blur-md shadow-xs border-b border-brand-border/40' 
+            : 'bg-transparent'
+        }`}
+        id="main-navbar"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 sm:h-20">
+
+            {/* FAR LEFT — Knotify Logo + Knotify text together */}
             <button
               onClick={() => setCurrentTab('home')}
-              className="text-lg sm:text-xl font-display font-black tracking-[0.25em] text-brand-secondary hover:text-brand-accent transition-all duration-300 flex items-center uppercase cursor-pointer select-none"
-              id="nav-logo-trigger"
+              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none group"
+              id="nav-brand-logo-text"
+              aria-label="Knotify Home"
             >
-              <span className="font-black tracking-[0.3em] text-brand-secondary bg-brand-secondary/5 px-3 py-1.5 border border-brand-secondary/20 rounded-xs shadow-sm">
-                KNOTIFY
+              <img
+                src="/logo-k.svg"
+                alt="Knotify Logo"
+                className="h-8 sm:h-9 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              />
+              <span className="font-serif font-bold text-base sm:text-xl text-brand-secondary tracking-tight">
+                Knotify
               </span>
             </button>
-          </div>
 
-          {/* Center Segment: Navigation Links & Chapel Cross Decoration */}
-          <nav className="hidden md:flex items-center space-x-7 select-none" id="desktop-nav">
-            <button
-              onClick={() => setCurrentTab('home')}
-              className={`text-[10px] font-mono tracking-[0.2em] uppercase transition-all duration-200 py-1 cursor-pointer ${
-                currentTab === 'home' 
-                  ? 'text-brand-secondary font-black scale-105' 
-                  : 'text-neutral-500 hover:text-brand-secondary'
-              }`}
-              id="nav-link-home"
-            >
-              HOMEPAGE
-            </button>
-            <button
-              onClick={() => setCurrentTab('marketplace')}
-              className={`text-[10px] font-mono tracking-[0.2em] uppercase transition-all duration-200 py-1 cursor-pointer ${
-                currentTab === 'marketplace' 
-                  ? 'text-brand-secondary font-black scale-105' 
-                  : 'text-neutral-500 hover:text-brand-secondary'
-              }`}
-              id="nav-link-marketplace"
-            >
-              COLLECTION
-            </button>
-             <button
-              onClick={() => setCurrentTab('dashboard')}
-              className={`text-[10px] font-mono tracking-[0.2em] uppercase transition-all duration-200 py-1 cursor-pointer ${
-                currentTab === 'dashboard'
-                  ? 'text-brand-secondary font-black scale-105'
-                  : 'text-neutral-500 hover:text-brand-secondary'
-              }`}
-              id="nav-link-dashboard"
-            >
-              DASHBOARD
-            </button>
-
-            {/* Red Chapel Cross emblem representing university chapel design theme */}
-            <span className="text-brand-secondary font-serif text-xl font-light select-none px-2 animate-pulse">
-              †
-            </span>
-
-            <button
-              onClick={() => setCurrentTab('sell')}
-              className={`text-[10px] font-mono tracking-[0.2em] uppercase transition-all duration-200 py-1 cursor-pointer ${
-                currentTab === 'sell'
-                  ? 'text-brand-secondary font-black scale-105'
-                  : 'text-neutral-500 hover:text-brand-secondary'
-              }`}
-              id="nav-link-sell"
-            >
-              SELL TIE
-            </button>
-            <button
-              onClick={onOpenWishlist}
-              className="text-[10px] font-mono tracking-[0.2em] uppercase text-neutral-500 hover:text-brand-secondary transition-all duration-200 cursor-pointer flex items-center gap-1.5"
-              id="nav-link-wishlist"
-            >
-              <span>WISHLIST</span>
-              {wishlistCount > 0 && (
-                <span className="bg-brand-secondary text-brand-bg text-[8px] font-mono rounded-full w-4 h-4 flex items-center justify-center font-bold">
-                  {wishlistCount}
-                </span>
-              )}
-            </button>
-          </nav>
-
-          {/* Right Segment: Session State & Bag Trigger */}
-          <div className="flex items-center space-x-4 sm:space-x-5" id="navbar-actions">
-            
-            {/* Wishlist Button - Mobile only */}
-            <button
-              onClick={onOpenWishlist}
-              className="md:hidden p-2 text-neutral-500 hover:text-brand-secondary transition-colors relative animate-fade-in"
-              aria-label="Wishlist"
-              id="btn-wishlist-mobile"
-            >
-              <Heart size={18} strokeWidth={1.5} className={wishlistCount > 0 ? 'fill-brand-primary text-brand-primary' : ''} />
-            </button>
-
-            {/* Profile State */}
-            {currentUser ? (
-              <div className="flex items-center gap-2">
-                <span className="hidden sm:inline-block text-[9px] font-mono text-neutral-500 tracking-wider uppercase max-w-[80px] truncate">
-                  {currentUser.name.split(' ')[0]}
-                </span>
-                <button
-                  onClick={onLogout}
-                  className="text-xs sm:text-sm font-display uppercase tracking-[0.1em] font-bold text-brand-secondary hover:text-brand-accent transition-all cursor-pointer"
-                  id="btn-navbar-logout"
-                >
-                  LOGOUT
-                </button>
-              </div>
-            ) : (
+            {/* FAR RIGHT — Store, Bag, and Sign Up */}
+            <div className="flex items-center gap-2 sm:gap-4" id="navbar-actions">
+              
+              {/* Store Button */}
               <button
-                onClick={onOpenAuth}
-                className="text-xs sm:text-sm font-display uppercase tracking-[0.1em] font-bold text-brand-secondary hover:text-brand-accent transition-all cursor-pointer"
-                id="btn-navbar-login"
-              >
-                SIGN IN
-              </button>
-            )}
-
-            {/* Shopping Bag Button (Off-white styling in matching bag text) */}
-            <button
-              onClick={onOpenCart}
-              className="flex items-center gap-2 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] rounded-sm px-5 py-2.5 transition-all duration-300 cursor-pointer text-xs sm:text-sm font-display uppercase tracking-[0.1em] font-bold shadow-md"
-              aria-label="Shopping Cart"
-              id="btn-cart"
-            >
-              <span>BAG ({cartCount})</span>
-            </button>
-
-            {/* Hamburger Toggle - Mobile only */}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 text-neutral-500 hover:text-brand-secondary transition-colors cursor-pointer"
-              aria-label="Toggle menu"
-              id="btn-navbar-toggle"
-            >
-              {isMobileMenuOpen ? <X size={20} strokeWidth={1.5} /> : <Menu size={20} strokeWidth={1.5} />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Navigation Drawer */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="md:hidden border-t border-brand-border/20 bg-[#FFFEF2] overflow-hidden"
-            id="mobile-nav-menu"
-          >
-            <div className="px-4 py-4 space-y-2 flex flex-col text-left">
-              <button
-                onClick={() => {
-                  setCurrentTab('home');
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left ${
-                  currentTab === 'home' 
-                    ? 'text-brand-secondary bg-brand-secondary/5 font-black border-l-2 border-brand-secondary' 
-                    : 'text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5'
+                onClick={() => setCurrentTab('marketplace')}
+                className={`text-xs sm:text-sm font-sans font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-full ${
+                  currentTab === 'marketplace'
+                    ? 'text-brand-secondary bg-brand-secondary/10 font-semibold'
+                    : 'text-brand-primary/80 hover:text-brand-secondary'
                 }`}
               >
-                HOMEPAGE
+                Store
               </button>
-               <button
-                onClick={() => {
-                  setCurrentTab('dashboard');
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left ${
-                  currentTab === 'dashboard' 
-                    ? 'text-brand-secondary bg-brand-secondary/5 font-black border-l-2 border-brand-secondary' 
-                    : 'text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5'
-                }`}
-              >
-                DASHBOARD
-              </button>
+
+              {/* Bag Button */}
               <button
-                onClick={() => {
-                  setCurrentTab('marketplace');
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left ${
-                  currentTab === 'marketplace' 
-                    ? 'text-brand-secondary bg-brand-secondary/5 font-black border-l-2 border-brand-secondary' 
-                    : 'text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5'
-                }`}
+                onClick={onOpenCart}
+                className="flex items-center gap-1.5 text-xs sm:text-sm font-sans font-medium text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-black/5 relative"
+                aria-label="Shopping Bag"
+                id="btn-cart"
               >
-                COLLECTION
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentTab('sell');
-                  setIsMobileMenuOpen(false);
-                }}
-                className={`text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left ${
-                  currentTab === 'sell'
-                    ? 'text-brand-secondary bg-brand-secondary/5 font-black border-l-2 border-brand-secondary'
-                    : 'text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5'
-                }`}
-              >
-                SELL TIE
-              </button>
-              <button
-                onClick={() => {
-                  onOpenWishlist();
-                  setIsMobileMenuOpen(false);
-                }}
-                className="text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left flex items-center justify-between text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5"
-              >
-                <span>WISHLIST</span>
-                {wishlistCount > 0 && (
-                  <span className="bg-brand-secondary text-brand-bg text-[8px] font-mono rounded-full w-4.5 h-4.5 flex items-center justify-center font-bold">
-                    {wishlistCount}
+                <ShoppingBag size={17} strokeWidth={1.8} />
+                <span className="hidden sm:inline font-sans">Bag</span>
+                {cartCount > 0 && (
+                  <span className="bg-brand-secondary text-[#FFFEF2] text-[9px] font-mono font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                    {cartCount}
                   </span>
                 )}
               </button>
-              {currentUser && (
+
+              {/* Sign Up / User Profile Button */}
+              {currentUser ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setCurrentTab('dashboard');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="text-xs sm:text-sm font-sans font-medium text-brand-secondary bg-brand-secondary/10 px-3 py-1.5 rounded-full hover:bg-brand-secondary/15 transition-all max-w-[100px] truncate cursor-pointer"
+                  >
+                    {currentUser.name?.split(' ')[0]}
+                  </button>
+                  <button
+                    onClick={onLogout}
+                    className="p-1.5 text-brand-primary/50 hover:text-brand-secondary transition-colors cursor-pointer"
+                    title="Log out"
+                  >
+                    <LogOut size={15} />
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={() => {
-                    onOpenBecomeSeller();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="text-[10px] font-mono tracking-[0.2em] uppercase py-3 px-3 rounded-xs transition-all duration-200 text-left text-neutral-500 hover:text-brand-secondary hover:bg-brand-secondary/5"
+                  onClick={onOpenAuth}
+                  className="text-xs sm:text-sm font-sans font-medium bg-brand-secondary text-[#FFFEF2] px-4 sm:px-5 py-2 rounded-full hover:bg-brand-accent transition-all duration-200 cursor-pointer shadow-xs hover:shadow-sm active:scale-98"
+                  id="btn-navbar-signup"
                 >
-                  BECOME A SELLER
+                  Sign up
                 </button>
               )}
+
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.header>
+          </div>
+        </div>
+      </motion.header>
+
+      {/* ── INTERACTIVE BOTTOM NAVBAR (For Mobile / Smaller Screens < 640px) ── */}
+      <nav 
+        className="fixed bottom-0 left-0 right-0 z-40 sm:hidden bg-[#FFFEF2]/90 backdrop-blur-md border-t border-black/8 px-4 py-2 select-none shadow-[0_-4px_16px_rgba(0,0,0,0.04)]"
+        id="mobile-bottom-navbar"
+      >
+        <div className="flex items-center justify-around max-w-sm mx-auto">
+          
+          {/* 1. Home Tab */}
+          <button
+            onClick={() => {
+              setCurrentTab('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+              currentTab === 'home' ? 'text-brand-secondary font-bold' : 'text-brand-primary/55 hover:text-brand-primary'
+            }`}
+          >
+            <Home size={19} strokeWidth={currentTab === 'home' ? 2.2 : 1.7} />
+            <span className="text-[10px] font-sans">Home</span>
+            {currentTab === 'home' && (
+              <motion.div
+                layoutId="bottomNavIndicator"
+                className="absolute -bottom-1 w-4 h-0.5 bg-brand-secondary rounded-full"
+                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              />
+            )}
+          </button>
+
+          {/* 2. Store Tab */}
+          <button
+            onClick={() => {
+              setCurrentTab('marketplace');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+              currentTab === 'marketplace' ? 'text-brand-secondary font-bold' : 'text-brand-primary/55 hover:text-brand-primary'
+            }`}
+          >
+            <Compass size={19} strokeWidth={currentTab === 'marketplace' ? 2.2 : 1.7} />
+            <span className="text-[10px] font-sans">Store</span>
+            {currentTab === 'marketplace' && (
+              <motion.div
+                layoutId="bottomNavIndicator"
+                className="absolute -bottom-1 w-4 h-0.5 bg-brand-secondary rounded-full"
+                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              />
+            )}
+          </button>
+
+          {/* 3. Bag Tab */}
+          <button
+            onClick={onOpenCart}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+              currentTab === 'checkout' ? 'text-brand-secondary font-bold' : 'text-brand-primary/55 hover:text-brand-primary'
+            }`}
+          >
+            <div className="relative">
+              <ShoppingBag size={19} strokeWidth={currentTab === 'checkout' ? 2.2 : 1.7} />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-brand-secondary text-[#FFFEF2] text-[8px] font-mono font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-sans">Bag</span>
+            {currentTab === 'checkout' && (
+              <motion.div
+                layoutId="bottomNavIndicator"
+                className="absolute -bottom-1 w-4 h-0.5 bg-brand-secondary rounded-full"
+                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              />
+            )}
+          </button>
+
+          {/* 4. Account Tab */}
+          <button
+            onClick={() => {
+              if (currentUser) {
+                setCurrentTab('dashboard');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                onOpenAuth();
+              }
+            }}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+              currentTab === 'dashboard' ? 'text-brand-secondary font-bold' : 'text-brand-primary/55 hover:text-brand-primary'
+            }`}
+          >
+            <User size={19} strokeWidth={currentTab === 'dashboard' ? 2.2 : 1.7} />
+            <span className="text-[10px] font-sans">{currentUser ? 'Account' : 'Sign in'}</span>
+            {currentTab === 'dashboard' && (
+              <motion.div
+                layoutId="bottomNavIndicator"
+                className="absolute -bottom-1 w-4 h-0.5 bg-brand-secondary rounded-full"
+                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              />
+            )}
+          </button>
+
+        </div>
+      </nav>
+    </>
   );
 }
