@@ -27,7 +27,7 @@ export default function ProductDetailModal({
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'info' | 'faqs'>('info');
 
-  const price = product?.price ?? 0;
+  const price = product?.price ?? product?.originalPrice ?? 0;
   const deposit = product?.deposit ?? 0;
   const outstandingBalance = price - deposit;
 
@@ -147,7 +147,9 @@ export default function ProductDetailModal({
                     <div>
                       <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-primary">2. Hall Resumption Delivery</h4>
                       <p className="text-[11px] text-brand-primary/80 mt-1 font-sans leading-relaxed">
-                        Walk to your assigned pickup station near your Residence Hall. Verify your physical tie packaging before paying the outstanding balance.
+                        Go to your profile and selct your hall and room number & stay connected to the communities  to get <strong>
+                        Knotified
+                        </strong>
                       </p>
                     </div>
                   </div>
@@ -220,7 +222,7 @@ export default function ProductDetailModal({
             {/* Total Price Tracker */}
             <div className="bg-brand-card px-4 py-3 rounded border border-brand-border flex justify-between items-center">
               <span className="text-[9px] font-mono text-brand-secondary uppercase tracking-wider">Total Value</span>
-              <span className="text-xs font-sans font-bold text-brand-primary">₦{(product?.price ?? 0).toLocaleString()}</span>
+              <span className="text-xs font-sans font-bold text-brand-primary">₦{(product?.price ?? product?.originalPrice ?? 0).toLocaleString()}</span>
             </div>
 
             {/* Minimal Quantity Selector */}

@@ -37,6 +37,7 @@ import {
   PAYMENT_SUCCESS_STATUSES,
   savePendingCheckout,
 } from '../lib/checkoutPayment';
+import Marketplace from './Marketplace';
 
 async function createCheckoutSession(payload: unknown) {
   const token = getAccessToken();
@@ -582,7 +583,20 @@ export default function CheckoutPage({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
-      
+
+      {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left) */}
+      <div className="mb-4 text-left">
+        <button
+          type="button"
+          onClick={onContinueShopping}
+          className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-white bg-brand-secondary px-1.5 py-2.5 sticky hover:bg-amber-50 hover:text-brand-accent transition-colors cursor-pointer group"
+          id="btn-back-to-shop"
+        >
+          <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+          <span>Back to Shop</span>
+        </button>
+      </div>
+
       {/* 1. PROGRESS BARS / HEADER */}
       <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-6">
         <div>
@@ -590,7 +604,7 @@ export default function CheckoutPage({
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary tracking-tight">
               Checkout
             </h1>
-            <button
+            {/* <button
               type="button"
               onClick={handleUseSampleAccount}
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 text-[11px] font-sans font-medium border border-amber-500/25 transition-all cursor-pointer shadow-xs"
@@ -598,7 +612,7 @@ export default function CheckoutPage({
             >
               <Sparkles size={12} className="text-amber-600" />
               <span>Sample Account</span>
-            </button>
+            </button> */}
           </div>
           <p className="text-xs text-brand-primary/65 mt-1 font-sans">
             Direct Covenant hall delivery · Reserve online via Flutterwave
@@ -649,7 +663,7 @@ export default function CheckoutPage({
           </div>
           <h3 className="font-serif font-bold text-base text-brand-primary">Your Bag is Empty</h3>
           <p className="text-xs text-brand-primary/70 mt-1.5 max-w-sm leading-relaxed font-sans">
-            You don't have any reservations queued up yet. Browse our collection or use the sample account to test the full checkout workflow.
+            {/* You don't have any reservations queued up yet. Browse our collection or use the sample account to test the full checkout workflow. */}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
             <button
@@ -658,13 +672,13 @@ export default function CheckoutPage({
             >
               Explore Collection
             </button>
-            <button
+            {/* <button
               onClick={handleUseSampleAccount}
               className="px-5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/30 font-sans text-xs font-semibold rounded-full transition-all cursor-pointer flex items-center gap-1.5"
             >
               <Sparkles size={13} className="text-amber-600" />
               <span>⚡ Test with Sample Account</span>
-            </button>
+            </button> */}
           </div>
         </div>
       ) : (
@@ -797,7 +811,7 @@ export default function CheckoutPage({
                       <ArrowLeft size={14} />
                       Back to Shop
                     </button>
-                    <span className="text-[11px] text-brand-primary/50 font-sans hidden sm:inline">
+                    <span className="text-[11px] text-brand-primary/70 font-sans hidden sm:inline">
                       Complete checkout using the summary on the right →
                     </span>
                   </div>
@@ -1232,7 +1246,7 @@ export default function CheckoutPage({
                 )}
 
                 {/* Quick 1-Click Sample Test Button */}
-                <button
+                {/* <button
                   type="button"
                   onClick={handleUseSampleAccount}
                   className="w-full mt-2.5 py-2.5 px-3 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/25 text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1240,9 +1254,9 @@ export default function CheckoutPage({
                 >
                   <Sparkles size={13} className="text-amber-600" />
                   <span>⚡ Use Sample Account (1-Click Test)</span>
-                </button>
+                </button> */}
 
-                <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
+                <div className="text-[10px] text-brand-primary/80 font-sans text-center mt-3 leading-relaxed">
                   🔒 Encrypted connection · Student-verified handoffs
                 </div>
               </div>
@@ -1267,7 +1281,32 @@ export default function CheckoutPage({
 
         </div>
       )}
-
+ {/* <motion.div
+              key="marketplace"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Marketplace
+                products={products}
+                onOpenProductDetail={handleProductClick}
+                onBackToShop={() => {
+                  setCurrentTab('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={(product, event) => {
+                  event.stopPropagation();
+                  handleAddToCart(product, 1);
+                }}
+                isInWishlist={isInWishlist}
+                initialSearchQuery={sharedSearchQuery}
+                initialCategory={sharedCategory}
+                onSearchQueryChange={setSharedSearchQuery}
+                onCategoryChange={setSharedCategory}
+              />
+            </motion.div> */}
     </div>
   );
 }

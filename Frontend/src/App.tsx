@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 
@@ -12,6 +12,7 @@ import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 import SellPage from './components/SellPage';
+import AboutPage from './components/AboutPage';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { authFetch, clearAuthSession, clearClientSessionState, getStoredUser, persistAuthSession } from './lib/authStorage';
@@ -70,7 +71,7 @@ type OrderHistoryRow = {
 };
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
@@ -87,10 +88,13 @@ export default function App() {
     quantity?: number;
   } | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isBagHighlighted, setIsBagHighlighted] = useState(false);
   const [sharedSearchQuery, setSharedSearchQuery] = useState('');
   const [sharedCategory, setSharedCategory] = useState('All');
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('cu_marketplace_products_v4');
+    // v5: bump the cache key so the old main catalog (stale materials/prices)
+    // is dropped once and the cloud-deployments catalog reseeds fresh.
+    const saved = localStorage.getItem('cu_marketplace_products_v5');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -124,6 +128,52 @@ export default function App() {
   const [orderHistoryReservations, setOrderHistoryReservations] = useState<Reservation[]>([]);
   const [activeProduct, setActiveProduct] = useState<Product | null>(null);
   const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
+
+  // ── Blue Floral (ragebait) meme overlay ─────────────────────────────
+  // Shown when the Blue Floral Corporate Tie is tapped. Stays up long
+  // enough for slow connections (6s) and can always be dismissed with
+  // the X button. The image is preloaded on mount so it is instant even
+  // on low bandwidth.
+  const MEME_SRC = '/meme/ragebait.jpg';
+  const MEME_DURATION_MS = 6000;
+  const [isMemeOpen, setIsMemeOpen] = useState(false);
+  const memeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const preload = new Image();
+    preload.src = MEME_SRC;
+    return () => {
+      if (memeTimerRef.current) clearTimeout(memeTimerRef.current);
+    };
+  }, []);
+
+  const closeMeme = () => {
+    if (memeTimerRef.current) {
+      clearTimeout(memeTimerRef.current);
+      memeTimerRef.current = null;
+    }
+    setIsMemeOpen(false);
+  };
+
+  const showBlueFloralMeme = () => {
+    if (memeTimerRef.current) clearTimeout(memeTimerRef.current);
+    setActiveProduct(null);
+    setIsMemeOpen(true);
+    memeTimerRef.current = setTimeout(() => {
+      setIsMemeOpen(false);
+      memeTimerRef.current = null;
+    }, MEME_DURATION_MS);
+  };
+
+  // Every product click funnels through here so the Blue Floral tie can
+  // trigger the meme while everything else opens the reserve modal.
+  const handleProductClick = (product: Product) => {
+    if (product.id === 'corp-blue-floral') {
+      showBlueFloralMeme();
+      return;
+    }
+    setActiveProduct(product);
+  };
 
 useEffect(() => {
         const handleAuthExpired = () => {
@@ -270,7 +320,7 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('cu_marketplace_products_v4', JSON.stringify(products));
+    localStorage.setItem('cu_marketplace_products_v5', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
@@ -361,7 +411,9 @@ useEffect(() => {
     setReservations((previous) => previous.map((reservation) => (reservation.id === updatedReservation.id ? updatedReservation : reservation)));
   };
 
-  const executeAddToCart = (product: Product, quantity: number = 1) => {
+  // Add-to-bag never force-navigates: users stay where they are and get
+  // the toast + bag highlight instead. Only explicit "buy now" redirects.
+  const executeAddToCart = (product: Product, quantity: number = 1, redirectToCheckout = false) => {
     setCartItems((previous) => {
       const safeQuantity = Number(quantity) || 0;
       const maxStock = Number(product.stock) || 0;
@@ -373,11 +425,19 @@ useEffect(() => {
       return [...previous, { product, quantity: Math.min(safeQuantity, maxStock) }];
     });
     addToast(`"${product.name}" added to bag!`, 'cart');
+    setIsBagHighlighted(true);
+    window.setTimeout(() => setIsBagHighlighted(false), 1200);
+    if (redirectToCheckout) {
+      setCurrentTab('checkout');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const executeDirectBuyNow = (product: Product) => {
     executeAddToCart(product, 1);
     setActiveProduct(null);
+    setCurrentTab('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
@@ -461,6 +521,7 @@ useEffect(() => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         cartCount={cartCount}
+        isBagHighlighted={isBagHighlighted}
         wishlistCount={wishlistCount}
         onOpenCart={() => setCurrentTab('checkout')}
         onOpenWishlist={() => setCurrentTab('wishlist')}
@@ -488,12 +549,28 @@ useEffect(() => {
                 onBrowseWithFilter={handleBrowseWithFilter}
                 products={products}
                 featuredProducts={featuredProducts}
-                onOpenProductDetail={setActiveProduct}
+                onOpenProductDetail={handleProductClick}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(product) => handleAddToCart(product, 1)}
                 isInWishlist={isInWishlist}
                 inventorySummary={inventorySummary}
+                onNavigateAbout={() => {
+                  setCurrentTab('about');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
+            </motion.div>
+          ) : currentTab === 'about' ? (
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AboutPage onBackToShop={() => {
+                setCurrentTab('marketplace');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }} />
             </motion.div>
           ) : currentTab === 'marketplace' ? (
             <motion.div
@@ -505,7 +582,11 @@ useEffect(() => {
             >
               <Marketplace
                 products={products}
-                onOpenProductDetail={setActiveProduct}
+                onOpenProductDetail={handleProductClick}
+                onBackToShop={() => {
+                  setCurrentTab('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 onToggleWishlist={handleToggleWishlist}
                 onAddToCart={(product, event) => {
                   event.stopPropagation();
@@ -526,7 +607,12 @@ useEffect(() => {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <SellPage />
+              <SellPage
+                onBackToShop={() => {
+                  setCurrentTab('marketplace');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
             </motion.div>
           ) : currentTab === 'wishlist' ? (
             <motion.div
@@ -540,10 +626,7 @@ useEffect(() => {
                 wishlist={wishlist}
                 products={products}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(product, quantity) => {
-                  handleAddToCart(product, quantity);
-                  setCurrentTab('checkout');
-                }}
+                onAddToCart={(product, quantity) => handleAddToCart(product, quantity)}
                 onBackToCollection={() => setCurrentTab('marketplace')}
               />
             </motion.div>
@@ -563,7 +646,7 @@ useEffect(() => {
                 wishlist={wishlist}
                 products={products}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={handleAddToCart}
+                onAddToCart={(product, quantity) => executeAddToCart(product, quantity, false)}
                 onLogout={handleLogout}
                 onOpenAuth={() => {
                   setPendingAction(null);
@@ -600,6 +683,56 @@ useEffect(() => {
           )}
         </AnimatePresence>
       </main>
+
+      {/* ── RESERVE / PRODUCT DETAIL MODAL (Material Information, deposit + balance) ── */}
+      <AnimatePresence>
+        {activeProduct && (
+          <ProductDetailModal
+            product={activeProduct}
+            onClose={() => setActiveProduct(null)}
+            onAddToCart={(product, quantity) => {
+              executeAddToCart(product, quantity, false);
+              setActiveProduct(null);
+            }}
+            onToggleWishlist={handleToggleWishlist}
+            isInWishlist={isInWishlist}
+            onDirectBuy={executeDirectBuyNow}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── BLUE FLORAL MEME OVERLAY (auto-dismiss 6s + X button) ── */}
+      <AnimatePresence>
+        {isMemeOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
+            onClick={closeMeme}
+            role="dialog"
+            aria-label="Blue Floral Tie notice"
+          >
+            <button
+              onClick={closeMeme}
+              className="absolute top-5 right-5 z-10 p-2.5 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors cursor-pointer"
+              aria-label="Close notice"
+            >
+              <X size={18} />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              src={MEME_SRC}
+              alt="Blue Floral Tie notice"
+              className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-2xl"
+              onClick={(event) => event.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {currentTab !== 'home' && (
         <Footer

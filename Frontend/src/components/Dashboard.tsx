@@ -21,6 +21,7 @@ import {
   Star, 
   MessageSquare,
   ShieldCheck,
+  ArrowLeft,
   ArrowRight,
   Sparkles,
   PackageCheck,
@@ -41,7 +42,7 @@ interface DashboardProps {
   onAddToCart: (product: Product, quantity: number) => void;
   onLogout?: () => void;
   onOpenAuth?: () => void;
-  setCurrentTab?: (tab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
+  setCurrentTab?: (tab: 'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
 }
 
 export default function Dashboard({
@@ -262,7 +263,21 @@ export default function Dashboard({
 
   return (
     <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-24 sm:pt-32 pb-28 sm:pb-16 space-y-6 sm:space-y-8 font-sans" id="knotify-user-profile">
-      
+
+      {/* BOLD BACK-TO-SHOP ANCHOR (top-left) */}
+      {setCurrentTab && (
+        <div className="text-left">
+          <button
+            onClick={() => setCurrentTab('marketplace')}
+            className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"
+            id="btn-back-to-shop"
+          >
+            <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Shop</span>
+          </button>
+        </div>
+      )}
+
       {/* 👤 1. PROFILE HEADER CARD */}
       <div className="bg-gradient-to-br from-[#1F3E2B] via-[#244732] to-[#172E20] rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-[#FFFEF2] relative overflow-hidden shadow-md border border-white/10">
         

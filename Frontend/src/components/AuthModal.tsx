@@ -17,7 +17,7 @@ import { persistAuthSession } from '../lib/authStorage';
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any) => void;
+  onSuccess: (user: any, accessToken?: string) => void;
   pendingActionName?: string;
 }
 
@@ -106,7 +106,8 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
-      onSuccess(normalizedUser);
+      // Pass the JWT so protected calls (e.g. GET /api/me) are authenticated.
+      onSuccess(normalizedUser, response.access_token);
       setIsLogin(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid student email or password');
@@ -121,10 +122,13 @@ export default function AuthModal({
     setLoading(true);
 
     try {
-      const response = await requestJson<{ access_token: string; token_type: string; user: any }>(
-        '/api/auth/register',
+      // Backend contract: POST /api/auth/signup expects `full_name` and a
+      // minimum 8-character password (see Backend/request_models.py).
+      const signupResponse = await requestJson<{ message: string; user: any }>(
+        '/api/auth/signup',
         {
           name: name.trim(),
+          full_name: name.trim(),
           email: email.trim(),
           password,
           telegramPhone: telegramPhone.trim(),
@@ -133,9 +137,24 @@ export default function AuthModal({
         }
       );
 
-      const normalizedUser = normalizeUser(response.user);
+      // Signup does not return a token, so log in right away to obtain one
+      // for protected calls like GET /api/me.
+      let accessToken: string | undefined;
+      let sessionUser = signupResponse.user;
+      try {
+        const loginResponse = await requestJson<{ access_token: string; token_type: string; user: any }>(
+          '/api/auth/login',
+          { email: email.trim(), password }
+        );
+        accessToken = loginResponse.access_token;
+        sessionUser = loginResponse.user ?? signupResponse.user;
+      } catch {
+        // Keep the signed-up user session even if the auto-login fails.
+      }
+
+      const normalizedUser = normalizeUser(sessionUser);
       localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
-      onSuccess(normalizedUser);
+      onSuccess(normalizedUser, accessToken);
       setIsLogin(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account');
@@ -215,7 +234,7 @@ export default function AuthModal({
                 className="w-full py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 rounded-xl font-sans text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
               >
                 <Sparkles size={14} className="text-amber-600" />
-                <span>⚡ Use Sample Account (Instant Sign In)</span>
+                {/* <span>⚡ Use Sample Account (Instant Sign In)</span> */}
               </button>
             </div>
 
@@ -347,6 +366,8 @@ export default function AuthModal({
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      minLength={8}
+                      title="Minimum 8 characters"
                       className="w-full px-3.5 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all"
                     />
                   </div>
