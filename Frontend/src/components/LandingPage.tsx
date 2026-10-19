@@ -164,7 +164,7 @@ export default function LandingPage({
         {/* Main Headline — High Readability Sans/Bold hierarchy (Covenant tag removed) */}
         <h1 className="hero-anim-item font-sans font-black text-3xl sm:text-5xl md:text-6xl lg:text-[62px] text-brand-primary tracking-tight leading-[1.12] max-w-3xl mx-auto">
           No need to borrow ties <br className="hidden sm:inline" />
-          in school anymore.
+          in school anymore
           <span className="block font-sans font-extrabold text-brand-secondary mt-1.5 sm:mt-2">
             We gat you.
           </span>
@@ -172,7 +172,13 @@ export default function LandingPage({
 
         {/* Crisp Subtitle with tie humor */}
         <p className="hero-anim-item text-xs sm:text-sm md:text-base font-sans text-brand-primary/80 max-w-lg mx-auto mt-3.5 sm:mt-4 leading-relaxed px-2 font-medium">
-          Hand-inspected, chapel-approved ties delivered right to your hall lobby before resumption  & during school.
+          Hand-inspected, chapel-approved
+          <strong id='tie-bold'>
+          ties
+          </strong>
+          delivered right to your hall lobby or room before resumption <br></br> & <br></br> <strong>
+          during school.
+          </strong>
           <span className="block mt-1 font-serif italic text-brand-secondary font-semibold">
             "Knots happen. Being untidy is a choice."
           </span>
@@ -308,7 +314,12 @@ export default function LandingPage({
               Why Knotify
             </span>
             <h2 className="font-display font-bold text-2xl sm:text-4xl text-[#FFFEF2] tracking-tight leading-snug">
-              Getting your ties shouldn't be stressful.
+              Getting your ties should
+              <br/>
+              Knot
+              <br/>
+              
+              be stressful.
             </h2>
             <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/80 mt-2.5 leading-relaxed">
               We make it quick and easy to get dress-code approved ties delivered straight to your hostel lobby before you resume.

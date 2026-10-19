@@ -136,7 +136,7 @@ export default function Navbar({
                     <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-secondary text-[#FFFEF2] shrink-0">
                       <User size={12} strokeWidth={2.4} />
                     </span>
-                    <span className="truncate">{currentUser.name?.split(' ')[0]}</span>
+                    <span className="hidden md:inline">{currentUser.name?.split(' ')[0]}</span>
                   </button>
                   <button
                     onClick={onLogout}

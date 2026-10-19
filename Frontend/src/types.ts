@@ -78,7 +78,8 @@ export const COVENANT_HALLS = [
   'Deborah hall',
   'Lydia Hall',
   'Mary Hall',
-  'John Hall'
+  'John Hall',
+  'Dorcas Hall'
 ];
 
 export const INITIAL_PRODUCTS: Product[] = [

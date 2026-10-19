@@ -26,7 +26,9 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
-    allow_origins=["http://localhost:3003",
+    allow_origins=[
+        "http://localhost:3003",
+        "http://localhost:3001",
         "https://knotifycu.vercel.app",
                    "https://knotify.knotifycu.workers.dev/"],
 )

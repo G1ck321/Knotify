@@ -66,4 +66,7 @@
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
-
+#tie-bold{
+display: inline-block;
+padding: 1em;
+}
