@@ -227,16 +227,7 @@ export default function AuthModal({
             </div>
 
             {/* Quick Sample Account Button for testing */}
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={handleUseSampleAccount}
-                className="w-full py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 rounded-xl font-sans text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Sparkles size={14} className="text-amber-600" />
-                {/* <span>⚡ Use Sample Account (Instant Sign In)</span> */}
-              </button>
-            </div>
+            
 
             {/* Error Message Alert */}
             {error && (

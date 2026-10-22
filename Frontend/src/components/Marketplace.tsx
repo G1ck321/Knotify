@@ -322,14 +322,22 @@ export default function Marketplace({
                             -{discountPercent}%
                           </span>
                         ) : null}
-
+                      
                         {product.condition === 'Brand New' && !isOutOfStock && (
                           <span className="bg-brand-bg text-brand-primary font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold border border-brand-border rounded">
                             NEW
                           </span>
+                          
                         )}
+                        
                       </div>
 
+              {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+
+                <div className="absolute top-16 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
+                  HOT
+              </div>
+                : ""}
                       {/* Wishlist Button */}
                       <button
                         onClick={(e) => {
@@ -342,7 +350,7 @@ export default function Marketplace({
                         <Heart 
                           size={11} 
                           strokeWidth={2}
-                          className={isWishlisted ? 'fill-brand-secondary text-brand-secondary' : 'text-brand-primary hover:text-brand-secondary'} 
+                          className={isWishlisted ? 'fill-brand-secondary text-brand-secondary' : 'text-brand-primary hover:text-brand-bg'} 
                         />
                       </button>
 

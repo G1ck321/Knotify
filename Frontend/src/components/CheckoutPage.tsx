@@ -845,19 +845,19 @@ export default function CheckoutPage({
                   </div>
 
                   {/* Sample Account Quick Fill Banner */}
-                  <div className="mb-6 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                    {/* <div className="mb-6 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
                     <div className="flex items-center gap-2 text-xs font-sans text-amber-950 font-medium">
                       <Sparkles size={15} className="text-amber-600 shrink-0" />
                       <span>Testing? Quick-fill a verified Covenant student profile.</span>
                     </div>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={handleUseSampleAccount}
                       className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-sans font-semibold tracking-wide transition-colors cursor-pointer shrink-0 text-center shadow-xs"
                     >
                       Fill Daniel Adeleke
-                    </button>
-                  </div>
+                    </button> 
+                  </div> */}
 
                   <form onSubmit={handleInitiatePayment} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">

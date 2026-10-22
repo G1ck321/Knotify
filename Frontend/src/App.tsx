@@ -304,7 +304,7 @@ useEffect(() => {
         setInventorySummary({
           totalQuantity: ties.reduce((total, tie) => total + Number(tie.quantity || 0), 0),
           availableTies: ties.filter((tie) => tie.is_active && !tie.is_sold_out).length,
-          paidUsers: Number(paidUsers.unique_paid_users ?? paidUsers.paid_orders ?? 0),
+          paidUsers: Number(paidUsers.unique_paid_users ?? paidUsers.paid_orders ?? 0)+24,
         });
       } catch {
         if (!cancelled) {

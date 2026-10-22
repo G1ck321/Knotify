@@ -316,7 +316,7 @@ export default function LandingPage({
             <h2 className="font-display font-bold text-2xl sm:text-4xl text-[#FFFEF2] tracking-tight leading-snug">
               Getting your ties should
               <br/>
-              Knot
+              Not
               <br/>
               
               be stressful.
