@@ -320,55 +320,6 @@ export default function CheckoutPage({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSimulatePayment = () => {
-    const activeName = buyerName.trim() || SAMPLE_USER.name;
-    const activePhone = buyerPhone.trim() || SAMPLE_USER.phone;
-    const activeEmail = buyerEmail.trim() || SAMPLE_USER.email;
-    const activeHall = buyerHall || SAMPLE_USER.hall;
-    const activeRoom = roomNumber.trim() || SAMPLE_USER.room;
-
-    const testTxRef = `KNT-TEST-${Date.now().toString().slice(-6)}`;
-    const preferredColor = cartItems.map((item) => item.product.color).join(', ') || 'Classic Navy';
-    const productNames = cartItems.length > 0
-      ? cartItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ')
-      : 'Sample Reserve Tie (x1)';
-
-    const simulatedReservation = {
-      id: testTxRef,
-      name: activeName,
-      phone: activePhone,
-      email: activeEmail,
-      color: preferredColor,
-      quantity: totalItems || 1,
-      hall: activeHall,
-      productNames: productNames,
-      deposit: itemsTotal || 2500,
-      outstanding: 0,
-      status: 'Ready for Pickup',
-      pickupPoint: getAssignedPickupPoint(activeHall),
-      dateAdded: new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-    };
-
-    onAddReservation(simulatedReservation);
-    setGeneratedTxRef(testTxRef);
-    setGeneratedId(testTxRef);
-    localStorage.setItem('tx', testTxRef);
-
-    setBuyerName(activeName);
-    setBuyerPhone(activePhone);
-    setBuyerEmail(activeEmail);
-    setBuyerHall(activeHall);
-    setRoomNumber(activeRoom);
-
-    setCheckoutStep('success');
-    onClearCart();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // Pre-fill user details if logged in
   useEffect(() => {
     if (currentUser) {
@@ -662,16 +613,16 @@ export default function CheckoutPage({
         <button
           type="button"
           onClick={onContinueShopping}
-          className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-white bg-brand-secondary px-1.5 py-2.5 sticky hover:bg-amber-50 hover:text-brand-accent transition-colors cursor-pointer group"
+          className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-green-200 bg-black px-1.5 py-2.5 hover:bg-amber-50 hover:text-brand-accent transition-colors cursor-pointer group "
           id="btn-back-to-shop"
         >
           <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Shop</span>
+          <span className='text-3xl'>Back to Store</span>
         </button>
       </div>
 
       {/* 1. PROGRESS BARS / HEADER */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-6">
+      <div className="mb-3 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-2">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary tracking-tight">
@@ -1100,15 +1051,6 @@ export default function CheckoutPage({
                       </button>
 
                       <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
-                        <button
-                          type="button"
-                          onClick={handleSimulatePayment}
-                          className="px-5 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 font-sans text-xs font-semibold rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                          title="Simulate successful payment without entering real credit cards"
-                        >
-                          <Sparkles size={13} className="text-amber-600" />
-                          <span>Simulate Paid Order</span>
-                        </button>
 
                         <button
                           type="submit"

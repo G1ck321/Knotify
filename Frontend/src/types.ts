@@ -16,7 +16,7 @@ export interface Reservation {
   hall: string;
   productNames: string;
   originalPrice: number;
-  status: 'Reserved' | 'Ready for Pickup' | 'Collecte, Or by delivery. Join community for info';
+  status: 'Reserved' | 'Ready for Pickup' | 'Collected';
   pickupPoint: string;
   dateAdded: string;
 }
@@ -231,7 +231,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     sellerRating: 4.8,
     sellerHall: 'Admin Office',
     originalPrice: 4000,
-    price: 1,
     condition: 'Student-Ready',
     category: 'Corporate',
     color: 'Navy',
@@ -560,7 +559,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     description: "The black that stands out! It's giving. vintage, formal, and matching virtually every suit or blazer in your collection, Or by delivery. Join community for info",
     materials: "The black that stands out! It's giving smart corporate.",
     pickupProcess: 'Pay via transfer, pick up at school.',
-    image: '/ties/new ties/latest/latest/remainder/BlackStripped2.png',
+    image: '/ties/new ties/remainder/BlackStripped2.jpg',
     rating: 5.0,
     reviewsCount: 31,
     isFeatured: true,

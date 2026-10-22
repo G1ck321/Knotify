@@ -103,7 +103,7 @@ export default function Marketplace({
 
   // Constants
   const categories = ['All', 'Official Tie', 'Premium', 'Department', 'Bow Tie', 'Corporate', 'Vintage'];
-  const conditions = ['All', 'Brand New', 'Like New', 'Gently Used', 'Used'];
+  const conditions = ['All', 'Student-Ready', 'Like New', 'Gently Used', 'Used'];
   const colors = ['All', 'Navy', 'Crimson', 'Gold', 'Forest Green', 'Black', 'Wine', 'Stripes'];
 
   // Reset Filters
@@ -323,7 +323,7 @@ export default function Marketplace({
                           </span>
                         ) : null}
                       
-                        {product.condition === 'Brand New' && !isOutOfStock && (
+                        {product.condition === 'Student-Ready' && !isOutOfStock && (
                           <span className="bg-brand-bg text-brand-primary font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold border border-brand-border rounded">
                             NEW
                           </span>
