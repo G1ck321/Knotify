@@ -2,7 +2,7 @@ import React from 'react';
 import { ShieldCheck, Award } from 'lucide-react';
 
 interface FooterProps {
-  setCurrentTab: (tab: 'home' | 'marketplace' | 'sell' | 'checkout') => void;
+  setCurrentTab: (tab: 'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
   onOpenBecomeSeller: () => void;
   onResetLocalSession: () => void;
 }
@@ -36,6 +36,9 @@ export default function Footer({ setCurrentTab, onOpenBecomeSeller, onResetLocal
             </button>
             <button onClick={() => setCurrentTab('marketplace')} className="hover:text-brand-secondary text-left transition-colors cursor-pointer hover:underline underline-offset-4 decoration-brand-secondary/40">
               Ties Catalog
+            </button>
+            <button onClick={() => setCurrentTab('about')} className="hover:text-brand-secondary text-left transition-colors cursor-pointer hover:underline underline-offset-4 decoration-brand-secondary/40">
+              About Us
             </button>
             <button onClick={onOpenBecomeSeller} className="hover:text-brand-secondary text-left transition-colors cursor-pointer hover:underline underline-offset-4 decoration-brand-secondary/40">
               Sell Your Tie

@@ -2,24 +2,28 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   User, 
-  ChevronLeft,
+  Mail,
+  Lock,
+  Phone,
   Eye, 
   EyeOff, 
-  AlertCircle
+  AlertCircle,
+  X,
+  Sparkles
 } from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
+import { persistAuthSession } from '../lib/authStorage';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any) => void;
-  pendingActionName?: string; // Optional context
+  onSuccess: (user: any, accessToken?: string) => void;
+  pendingActionName?: string;
 }
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://knotify-p9i2.onrender.com').replace(/\/$/, '');
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
-  // Keep all auth requests consistent and surface backend errors clearly.
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: {
@@ -40,7 +44,6 @@ async function requestJson<T>(path: string, body: unknown): Promise<T> {
 
 function normalizeUser(user: any) {
   if (!user) return user;
-
   const name = user.name ?? user.full_name ?? user.fullName ?? '';
   return {
     ...user,
@@ -58,7 +61,8 @@ export default function AuthModal({
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  
+  const [loading, setLoading] = useState(false);
+
   // Registration Form States
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -73,7 +77,7 @@ export default function AuthModal({
 
   if (!isOpen) return null;
 
-   if (showForgotPassword) {
+  if (showForgotPassword) {
     return (
       <ForgotPasswordModal
         onClose={() => setShowForgotPassword(false)}
@@ -90,6 +94,7 @@ export default function AuthModal({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
       const response = await requestJson<{ access_token: string; token_type: string; user: any }>(
@@ -101,324 +106,367 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
-      localStorage.setItem('knotify_access_token', response.access_token);
-      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
-      onSuccess(normalizedUser);
+      // Pass the JWT so protected calls (e.g. GET /api/me) are authenticated.
+      onSuccess(normalizedUser, response.access_token);
+      setIsLogin(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not sign in');
+      setError(err instanceof Error ? err.message : 'Invalid student email or password');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     try {
-      const response = await requestJson<{ message: string; user: any }>(
+      // Backend contract: POST /api/auth/signup expects `full_name` and a
+      // minimum 8-character password (see Backend/request_models.py).
+      const signupResponse = await requestJson<{ message: string; user: any }>(
         '/api/auth/signup',
         {
           name: name.trim(),
+          full_name: name.trim(),
           email: email.trim(),
           password,
-          telegramPhone,
-          parentsNumber,
+          telegramPhone: telegramPhone.trim(),
+          parentsNumber: parentsNumber.trim() || telegramPhone.trim(),
           whatsApp: whatsApp.trim() || undefined,
         }
       );
 
-      const normalizedUser = normalizeUser(response.user);
+      // Signup does not return a token, so log in right away to obtain one
+      // for protected calls like GET /api/me.
+      let accessToken: string | undefined;
+      let sessionUser = signupResponse.user;
+      try {
+        const loginResponse = await requestJson<{ access_token: string; token_type: string; user: any }>(
+          '/api/auth/login',
+          { email: email.trim(), password }
+        );
+        accessToken = loginResponse.access_token;
+        sessionUser = loginResponse.user ?? signupResponse.user;
+      } catch {
+        // Keep the signed-up user session even if the auto-login fails.
+      }
+
+      const normalizedUser = normalizeUser(sessionUser);
       localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
-      onSuccess(normalizedUser);
+      onSuccess(normalizedUser, accessToken);
       setIsLogin(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleUseSampleAccount = () => {
+    const sampleUser = {
+      id: 'sample-student-daniel',
+      name: 'Daniel Adeleke',
+      full_name: 'Daniel Adeleke',
+      email: 'daniel.adeleke@student.covenant.edu.ng',
+      telegramPhone: '08012345678',
+      phone: '08012345678',
+      whatsApp: '08012345678',
+      parentsNumber: '08098765432',
+      address: 'Daniel Hall',
+      roomNumber: 'B204',
+    };
+    persistAuthSession(sampleUser, 'sample_jwt_token_for_daniel');
+    onSuccess(sampleUser);
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 z-[1000] flex bg-[#FFFEF2] overflow-hidden" id="auth-modal-screen">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 overflow-y-auto bg-black/40 backdrop-blur-sm">
       
-      {/* 1. LEFT SIDEBAR: HIGH-END GREEN GLOW & SERIF QUOTE (DESKTOP ONLY - From Image 2) */}
-      <div className="hidden md:flex md:w-[45%] lg:w-[48%] bg-[#1F3E2B] relative flex-col justify-between p-12 lg:p-16 text-left text-[#FFFEF2]">
-        
-        {/* Subtle patterned ivory overlay dots */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,254,242,0.06)_1.5px,transparent_1.5px)] bg-[size:24px_24px] pointer-events-none" />
-        
-        {/* Ambient top right glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-brand-accent/25 rounded-full filter blur-[120px] pointer-events-none" />
+      {/* Centered Modal Card Container */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 15 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="w-full max-w-4xl bg-[#FFFEF2] rounded-3xl shadow-2xl border border-black/8 overflow-hidden relative flex flex-col md:flex-row my-auto"
+        id="auth-modal-card"
+      >
+        {/* Close Button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-30 w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-brand-primary/70 hover:text-brand-primary transition-colors cursor-pointer"
+          aria-label="Close"
+        >
+          <X size={16} />
+        </button>
 
-        {/* Top Branding Block */}
-        <div className="relative z-10">
-          <span className="text-[10px] font-mono tracking-[0.3em] text-[#FFFEF2]/80 uppercase block">
-            SARTORIAL COLLEGE GUILD
-          </span>
-          <h1 className="font-display font-light text-4xl lg:text-5xl text-white tracking-tight uppercase leading-[1.15] mt-3">
-            KNOTIFY <br />EXCHANGE
-          </h1>
-          <div className="h-[1px] w-12 bg-brand-bg/40 mt-6" />
-        </div>
-
-        {/* Dynamic Context Message */}
-        <div className="relative z-10 max-w-md my-auto">
-          <p className="font-display italic text-2xl lg:text-3xl text-[#FFFEF2]/90 leading-relaxed font-light">
-            "We pass on smart confidence. Dressing for chapel should be premium, rules-compliant, at affordable rates."
-          </p>
-          <div className="flex items-center gap-2 mt-4 text-[10px] font-mono uppercase tracking-wider text-[#FFFEF2]/65">
-            <span>† CHAPTER II SEC 4</span>
-            <span>•</span>
-            <span>COVENANT LOBBY DELIVERY</span>
-          </div>
-        </div>
-
-        {/* Footer Credit Tag */}
-        <div className="relative z-10 flex items-center justify-between text-[9px] font-mono text-[#FFFEF2]/45 tracking-widest uppercase">
-          <span>COVENANT UNIVERSITY</span>
-          <span>© 2026 KNOTIFY CO.</span>
-        </div>
-      </div>
-
-      {/* 2. RIGHT SIDEBAR: INTERACTIVE FORMS PANEL (With Ivory Background) */}
-      <div className="w-full md:w-[55%] lg:w-[52%] h-full flex flex-col justify-center items-center px-6 sm:px-12 relative overflow-y-auto bg-[#FFFEF2]">
-        
-        {/* Decorative elements */}
-        <div className="absolute top-6 left-6 z-20">
-          <button
-            onClick={onClose}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-brand-card hover:bg-brand-secondary hover:text-brand-bg text-xs text-brand-primary font-sans tracking-wide rounded border border-brand-border transition-all duration-300 cursor-pointer"
-          >
-            <ChevronLeft size={14} />
-            Back to Catalog
-          </button>
-        </div>
-
-        {/* Form Container */}
-        <div className="w-full max-w-sm space-y-6 pt-16 pb-10">
+        {/* ── LEFT COLUMN: MINIMAL FORM PANEL ── */}
+        <div className="w-full md:w-[54%] p-6 sm:p-10 lg:p-12 flex flex-col justify-between text-left">
           
-          {/* Header Mobile Title */}
-          <div className="md:hidden flex flex-col items-center gap-1 text-center pb-4 select-none">
-            <span className="text-[9px] font-mono tracking-[0.25em] text-brand-secondary uppercase">
-              COVENANT SARTORIAL EXCHANGE
-            </span>
-            <span className="font-display font-light text-3xl text-brand-primary uppercase">
-              KNOTIFY
-            </span>
-          </div>
-
-          {/* Dynamic Greeting */}
-          <div className="text-center md:text-left space-y-2">
-            <h2 className="font-display font-light text-3xl text-brand-primary uppercase tracking-tight">
-              {isLogin ? 'SECURE LOGIN' : 'CREATE ACCOUNT'}
-            </h2>
-            <p className="text-xs text-neutral-500 font-sans">
-              {isLogin ? 'New to Knotify? ' : 'Already knotted ties with us? '}
-              <button
-                onClick={handleToggleMode}
-                className="text-brand-secondary hover:underline font-bold transition-all cursor-pointer inline-flex items-center gap-1"
-              >
-                {isLogin ? 'Register now for free' : 'Sign in here'}
-              </button>
-            </p>
-          </div>
-
-          {/* Errors Portal */}
-          {error && (
-            <div className="bg-brand-secondary/5 border border-brand-secondary/20 text-brand-secondary text-xs py-3 px-4 rounded flex items-center gap-2.5 text-left">
-              <AlertCircle size={14} className="shrink-0 animate-bounce" />
-              <span className="font-sans font-medium">{error}</span>
+          <div>
+            {/* Logo + Brand Pill */}
+            <div className="flex items-center gap-2 mb-6 select-none">
+              <img src="/logo-k.svg" alt="Knotify" className="h-6 w-auto" />
+              <span className="font-serif font-bold text-sm tracking-tight text-brand-secondary">
+                Knotify
+              </span>
             </div>
-          )}
 
-          {/* Form switch with sleek motion animation */}
-          <AnimatePresence mode="wait">
-            {isLogin ? (
-              /* LOGIN FORM */
-              <motion.form
-                key="login"
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 10 }}
-                transition={{ duration: 0.2 }}
-                onSubmit={handleLogin}
-                className="space-y-4 text-left"
-              >
-                <div className="space-y-3">
+            {/* Heading & Subtitle */}
+            <div className="mb-5">
+              <h2 className="font-display font-bold text-2xl sm:text-3xl text-brand-primary tracking-tight">
+                {isLogin ? 'Welcome back!' : 'Create your account'}
+              </h2>
+              <p className="text-xs sm:text-sm text-brand-primary/60 font-sans mt-1">
+                {isLogin 
+                  ? 'Please enter your account details to continue.' 
+                  : 'Join Covenant students getting chapel-ready ties without hassle.'}
+              </p>
+            </div>
+
+            {/* Quick Sample Account Button for testing */}
+            
+
+            {/* Error Message Alert */}
+            {error && (
+              <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs py-2.5 px-3.5 rounded-xl flex items-center gap-2 mb-5">
+                <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                <span className="font-sans font-medium">{error}</span>
+              </div>
+            )}
+
+            {/* ── FORMS SWITCH ── */}
+            <AnimatePresence mode="wait">
+              {isLogin ? (
+                /* ── LOGIN FORM ── */
+                <motion.form
+                  key="login"
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 8 }}
+                  transition={{ duration: 0.2 }}
+                  onSubmit={handleLogin}
+                  className="space-y-4"
+                >
                   <div>
-                    <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                      STUDENT USERNAME / EMAIL
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1.5">
+                      Student email
                     </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. daniel@student.covenant.edu.ng"
-                      value={loginUsername}
-                      onChange={(e) => setLoginUsername(e.target.value)}
-                      className="w-full px-4 py-3 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                    />
+                    <div className="relative">
+                      <input
+                        type="email"
+                        required
+                        placeholder="e.g. name@student.covenant.edu.ng"
+                        value={loginUsername}
+                        onChange={(e) => setLoginUsername(e.target.value)}
+                        className="w-full pl-3.5 pr-10 py-3 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all placeholder:text-brand-primary/30"
+                      />
+                      <Mail size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-brand-primary/30 pointer-events-none" />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                      PASSWORD
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1.5">
+                      Password
                     </label>
                     <div className="relative">
                       <input
                         type={showPassword ? 'text' : 'password'}
                         required
-                        placeholder="Your exchange password"
+                        placeholder="••••••••••••"
                         value={loginPassword}
                         onChange={(e) => setLoginPassword(e.target.value)}
-                        className="w-full pl-4 pr-11 py-3 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
+                        className="w-full pl-3.5 pr-10 py-3 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all placeholder:text-brand-primary/30"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-brand-secondary/60 hover:text-brand-secondary transition-colors cursor-pointer"
+                        className="absolute right-3.5 top-1/2 -translate-y-1/2 text-brand-primary/40 hover:text-brand-primary cursor-pointer transition-colors"
                       >
-                        {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
                     </div>
                   </div>
 
-                    <div className="text-right">
+                  <div className="flex justify-end pt-0.5">
                     <button
                       type="button"
-                      id="forgot-password-link"
                       onClick={() => setShowForgotPassword(true)}
-                      className="text-[10px] font-mono text-[#2D6A4F] hover:text-[#1F3E2B] hover:underline transition-colors cursor-pointer tracking-wide uppercase font-bold"
+                      className="text-xs font-sans text-brand-secondary/80 hover:text-brand-secondary hover:underline cursor-pointer"
                     >
                       Forgot password?
                     </button>
                   </div>
-                </div>
-              
-                <div className="pt-2">
+
                   <button
                     type="submit"
-                    className="w-full py-4 bg-brand-secondary hover:bg-brand-primary text-white font-mono text-xs tracking-widest uppercase font-black rounded-sm transition-all duration-300 shadow hover:scale-[1.02] cursor-pointer"
+                    disabled={loading}
+                    className="w-full py-3.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] font-sans font-semibold text-xs sm:text-sm rounded-full transition-all duration-200 shadow-sm hover:shadow cursor-pointer disabled:opacity-50 min-h-[44px] mt-2 active:scale-98"
                   >
-                    SIGN IN TO ACCOUNT
+                    {loading ? 'Signing in...' : 'Sign in'}
                   </button>
-                </div>
-              </motion.form>
-            ) : (
-              /* REGISTRATION FORM */
-              <motion.form
-                key="register"
-                initial={{ opacity: 0, x: 10 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
-                transition={{ duration: 0.2 }}
-                onSubmit={handleRegister}
-                className="space-y-3.5 text-left max-h-[380px] overflow-y-auto pr-1"
-              >
-                <div>
-                  <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    FULL NAME *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Daniel Adebayo"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                  />
-                </div>
+                </motion.form>
+              ) : (
+                /* ── REGISTER FORM ── */
+                <motion.form
+                  key="register"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.2 }}
+                  onSubmit={handleRegister}
+                  className="space-y-3.5"
+                >
+                  <div>
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Daniel Adeleke"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    EMAIL ADDRESS *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="e.g. daniel@student.covenant.edu.ng"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                  />
-                </div>
+                  <div>
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1">
+                      Student email
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. daniel@student.covenant.edu.ng"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    SECURE PASSWORD *
-                  </label>
-                  <input
-                    type="password"
-                    required
-                      placeholder="Min 6 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                  />
-                    <p className="mt-1 text-[9px] text-neutral-400 font-sans">
-                      Set something strong you can remember.
-                    </p>
-                </div>
+                  <div>
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      minLength={8}
+                      title="Minimum 8 characters"
+                      className="w-full px-3.5 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1 flex justify-between">
-                    <span>TELEGRAM PHONE *</span>
-                    <span className="text-[7px] text-neutral-400 normal-case font-normal">for campus deliveries</span>
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="e.g. 08012345678"
-                    value={telegramPhone}
-                    onChange={(e) => setTelegramPhone(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                  />
-                </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1">
+                        Phone / Telegram
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="08012345678"
+                        value={telegramPhone}
+                        onChange={(e) => setTelegramPhone(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1">
+                        WhatsApp (optional)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="08012345678"
+                        value={whatsApp}
+                        onChange={(e) => setWhatsApp(e.target.value)}
+                        className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"
+                      />
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    WHATSAPP PHONE (OPTIONAL)
-                  </label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. 08012345678"
-                    value={whatsApp}
-                    onChange={(e) => setWhatsApp(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1">
-                    PARENT'S CONTACT NUMBER *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    placeholder="e.g. 08023456789"
-                    value={parentsNumber}
-                    onChange={(e) => setParentsNumber(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-brand-card border border-brand-border/40 focus:border-brand-secondary text-brand-primary font-sans text-xs rounded focus:outline-none transition-all placeholder:text-brand-primary/30"
-                  />
-                </div>
-
-                <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-3.5 bg-brand-secondary hover:bg-brand-primary text-white font-mono text-xs tracking-widest uppercase font-black rounded-sm transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer shadow"
+                    disabled={loading}
+                    className="w-full py-3.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] font-sans font-semibold text-xs sm:text-sm rounded-full transition-all duration-200 shadow-sm hover:shadow cursor-pointer disabled:opacity-50 min-h-[44px] mt-2 active:scale-98"
                   >
-                    <User size={12} />
-                    CREATE STUDENT ACCOUNT
+                    {loading ? 'Creating account...' : 'Create account'}
                   </button>
-                </div>
-              </motion.form>
-            )}
-          </AnimatePresence>
+                </motion.form>
+              )}
+            </AnimatePresence>
 
-          {/* Disclaimer text */}
-          <p className="text-[10px] text-neutral-400 max-w-xs mx-auto leading-relaxed font-sans pt-6 text-center">
-            By signing in or registering, you agree to comply with Covenant University's{' '}
-            <span className="underline hover:text-brand-secondary transition-colors cursor-pointer font-bold">Chapel Decorum Code</span> and our standard exchange guidelines.
-          </p>
+            {/* Toggle Sign In / Sign Up */}
+            <div className="text-center mt-5 pt-3 border-t border-black/5">
+              <p className="text-xs text-brand-primary/65 font-sans">
+                {isLogin ? "Don't have an account? " : "Already have an account? "}
+                <button
+                  onClick={handleToggleMode}
+                  className="text-brand-secondary font-semibold hover:underline cursor-pointer"
+                >
+                  {isLogin ? 'Sign up' : 'Sign in'}
+                </button>
+              </p>
+            </div>
+          </div>
+
+          {/* Modal Footer Links */}
+          <div className="flex items-center justify-between text-[10px] text-brand-primary/45 font-sans pt-6 border-t border-black/5 mt-4">
+            <a 
+              href="https://t.me/+go-lAiSrbJ5hNGVk" 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="hover:text-brand-secondary transition-colors"
+            >
+              Contact us
+            </a>
+            <span>•</span>
+            <span>Covenant University</span>
+            <span>•</span>
+            <span>© 2026 Knotify</span>
+          </div>
 
         </div>
-      </div>
+
+        {/* ── RIGHT COLUMN: CREAM WHITE DESIGN PANEL WITH LOGO ── */}
+        <div className="hidden md:flex md:w-[46%] bg-[#F8F6EC] p-8 lg:p-12 relative flex-col items-center justify-center text-center overflow-hidden border-l border-brand-secondary/10">
+          
+          {/* Subtle concentric ambient rings */}
+          <div className="absolute w-[420px] h-[420px] rounded-full border border-brand-secondary/10 pointer-events-none" />
+          <div className="absolute w-[300px] h-[300px] rounded-full border border-brand-secondary/8 pointer-events-none" />
+          <div className="absolute w-[180px] h-[180px] rounded-full border border-brand-secondary/6 pointer-events-none" />
+
+          {/* Centerpiece Vector Logo Presentation */}
+          <div className="relative z-10 flex flex-col items-center">
+            
+            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-[#FFFEF2] border border-brand-secondary/15 shadow-lg flex items-center justify-center p-6 mb-6">
+              <img
+                src="/logo-k.svg"
+                alt="Knotify Emblem"
+                className="w-full h-full object-contain"
+              />
+            </div>
+
+            <span className="text-[10px] font-mono tracking-[0.3em] uppercase text-brand-secondary/60 block mb-1">
+              ESTABLISHED 2026
+            </span>
+            <h3 className="font-serif font-bold text-xl text-brand-secondary tracking-tight">
+              Knotify Ties
+            </h3>
+            <p className="font-serif italic text-xs text-brand-primary/65 mt-2 max-w-xs leading-relaxed">
+              "Dignitas et Elegantia in Omnia — The Covenant standard for effortless resumption neckwear."
+            </p>
+          </div>
+
+        </div>
+
+      </motion.div>
     </div>
   );
 }
