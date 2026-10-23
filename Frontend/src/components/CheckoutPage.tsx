@@ -473,6 +473,14 @@ export default function CheckoutPage({
     return Number(freshProduct?.price ?? item.product.price ?? item.product.originalPrice ?? 0);
   };
 
+  // Freshest stock for a cart line, same resolution as getLiveUnitPrice:
+  // App.tsx merges the backend's current quantity into `products` on load
+  // (GET /quantity/ties), so prefer the fresh product over the cart snapshot.
+  const getLiveStock = (item: CartItem): number => {
+    const freshProduct = products.find((product) => product.id === item.product.id);
+    return Number(freshProduct?.stock ?? item.product.stock ?? 0);
+  };
+
   const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
   const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
   const loadgeneratedId = () => {
@@ -800,9 +808,19 @@ export default function CheckoutPage({
                                   <span className="text-[10px] font-mono text-brand-primary/60 uppercase">
                                     {item.product.category} · {item.product.color}
                                   </span>
-                                  <span className="text-[10px] text-emerald-800 font-semibold font-sans">
-                                    ● In Stock
-                                  </span>
+                                  {unavailableItemIds.includes(item.product.id) ? (
+                                    <span className="text-[10px] text-amber-800 font-semibold font-sans">
+                                      ● Temporarily Unavailable
+                                    </span>
+                                  ) : getLiveStock(item) > 0 ? (
+                                    <span className="text-[10px] text-emerald-800 font-semibold font-sans">
+                                      ● In Stock
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-red-700 font-semibold font-sans">
+                                      ● Out of Stock
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-left sm:text-right mt-1 sm:mt-0">
