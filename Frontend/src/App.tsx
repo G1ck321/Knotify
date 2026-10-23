@@ -7,6 +7,7 @@ import LandingPage from './components/LandingPage';
 import Marketplace from './components/Marketplace';
 import ProductDetailModal from './components/ProductDetailModal';
 import CheckoutPage from './components/CheckoutPage';
+import { SAMPLE_PHONE } from './lib/sampleData';
 import WishlistPage from './components/WishlistPage';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
@@ -113,7 +114,7 @@ export default function App() {
       {
         id: 'KNT-2027-00482',
         name: 'Daniel',
-        phone: '08012345678',
+        phone: SAMPLE_PHONE,
         email: 'daniel@student.covenant.edu.ng',
         color: 'Plain Black',
         quantity: 1,

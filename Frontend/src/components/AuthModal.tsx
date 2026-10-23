@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import { persistAuthSession } from '../lib/authStorage';
+import { SAMPLE_PARENTS_PHONE, SAMPLE_PHONE } from '../lib/sampleData';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -169,10 +170,10 @@ export default function AuthModal({
       name: 'Daniel Adeleke',
       full_name: 'Daniel Adeleke',
       email: 'daniel.adeleke@student.covenant.edu.ng',
-      telegramPhone: '08012345678',
-      phone: '08012345678',
-      whatsApp: '08012345678',
-      parentsNumber: '08098765432',
+      telegramPhone: SAMPLE_PHONE,
+      phone: SAMPLE_PHONE,
+      whatsApp: SAMPLE_PHONE,
+      parentsNumber: SAMPLE_PARENTS_PHONE,
       address: 'Daniel Hall',
       roomNumber: 'B204',
     };
@@ -371,7 +372,7 @@ export default function AuthModal({
                       <input
                         type="tel"
                         required
-                        placeholder="08012345678"
+                        placeholder={SAMPLE_PHONE}
                         value={telegramPhone}
                         onChange={(e) => setTelegramPhone(e.target.value)}
                         className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"
@@ -383,7 +384,7 @@ export default function AuthModal({
                       </label>
                       <input
                         type="tel"
-                        placeholder="08012345678"
+                        placeholder={SAMPLE_PHONE}
                         value={whatsApp}
                         onChange={(e) => setWhatsApp(e.target.value)}
                         className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"

@@ -26,6 +26,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, Product, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
 import { getAccessToken, persistAuthSession } from '../lib/authStorage';
+import { SAMPLE_PARENTS_PHONE, SAMPLE_PHONE } from '../lib/sampleData';
 import {
   clearPaymentReturnParams,
   clearPendingCheckout,
@@ -279,7 +280,7 @@ export default function CheckoutPage({
 
   const SAMPLE_USER = {
     name: 'Daniel Adeleke',
-    phone: '08012345678',
+    phone: SAMPLE_PHONE,
     email: 'daniel.adeleke@student.covenant.edu.ng',
     hall: 'Daniel Hall',
     room: 'B204',
@@ -305,7 +306,7 @@ export default function CheckoutPage({
       telegramPhone: SAMPLE_USER.phone,
       phone: SAMPLE_USER.phone,
       whatsApp: SAMPLE_USER.phone,
-      parentsNumber: '08098765432',
+      parentsNumber: SAMPLE_PARENTS_PHONE,
       address: SAMPLE_USER.hall,
       roomNumber: SAMPLE_USER.room,
     };
