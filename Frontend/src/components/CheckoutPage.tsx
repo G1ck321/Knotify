@@ -26,9 +26,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, Product, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
 import { getAccessToken, persistAuthSession } from '../lib/authStorage';
+import { SAMPLE_PARENTS_PHONE, SAMPLE_PHONE } from '../lib/sampleData';
 import {
   clearPaymentReturnParams,
   clearPendingCheckout,
+  checkInventoryAvailability,
   fetchOrderStatus,
   getBackendUrl,
   loadPendingCheckout,
@@ -37,6 +39,7 @@ import {
   PAYMENT_SUCCESS_STATUSES,
   savePendingCheckout,
 } from '../lib/checkoutPayment';
+import Marketplace from './Marketplace';
 
 async function createCheckoutSession(payload: unknown) {
   const token = getAccessToken();
@@ -66,11 +69,15 @@ interface ReviewFormProps {
 function ReviewForm({ initialEmail }: ReviewFormProps) {
   const [email, setEmail] = useState(initialEmail);
   const [reviewText, setReviewText] = useState('');
+  const [trimmedReview, setTrimmedReview] = useState('');
   const [rating, setRating] = useState(5);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   useEffect(() => {
     setEmail(initialEmail);
@@ -78,12 +85,19 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !reviewText) {
+    if (!email || !trimmedReview) {
       setSubmitError('Please fill in both your email and review.');
       return;
     }
+
+    if (trimmedReview.length < 8) {
+      setSubmitError('Your review must be at least 8 characters long.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError('');
+
     try {
       const response = await fetch(`${getBackendUrl()}/api/reviews`, {
         method: 'POST',
@@ -92,9 +106,7 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
         },
         body: JSON.stringify({
           email: email.trim(),
-          review: reviewText.trim(),
-          // review_text: reviewText.trim(),
-          // text: reviewText.trim(),
+          review: trimmedReview,
           rating: Number(rating),
         }),
       });
@@ -106,7 +118,7 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
       setSubmitSuccess(true);
       setReviewText('');
     } catch (err) {
-      setSubmitError('Failed to submit review. Please try again.');
+      setSubmitError(`${err} Failed to submit review. Please try again.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -188,7 +200,10 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
               required
               rows={4}
               value={reviewText}
-              onChange={(e) => setReviewText(e.target.value)}
+              onChange={(e) => {
+                setReviewText(e.target.value);
+                setTrimmedReview(e.target.value.trim());
+              }}
               placeholder="Tell us what you think of your tie and reservation experience..."
               className="w-full px-3 py-2 bg-brand-bg border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xl font-sans text-xs focus:outline-none transition-all resize-none"
             />
@@ -253,6 +268,9 @@ export default function CheckoutPage({
   const [copiedId, setCopiedId] = useState(false);
   const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedId, setGeneratedId]  = useState(
     () => localStorage.getItem("tx") || ""
@@ -262,7 +280,7 @@ export default function CheckoutPage({
 
   const SAMPLE_USER = {
     name: 'Daniel Adeleke',
-    phone: '08012345678',
+    phone: SAMPLE_PHONE,
     email: 'daniel.adeleke@student.covenant.edu.ng',
     hall: 'Daniel Hall',
     room: 'B204',
@@ -288,7 +306,7 @@ export default function CheckoutPage({
       telegramPhone: SAMPLE_USER.phone,
       phone: SAMPLE_USER.phone,
       whatsApp: SAMPLE_USER.phone,
-      parentsNumber: '08098765432',
+      parentsNumber: SAMPLE_PARENTS_PHONE,
       address: SAMPLE_USER.hall,
       roomNumber: SAMPLE_USER.room,
     };
@@ -303,55 +321,6 @@ export default function CheckoutPage({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSimulatePayment = () => {
-    const activeName = buyerName.trim() || SAMPLE_USER.name;
-    const activePhone = buyerPhone.trim() || SAMPLE_USER.phone;
-    const activeEmail = buyerEmail.trim() || SAMPLE_USER.email;
-    const activeHall = buyerHall || SAMPLE_USER.hall;
-    const activeRoom = roomNumber.trim() || SAMPLE_USER.room;
-
-    const testTxRef = `KNT-TEST-${Date.now().toString().slice(-6)}`;
-    const preferredColor = cartItems.map((item) => item.product.color).join(', ') || 'Classic Navy';
-    const productNames = cartItems.length > 0
-      ? cartItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ')
-      : 'Sample Reserve Tie (x1)';
-
-    const simulatedReservation = {
-      id: testTxRef,
-      name: activeName,
-      phone: activePhone,
-      email: activeEmail,
-      color: preferredColor,
-      quantity: totalItems || 1,
-      hall: activeHall,
-      productNames: productNames,
-      deposit: itemsTotal || 2500,
-      outstanding: 0,
-      status: 'Ready for Pickup',
-      pickupPoint: getAssignedPickupPoint(activeHall),
-      dateAdded: new Date().toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-      }),
-    };
-
-    onAddReservation(simulatedReservation);
-    setGeneratedTxRef(testTxRef);
-    setGeneratedId(testTxRef);
-    localStorage.setItem('tx', testTxRef);
-
-    setBuyerName(activeName);
-    setBuyerPhone(activePhone);
-    setBuyerEmail(activeEmail);
-    setBuyerHall(activeHall);
-    setRoomNumber(activeRoom);
-
-    setCheckoutStep('success');
-    onClearCart();
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // Pre-fill user details if logged in
   useEffect(() => {
     if (currentUser) {
@@ -362,6 +331,35 @@ export default function CheckoutPage({
       if (currentUser.roomNumber) setRoomNumber(currentUser.roomNumber);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const refreshAvailability = async () => {
+      if (cartItems.length === 0) {
+        setUnavailableItemIds([]);
+        return;
+      }
+
+      try {
+        const availability = await checkInventoryAvailability(
+          cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity }))
+        );
+        if (!cancelled) {
+          setUnavailableItemIds(
+            availability.filter((item) => !item.available).map((item) => item.tie_id)
+          );
+        }
+      } catch {
+        // The payment endpoint performs the authoritative availability check.
+      }
+    };
+
+    refreshAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [cartItems]);
 
   useEffect(() => {
     const { status, txRef } = parsePaymentReturnParams();
@@ -411,10 +409,18 @@ export default function CheckoutPage({
 
     const handlePaymentReturn = async () => {
       if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
-        const order = await fetchOrderStatus(txRef);
-        if (order && (order.status === 'paid' || order.status === 'pending')) {
-          finalizePaidOrder(txRef);
-          return;
+        // Flutterwave can redirect before its webhook finishes updating Supabase.
+        // Poll briefly so a successful payment is not shown as a failed checkout.
+        for (let attempt = 0; attempt < 6; attempt += 1) {
+          const order = await fetchOrderStatus(txRef);
+          if (order?.status === 'paid') {
+            finalizePaidOrder(txRef);
+            return;
+          }
+
+          if (attempt < 5) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+          }
         }
 
         setSubmitError('We could not confirm your payment yet. Please contact support with your tx_ref.');
@@ -438,7 +444,8 @@ export default function CheckoutPage({
   }, []);
 
   // Pricing calculations
-  const totalItems = cartItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
+  const checkoutItems = cartItems.filter((item) => !unavailableItemIds.includes(item.product.id));
+  const totalItems = checkoutItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
   // ─────────────────────────────────────────────────────────────────────────────
   // LIVE PRICE RESOLUTION
   // ─────────────────────────────────────────────────────────────────────────────
@@ -467,7 +474,15 @@ export default function CheckoutPage({
     return Number(freshProduct?.price ?? item.product.price ?? item.product.originalPrice ?? 0);
   };
 
-  const itemsTotal = cartItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
+  // Freshest stock for a cart line, same resolution as getLiveUnitPrice:
+  // App.tsx merges the backend's current quantity into `products` on load
+  // (GET /quantity/ties), so prefer the fresh product over the cart snapshot.
+  const getLiveStock = (item: CartItem): number => {
+    const freshProduct = products.find((product) => product.id === item.product.id);
+    return Number(freshProduct?.stock ?? item.product.stock ?? 0);
+  };
+
+  const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
   const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
   const loadgeneratedId = () => {
     
@@ -492,13 +507,32 @@ export default function CheckoutPage({
     return 'Main Administration Station';
   };
 
-  const handleStartCheckout = () => {
-    if (cartItems.length > 0) {
+  const handleStartCheckout = async () => {
+    if (checkoutItems.length > 0) {
       if (!currentUser) {
         onOpenAuth();
       } else {
-        setCheckoutStep('form');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setIsCheckingAvailability(true);
+        setSubmitError('');
+        try {
+          const availability = await checkInventoryAvailability(
+            cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity }))
+          );
+          const unavailable = availability.filter((item) => !item.available).map((item) => item.tie_id);
+          setUnavailableItemIds(unavailable);
+
+          if (unavailable.length > 0) {
+            setShowAvailabilityPrompt(true);
+            return;
+          }
+
+          setCheckoutStep('form');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (error) {
+          setSubmitError(error instanceof Error ? error.message : 'Could not verify live tie availability');
+        } finally {
+          setIsCheckingAvailability(false);
+        }
       }
     }
   };
@@ -514,7 +548,7 @@ export default function CheckoutPage({
     setIsSubmitting(true);
 
     try {
-      const orderItems = cartItems.map((item) => ({
+      const orderItems = checkoutItems.map((item) => ({
         item_id: item.product.id,
         name: item.product.name,
         quantity: item.quantity,
@@ -522,8 +556,8 @@ export default function CheckoutPage({
         image_url: item.product.image || undefined,
       }));
 
-      const preferredColor = cartItems.map((item) => item.product.color).join(', ');
-      const productNames = cartItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ');
+      const preferredColor = checkoutItems.map((item) => item.product.color).join(', ');
+      const productNames = checkoutItems.map((item) => `${item.product.name} (x${item.quantity})`).join(', ');
 
       const response = await createCheckoutSession({
         name: buyerName,
@@ -582,15 +616,28 @@ export default function CheckoutPage({
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
-      
+
+      {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left) */}
+      <div className="mb-4 text-left">
+        <button
+          type="button"
+          onClick={onContinueShopping}
+          className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-green-200 bg-black px-1.5 py-2.5 hover:bg-amber-50 hover:text-brand-accent transition-colors cursor-pointer group "
+          id="btn-back-to-shop"
+        >
+          <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+          <span className='text-3xl'>Back to Store</span>
+        </button>
+      </div>
+
       {/* 1. PROGRESS BARS / HEADER */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-6">
+      <div className="mb-3 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-2">
         <div>
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary tracking-tight">
               Checkout
             </h1>
-            <button
+            {/* <button
               type="button"
               onClick={handleUseSampleAccount}
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 text-[11px] font-sans font-medium border border-amber-500/25 transition-all cursor-pointer shadow-xs"
@@ -598,7 +645,7 @@ export default function CheckoutPage({
             >
               <Sparkles size={12} className="text-amber-600" />
               <span>Sample Account</span>
-            </button>
+            </button> */}
           </div>
           <p className="text-xs text-brand-primary/65 mt-1 font-sans">
             Direct Covenant hall delivery · Reserve online via Flutterwave
@@ -621,7 +668,7 @@ export default function CheckoutPage({
             </button>
             <div className="h-px w-4 bg-brand-border/60"></div>
             <button 
-              disabled={cartItems.length === 0}
+              disabled={checkoutItems.length === 0 || isCheckingAvailability}
               onClick={handleStartCheckout}
               className={`px-3 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                 checkoutStep === 'form' 
@@ -641,6 +688,38 @@ export default function CheckoutPage({
         )}
       </div>
 
+      {showAvailabilityPrompt && unavailableItemIds.length > 0 && (
+        <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-left" role="alert">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-amber-900">Some ties are temporarily unavailable</h2>
+          <p className="mt-2 text-xs leading-relaxed text-amber-900/80">
+            Another customer is checking out with: {cartItems
+              .filter((item) => unavailableItemIds.includes(item.product.id))
+              .map((item) => item.product.name)
+              .join(', ')}. They are held for up to 10 minutes.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAvailabilityPrompt(false);
+                setCheckoutStep('form');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              className="rounded-full bg-brand-primary px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-brand-bg"
+            >
+              Continue with available ties
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAvailabilityPrompt(false)}
+              className="rounded-full border border-amber-900/30 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest text-amber-900"
+            >
+              Keep reviewing my bag
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 2. CHOSEN CONTENT GRID OR EMPTY STATE */}
       {cartItems.length === 0 && checkoutStep !== 'success' ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-brand-card border border-brand-border/80 rounded-3xl p-8 max-w-xl mx-auto shadow-sm">
@@ -649,7 +728,7 @@ export default function CheckoutPage({
           </div>
           <h3 className="font-serif font-bold text-base text-brand-primary">Your Bag is Empty</h3>
           <p className="text-xs text-brand-primary/70 mt-1.5 max-w-sm leading-relaxed font-sans">
-            You don't have any reservations queued up yet. Browse our collection or use the sample account to test the full checkout workflow.
+            {/* You don't have any reservations queued up yet. Browse our collection or use the sample account to test the full checkout workflow. */}
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
             <button
@@ -658,13 +737,13 @@ export default function CheckoutPage({
             >
               Explore Collection
             </button>
-            <button
+            {/* <button
               onClick={handleUseSampleAccount}
               className="px-5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/30 font-sans text-xs font-semibold rounded-full transition-all cursor-pointer flex items-center gap-1.5"
             >
               <Sparkles size={13} className="text-amber-600" />
               <span>⚡ Test with Sample Account</span>
-            </button>
+            </button> */}
           </div>
         </div>
       ) : (
@@ -730,9 +809,19 @@ export default function CheckoutPage({
                                   <span className="text-[10px] font-mono text-brand-primary/60 uppercase">
                                     {item.product.category} · {item.product.color}
                                   </span>
-                                  <span className="text-[10px] text-emerald-800 font-semibold font-sans">
-                                    ● In Stock
-                                  </span>
+                                  {unavailableItemIds.includes(item.product.id) ? (
+                                    <span className="text-[10px] text-amber-800 font-semibold font-sans">
+                                      ● Temporarily Unavailable
+                                    </span>
+                                  ) : getLiveStock(item) > 0 ? (
+                                    <span className="text-[10px] text-emerald-800 font-semibold font-sans">
+                                      ● In Stock
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-red-700 font-semibold font-sans">
+                                      ● Out of Stock
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                               <div className="text-left sm:text-right mt-1 sm:mt-0">
@@ -797,7 +886,7 @@ export default function CheckoutPage({
                       <ArrowLeft size={14} />
                       Back to Shop
                     </button>
-                    <span className="text-[11px] text-brand-primary/50 font-sans hidden sm:inline">
+                    <span className="text-[11px] text-brand-primary/70 font-sans hidden sm:inline">
                       Complete checkout using the summary on the right →
                     </span>
                   </div>
@@ -831,19 +920,19 @@ export default function CheckoutPage({
                   </div>
 
                   {/* Sample Account Quick Fill Banner */}
-                  <div className="mb-6 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
+                    {/* <div className="mb-6 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
                     <div className="flex items-center gap-2 text-xs font-sans text-amber-950 font-medium">
                       <Sparkles size={15} className="text-amber-600 shrink-0" />
                       <span>Testing? Quick-fill a verified Covenant student profile.</span>
                     </div>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={handleUseSampleAccount}
                       className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-sans font-semibold tracking-wide transition-colors cursor-pointer shrink-0 text-center shadow-xs"
                     >
                       Fill Daniel Adeleke
-                    </button>
-                  </div>
+                    </button> 
+                  </div> */}
 
                   <form onSubmit={handleInitiatePayment} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -880,7 +969,7 @@ export default function CheckoutPage({
                           <input
                             type="tel"
                             required
-                            placeholder="e.g. 08012345678"
+                            placeholder="e.g. 0123456789"
                             value={buyerPhone}
                             onChange={(e) => setBuyerPhone(e.target.value)}
                             className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
@@ -981,15 +1070,6 @@ export default function CheckoutPage({
                       </button>
 
                       <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
-                        <button
-                          type="button"
-                          onClick={handleSimulatePayment}
-                          className="px-5 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 font-sans text-xs font-semibold rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                          title="Simulate successful payment without entering real credit cards"
-                        >
-                          <Sparkles size={13} className="text-amber-600" />
-                          <span>Simulate Paid Order</span>
-                        </button>
 
                         <button
                           type="submit"
@@ -1232,7 +1312,7 @@ export default function CheckoutPage({
                 )}
 
                 {/* Quick 1-Click Sample Test Button */}
-                <button
+                {/* <button
                   type="button"
                   onClick={handleUseSampleAccount}
                   className="w-full mt-2.5 py-2.5 px-3 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/25 text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -1240,9 +1320,9 @@ export default function CheckoutPage({
                 >
                   <Sparkles size={13} className="text-amber-600" />
                   <span>⚡ Use Sample Account (1-Click Test)</span>
-                </button>
+                </button> */}
 
-                <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
+                <div className="text-[10px] text-brand-primary/80 font-sans text-center mt-3 leading-relaxed">
                   🔒 Encrypted connection · Student-verified handoffs
                 </div>
               </div>
@@ -1267,7 +1347,32 @@ export default function CheckoutPage({
 
         </div>
       )}
-
+ {/* <motion.div
+              key="marketplace"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Marketplace
+                products={products}
+                onOpenProductDetail={handleProductClick}
+                onBackToShop={() => {
+                  setCurrentTab('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                onToggleWishlist={handleToggleWishlist}
+                onAddToCart={(product, event) => {
+                  event.stopPropagation();
+                  handleAddToCart(product, 1);
+                }}
+                isInWishlist={isInWishlist}
+                initialSearchQuery={sharedSearchQuery}
+                initialCategory={sharedCategory}
+                onSearchQueryChange={setSharedSearchQuery}
+                onCategoryChange={setSharedCategory}
+              />
+            </motion.div> */}
     </div>
   );
 }

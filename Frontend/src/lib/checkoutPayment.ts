@@ -18,7 +18,7 @@ export interface PendingCheckout {
 }
 
 export function getBackendUrl() {
-  const raw = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5500';
+  const raw = import.meta.env.VITE_API_BASE_URL || 'https://knotify-p9i2.onrender.com';
   return raw.replace(/\/$/, '');
 }
 
@@ -43,29 +43,53 @@ export function clearPendingCheckout() {
   sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
 }
 
+export async function checkInventoryAvailability(items: Array<{ tie_id: string; quantity: number }>) {
+  const response = await fetch(`${getBackendUrl()}/quantity/availability`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  });
+
+  if (!response.ok) {
+    throw new Error('Could not verify live tie availability');
+  }
+
+  return response.json() as Promise<Array<{
+    tie_id: string;
+    requested_quantity: number;
+    available_quantity: number;
+    available: boolean;
+  }>>;
+}
+
 export async function fetchOrderStatus(txRef: string) {
   const backendUrl = getBackendUrl();
   const response = await fetch(
-    `${backendUrl}/api/orders/status/${encodeURIComponent(txRef)}`
+    `${backendUrl}/api/status/${encodeURIComponent(txRef)}`
   );
 
   if (!response.ok) {
     return null;
   }
 
-  return response.json() as Promise<{
+  // Whitelist mirrors the backend's OrderStatusResponse: GET /api/status
+  // no longer returns buyer PII (name/email/phone/room/address/cart), only
+  // the status fields this confirmation flow reads.
+  const order = await response.json() as {
     tx_ref: string;
     status: string;
     amountpaid?: number;
-    buyer_name?: string;
-    order_details?: string;
-    cart_snapshot?: Array<{ tie_id?: string; tie_name?: string; quantity?: number }>;
-    email_snapshot?: string;
-    phone_snapshot?: string;
-    room_number?: string;
-    delivery_address?: string;
+    items_total?: number;
+    item_count?: number;
+    currency?: string;
+    created_at?: string;
     paid_at?: string;
-  }>;
+  };
+
+  return {
+    ...order,
+    status: order.status?.toLowerCase() || '',
+  };
 }
 
 export function parsePaymentReturnParams() {

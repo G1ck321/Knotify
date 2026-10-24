@@ -2,6 +2,7 @@ import traceback
 import os
 import json
 import httpx
+from datetime import datetime, timedelta, timezone
 
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, Depends, HTTPException, status, Header
@@ -9,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from schemas import UserReviews
 from database import supabase
 from config import settings
-from routers.quantity import compute_order_total, disount_logic, get_tie_by_id
+from routers.quantity import compute_order_total, disount_logic, get_tie_by_id, reserve_inventory
 
 from typing import Optional, List, Any
 from dependencies import get_optional_current_user, get_current_user
@@ -19,6 +20,7 @@ from pydantic import BaseModel
 
 
 router = APIRouter(prefix="/api", tags=["Payment Initiaion pipeline"])
+NON_PURCHASABLE_TIE_IDS = {"corp-blue-floral"}
 
 @router.post("/pay")
 async def initialize_payment(
@@ -26,12 +28,19 @@ async def initialize_payment(
     current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
     try:
+        tx_ref = generate_tx_ref("order")
         normalized_items = []
         server_items_total = 0.0
         for item in payload.items:
             tie_row = get_tie_by_id(item.tie_id)
             if not tie_row:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{item.tie_id}' was not found")
+
+            if item.tie_id in NON_PURCHASABLE_TIE_IDS:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Tie '{item.tie_id}' is display-only and cannot be purchased",
+                )
 
             available_quantity = int(tie_row.get("quantity") or 0)
             # Charge the SAME price the frontend displays: reuse the discount
@@ -55,14 +64,13 @@ async def initialize_payment(
                     "tie_name": tie_row.get("tie_name") or tie_row.get("name") or item.name,
                     "quantity": item.quantity,
                     "unit_price": server_price,
-                    "image_url": item.image_url,
+                    # Use the inventory image, not a client-supplied URL.
+                    "image_url": tie_row.get("image_url") or tie_row.get("image") or item.image_url,
                 }
             )
 
         # Add delivery fee of 250 on the server so the frontend cannot alter it.
         calculated_total = server_items_total + 250
-        tx_ref = generate_tx_ref("order")
-
         # Determine valid user_id UUID from authenticated session or lookup/auto-create guest user in Supabase
         user_id = current_user.get("id") if current_user else None
 
@@ -113,7 +121,17 @@ async def initialize_payment(
         #Insert order into database before payment gateway
         print("Attempting to insert into Supabase..")
         order_insert = supabase.table("orders").insert(db_payload).execute()
-        print("Inserted Boyy!")
+        print(f"Order inserted: tx_ref={tx_ref}, rows={len(order_insert.data or [])}")
+
+        try:
+            reserve_inventory(tx_ref, normalized_items)
+        except HTTPException:
+            supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
+            raise
+
+        supabase.table("orders").update({
+            "hold_expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+        }).eq("tx_ref", tx_ref).execute()
 
         fw_key = settings.FW_SECRET_KEY.strip() if settings.FW_SECRET_KEY else ""
 
@@ -121,7 +139,7 @@ async def initialize_payment(
         if not fw_key:
             print("WARNING: FW_SECRET_KEY is empty in backend .env file.")
             # Return demo payment checkout redirect to prevent crash during key setup
-            demo_url = f"https://knotifycu.vercel.app/?status=successful&tx_ref={tx_ref}"
+            demo_url = f"https://knotifycu.knotifycu.workers.dev/?status=successful&tx_ref={tx_ref}"
             return {
                 "checkout_url": demo_url,
                 "tx_ref": tx_ref,
@@ -139,7 +157,7 @@ async def initialize_payment(
         flutter_payload = {
             "tx_ref":tx_ref,
             "amount": calculated_total,
-            "redirect_url":"https://knotifycu.vercel.app/",
+            "redirect_url":"https://knotifycu.knotifycu.workers.dev/",
             "currency": "NGN",
             "customer":{
                 "name": payload.name,
@@ -180,6 +198,8 @@ async def initialize_payment(
                     detail=f"Gateway Error {flw_data.get("message")}"
                 )
 
+    except HTTPException:
+        raise
     except Exception as e: 
     
         print("!! Look Out Error Occured Mehn!!")
@@ -239,19 +259,69 @@ async def get_my_past_orders(current_user: dict = Depends(get_current_user)):
     ]
 
 # -----------------------------------------------------------------------------
-# 2. GET /api/orders/status/{tx_ref} - Verify Webhook Transaction State
+# 2. GET /api/status/{tx_ref} - Payment-confirmation status lookup
 # -----------------------------------------------------------------------------
-@router.get("/status/{tx_ref}")
+class OrderStatusResponse(BaseModel):
+    """Whitelist returned by GET /api/status/{tx_ref}.
+
+    The orders row also holds buyer PII (buyer_name, email_snapshot,
+    phone_snapshot, parentsNumber, room_number, delivery_address,
+    order_details, cart_snapshot, user_id) — never serialize those here.
+    The route's response_model enforces this subset even if the handler
+    body is changed later.
+    """
+
+    tx_ref: str
+    status: str
+    amountpaid: Optional[float] = None
+    items_total: Optional[float] = None
+    item_count: Optional[int] = None
+    currency: Optional[str] = None
+    created_at: Optional[str] = None
+    paid_at: Optional[str] = None
+
+
+@router.get("/status/{tx_ref}", response_model=OrderStatusResponse)
 async def get_order_by_tx_ref(tx_ref: str):
+    """Called by CheckoutPage.tsx after the Flutterwave redirect to confirm
+    whether an order reached 'paid'.
+
+    Why this route stays unauthenticated: guest checkout (POST /api/pay)
+    never issues a JWT — the guest user row is created server-side only —
+    so requiring a session would break the post-redirect confirmation for
+    every guest. The 128-bit server-generated tx_ref acts as the capability:
+    whoever holds it may read this order's STATUS and nothing else.
+
+    Any future endpoint that returns PII must instead use
+    Depends(get_current_user) and bind the query with
+    .eq("user_id", current_user["id"]) like GET /api/me does.
     """
-    Called by CheckoutPage.tsx to confirm if an order status is 'completed' or 'successful'.
-    """
-    response = supabase.table("orders").select("*").eq("tx_ref", tx_ref).single().execute()
-    
+    normalized_tx_ref = tx_ref.strip()
+    response = (
+        supabase.table("orders")
+        .select("*")
+        .eq("tx_ref", normalized_tx_ref)
+        .limit(1)
+        .execute()
+    )
+
+    print(f"Order status lookup: tx_ref={normalized_tx_ref}, rows={len(response.data or [])}")
+
     if not response.data:
         raise HTTPException(status_code=404, detail="Transaction reference not found.")
-        
-    return response.data
+
+    row = response.data[0]
+    # Project the whitelist explicitly — the raw row never reaches the client.
+    return OrderStatusResponse(
+        tx_ref=str(row.get("tx_ref") or normalized_tx_ref),
+        status=str(row.get("status") or ""),
+        amountpaid=row.get("amountpaid"),
+        items_total=row.get("items_total"),
+        item_count=row.get("item_count"),
+        currency=row.get("currency"),
+        created_at=str(row["created_at"]) if row.get("created_at") else None,
+        paid_at=str(row["paid_at"]) if row.get("paid_at") else None,
+    )
 
 # --------------
 # 3. POST /api/reviews  Get user reviews from client

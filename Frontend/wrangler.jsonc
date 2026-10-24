@@ -1,0 +1,17 @@
+{
+  "name": "knotifycu",
+  "compatibility_date": "2026-09-21",
+  "assets": {
+    "directory": "./dist"
+  },
+"vars": {
+    "VITE_API_BASE_URL": "https://knotify-66id.onrender.com/"
+  },
+ "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true,
+      "persist": true
+    }
+  },
+}

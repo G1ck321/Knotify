@@ -13,3 +13,5 @@ coverage/
 *.env
 *.venv
 *.vscode
+
+sql/

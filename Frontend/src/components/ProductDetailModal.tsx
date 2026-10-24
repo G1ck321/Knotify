@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { 
   X, 
   ShoppingBag, 
@@ -26,8 +26,9 @@ export default function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'info' | 'faqs'>('info');
+  const [isHighlighted, setIsHighlighted] = useState(false);
 
-  const price = product?.price ?? 0;
+  const price = product?.price ?? product?.originalPrice ?? 0;
   const deposit = product?.deposit ?? 0;
   const outstandingBalance = price - deposit;
 
@@ -47,6 +48,33 @@ export default function ProductDetailModal({
     onAddToCart(product, quantity);
     onClose();
   };
+  //scroll to reserve button
+  //create the ref
+  const targetRef = useRef<HTMLDivElement | null>(null)  
+  //target the 
+  const handleScroll = () => {
+    //access the DOM node via .current then scroll to it.
+    if (targetRef.current) {
+      targetRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+       setIsHighlighted(true);
+
+    setTimeout(() => {
+      setIsHighlighted(false);
+    }, 1000); // Highlight for 3 seconds
+    }
+  }
+
+  // const scrollReserve = () => {
+  //   if (reserveclick === 0) {
+  //     setReserveClick(1)
+  //     window.scrollTo({ top: 400, behavior: 'smooth' })
+  //   }
+  //   else {
+  //     setReserveClick(0)
+      
+  //     window.scrollTo({ top: 400, behavior: 'smooth' })
+  //   }
+  // }
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6 md:p-10" id="product-detail-modal">
@@ -77,7 +105,7 @@ export default function ProductDetailModal({
         {/* Left Side: Product Image Display & Specs/Tabs */}
         <div className="md:col-span-6 bg-brand-card relative p-6 border-b md:border-b-0 md:border-r border-brand-border flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[80vh]">
           <div className="space-y-6">
-            <div className="aspect-[4/5] w-full rounded overflow-hidden border border-brand-border bg-brand-bg relative">
+            <div className="aspect-[10/6] w-full rounded overflow-hidden border border-brand-border bg-brand-bg relative">
               {product.image ? (
                 <img
                   src={product.image}
@@ -102,10 +130,17 @@ export default function ProductDetailModal({
               </div>
               {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
 
-                <div className="absolute top-4 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
+                <div className="absolute top-8 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
                   HOT
               </div>
                 : ""}
+              
+              
+
+                {/* <a href='#btn-modal-buy-now' className="absolute top-13 text-white left-4 cursor-pointer bg-green-800 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 "> */}
+                <a onClick={()=>handleScroll()} className="absolute top-13 text-white left-4 cursor-pointer bg-green-800 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
+                 ₦ Re$erve Now
+              </a>
             </div>
 
             {/* TAB SELECTORS: Pickup Info vs FAQs */}
@@ -147,7 +182,9 @@ export default function ProductDetailModal({
                     <div>
                       <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-primary">2. Hall Resumption Delivery</h4>
                       <p className="text-[11px] text-brand-primary/80 mt-1 font-sans leading-relaxed">
-                        Walk to your assigned pickup station near your Residence Hall. Verify your physical tie packaging before paying the outstanding balance.
+                        Go to your profile and selct your hall and room number & stay connected to the communities  to get <strong>
+                        Knotified
+                        </strong>
                       </p>
                     </div>
                   </div>
@@ -174,7 +211,7 @@ export default function ProductDetailModal({
 
         {/* Right Side: Simple Luxury Product Meta & Purchase Configuration */}
         <div className="md:col-span-6 p-8 flex flex-col justify-between overflow-y-visible md:overflow-y-auto max-h-none md:max-h-[80vh]" id="detail-panel-right">
-          <div className="space-y-6 text-left my-auto">
+          <div className="space-y-4 text-left my-auto">
             <div>
               {/* Category label */}
               <span className="text-[10px] font-mono font-bold tracking-[0.25em] uppercase text-brand-secondary block mb-1">
@@ -220,7 +257,7 @@ export default function ProductDetailModal({
             {/* Total Price Tracker */}
             <div className="bg-brand-card px-4 py-3 rounded border border-brand-border flex justify-between items-center">
               <span className="text-[9px] font-mono text-brand-secondary uppercase tracking-wider">Total Value</span>
-              <span className="text-xs font-sans font-bold text-brand-primary">₦{(product?.price ?? 0).toLocaleString()}</span>
+              <span className="text-xs font-sans font-bold text-brand-primary">₦{(product?.price ?? product?.originalPrice ?? 0).toLocaleString()}</span>
             </div>
 
             {/* Minimal Quantity Selector */}
@@ -251,7 +288,7 @@ export default function ProductDetailModal({
           </div>
 
           {/* Quick Action Purchase Buttons */}
-          <div className="space-y-3 pt-6 border-t border-brand-border mt-6">
+          <div className="space-y-3 pt-3 border-t border-brand-border mt-6">
             <button
               onClick={handleAddToCartAndClose}
               className="w-full py-4 bg-brand-bg hover:bg-brand-card text-brand-primary border border-brand-border font-mono tracking-widest uppercase text-xs rounded transition-all flex items-center justify-center gap-2 cursor-pointer font-bold"
@@ -266,11 +303,16 @@ export default function ProductDetailModal({
                 onDirectBuy(product);
                 onClose();
               }}
-              className="w-full py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-mono tracking-widest uppercase text-xs rounded transition-all flex items-center justify-center gap-1 cursor-pointer font-black shadow"
-              id="btn-modal-buy-now"
+              className={`w-full py-4 ${
+    isHighlighted
+      ? "bg-brand-accent text-green-200"
+      : "bg-brand-primary hover:bg-brand-secondary"
+  } text-brand-bg font-mono tracking-widest uppercase text-xs rounded transition-all duration-300 flex items-center justify-center gap-1 cursor-pointer font-black shadow`}
+  id="btn-modal-buy-now"
             >
               RESERVE NOW
             </button>
+            <div ref={targetRef} id="end"className="border-b border-brand-border mt-6"></div>
           </div>
 
         </div>

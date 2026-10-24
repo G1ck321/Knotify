@@ -13,15 +13,16 @@ import {
 } from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import { persistAuthSession } from '../lib/authStorage';
+import { SAMPLE_PARENTS_PHONE, SAMPLE_PHONE } from '../lib/sampleData';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (user: any) => void;
+  onSuccess: (user: any, accessToken?: string) => void;
   pendingActionName?: string;
 }
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5500').replace(/\/$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://knotify-p9i2.onrender.com').replace(/\/$/, '');
 
 async function requestJson<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -106,7 +107,8 @@ export default function AuthModal({
       );
 
       const normalizedUser = normalizeUser(response.user);
-      onSuccess(normalizedUser);
+      // Pass the JWT so protected calls (e.g. GET /api/me) are authenticated.
+      onSuccess(normalizedUser, response.access_token);
       setIsLogin(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid student email or password');
@@ -121,10 +123,13 @@ export default function AuthModal({
     setLoading(true);
 
     try {
-      const response = await requestJson<{ access_token: string; token_type: string; user: any }>(
-        '/api/auth/register',
+      // Backend contract: POST /api/auth/signup expects `full_name` and a
+      // minimum 8-character password (see Backend/request_models.py).
+      const signupResponse = await requestJson<{ message: string; user: any }>(
+        '/api/auth/signup',
         {
           name: name.trim(),
+          full_name: name.trim(),
           email: email.trim(),
           password,
           telegramPhone: telegramPhone.trim(),
@@ -133,9 +138,24 @@ export default function AuthModal({
         }
       );
 
-      const normalizedUser = normalizeUser(response.user);
+      // Signup does not return a token, so log in right away to obtain one
+      // for protected calls like GET /api/me.
+      let accessToken: string | undefined;
+      let sessionUser = signupResponse.user;
+      try {
+        const loginResponse = await requestJson<{ access_token: string; token_type: string; user: any }>(
+          '/api/auth/login',
+          { email: email.trim(), password }
+        );
+        accessToken = loginResponse.access_token;
+        sessionUser = loginResponse.user ?? signupResponse.user;
+      } catch {
+        // Keep the signed-up user session even if the auto-login fails.
+      }
+
+      const normalizedUser = normalizeUser(sessionUser);
       localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
-      onSuccess(normalizedUser);
+      onSuccess(normalizedUser, accessToken);
       setIsLogin(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account');
@@ -150,10 +170,10 @@ export default function AuthModal({
       name: 'Daniel Adeleke',
       full_name: 'Daniel Adeleke',
       email: 'daniel.adeleke@student.covenant.edu.ng',
-      telegramPhone: '08012345678',
-      phone: '08012345678',
-      whatsApp: '08012345678',
-      parentsNumber: '08098765432',
+      telegramPhone: SAMPLE_PHONE,
+      phone: SAMPLE_PHONE,
+      whatsApp: SAMPLE_PHONE,
+      parentsNumber: SAMPLE_PARENTS_PHONE,
       address: 'Daniel Hall',
       roomNumber: 'B204',
     };
@@ -208,16 +228,7 @@ export default function AuthModal({
             </div>
 
             {/* Quick Sample Account Button for testing */}
-            <div className="mb-4">
-              <button
-                type="button"
-                onClick={handleUseSampleAccount}
-                className="w-full py-2.5 px-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-900 rounded-xl font-sans text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
-              >
-                <Sparkles size={14} className="text-amber-600" />
-                <span>⚡ Use Sample Account (Instant Sign In)</span>
-              </button>
-            </div>
+            
 
             {/* Error Message Alert */}
             {error && (
@@ -347,6 +358,8 @@ export default function AuthModal({
                       placeholder="••••••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
+                      minLength={8}
+                      title="Minimum 8 characters"
                       className="w-full px-3.5 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all"
                     />
                   </div>
@@ -359,7 +372,7 @@ export default function AuthModal({
                       <input
                         type="tel"
                         required
-                        placeholder="08012345678"
+                        placeholder={SAMPLE_PHONE}
                         value={telegramPhone}
                         onChange={(e) => setTelegramPhone(e.target.value)}
                         className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"
@@ -371,7 +384,7 @@ export default function AuthModal({
                       </label>
                       <input
                         type="tel"
-                        placeholder="08012345678"
+                        placeholder={SAMPLE_PHONE}
                         value={whatsApp}
                         onChange={(e) => setWhatsApp(e.target.value)}
                         className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"

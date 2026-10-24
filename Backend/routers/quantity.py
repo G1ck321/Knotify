@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -14,6 +15,7 @@ router = APIRouter(prefix="/quantity", tags=["Inventory and paid user metrics"])
 class TieInventoryResponse(BaseModel):
     tie_id: str
     tie_name: str
+    image_url: Optional[str] = None
     price: float = Field(ge=0)
     quantity: int = Field(ge=0)
     is_active: bool = True
@@ -26,15 +28,22 @@ class PaidUsersResponse(BaseModel):
     unique_paid_users: int = Field(ge=0)
 
 
+class InventoryAvailabilityRequest(BaseModel):
+    items: list[dict[str, Any]]
+
+
+HOLD_MINUTES = 10
+
+
 def _extract_tie_identity(row: dict[str, Any]) -> tuple[str, str]:
     tie_id = str(row.get("tie_id") or row.get("id") or row.get("name") or "").strip()
     tie_name = str(row.get("tie_name") or row.get("name") or tie_id).strip()
     return tie_id, tie_name
 
-# Launch-window promotion: these ties sell at discount_price while no more
-# than DISCOUNT_USER_THRESHOLD unique users have paid.
+# Launch-window promotion: these ties sell at discount_price for the first
+# DISCOUNT_USER_THRESHOLD unique users who complete a paid order.
 DISCOUNTED_TIE_NAMES = ("Plain Black Tie", "Plain Wine Tie")
-DISCOUNT_USER_THRESHOLD = 5
+DISCOUNT_USER_THRESHOLD = 3
 
 
 def _paid_user_metrics() -> tuple[int, int]:
@@ -54,20 +63,20 @@ def disount_logic(row: dict[str, Any], tie_name: str) -> float:
     all call it, so the price shown on the frontend checkout always equals the
     amount actually charged.
 
-    Early-bird rule: while DISCOUNT_USER_THRESHOLD or fewer unique users have
-    paid, the ties in DISCOUNTED_TIE_NAMES sell at discount_price; every other
-    tie (and these ties after the window) sells at the regular price.
+    Discounts are currently disabled. The promotion code is kept below for
+    future use, while all ties use their regular price.
 
     NOTE: each call queries Supabase for the paid-user count so the rule stays
     live. If a caller needs many prices in one request, hoist
     _paid_user_metrics() and pass the count in instead.
     """
-    _, unique_users = _paid_user_metrics()
+    # _, unique_users = _paid_user_metrics()
+    #
+    # if tie_name in DISCOUNTED_TIE_NAMES and unique_users < DISCOUNT_USER_THRESHOLD:
+    #     # Prefer the discounted column; fall back to the regular price so a
+    #     # missing/zero discount_price never turns into a free tie.
+    #     return float(row.get("discount_price") or row.get("price") or 0)
 
-    if tie_name in DISCOUNTED_TIE_NAMES and unique_users <= DISCOUNT_USER_THRESHOLD:
-        # Prefer the discounted column; fall back to the regular price so a
-        # missing/zero discount_price never turns into a free tie.
-        return float(row.get("discount_price") or row.get("price") or 0)
     return float(row.get("price") or row.get("unit_price") or 0)
 
 
@@ -85,11 +94,32 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     return TieInventoryResponse(
         tie_id=tie_id,
         tie_name=tie_name,
+        image_url=str(row.get("image_url") or row.get("image") or "").strip() or None,
         price=price,
         quantity=quantity,
         is_active=is_active,
         is_sold_out=quantity <= 0 or not is_active,
     )
+
+
+def _active_hold_quantities() -> dict[str, int]:
+    try:
+        supabase.rpc("expire_inventory_holds").execute()
+        response = (
+            supabase.table("inventory_holds")
+            .select("tie_id, quantity")
+            .eq("status", "active")
+            .gt("expires_at", datetime.now(timezone.utc).isoformat())
+            .execute()
+        )
+    except Exception:
+        return {}
+
+    held: dict[str, int] = {}
+    for hold in response.data or []:
+        tie_id = str(hold.get("tie_id") or "")
+        held[tie_id] = held.get(tie_id, 0) + int(hold.get("quantity") or 0)
+    return held
 
 
 def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
@@ -110,7 +140,16 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
 def get_all_ties() -> list[TieInventoryResponse]:
     response = supabase.table("ties").select("*").order("tie_name", desc=False).execute()
     rows = response.data or []
-    return [_normalize_inventory_row(row) for row in rows]
+    held_quantities = _active_hold_quantities()
+    normalized_rows = []
+    for row in rows:
+        available_row = dict(row)
+        available_row["quantity"] = max(
+            int(row.get("quantity") or 0) - held_quantities.get(str(row.get("tie_id")), 0),
+            0,
+        )
+        normalized_rows.append(_normalize_inventory_row(available_row))
+    return normalized_rows
 
 
 def get_paid_user_totals() -> PaidUsersResponse:
@@ -119,6 +158,32 @@ def get_paid_user_totals() -> PaidUsersResponse:
         paid_orders=paid_orders,
         unique_paid_users=unique_users,
     )
+
+
+def check_inventory_availability(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    response = supabase.rpc("check_inventory_availability", {"p_items": items}).execute()
+    return response.data or []
+
+
+def reserve_inventory(tx_ref: str, items: list[dict[str, Any]]) -> None:
+    try:
+        supabase.rpc(
+            "reserve_inventory",
+            {"p_tx_ref": tx_ref, "p_items": items, "p_minutes": HOLD_MINUTES},
+        ).execute()
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Some requested ties are no longer available. Refresh your bag and try again.",
+        ) from error
+
+
+def release_inventory_hold(tx_ref: str, hold_status: str = "released") -> None:
+    supabase.rpc("release_inventory_hold", {"p_tx_ref": tx_ref, "p_status": hold_status}).execute()
+
+
+def consume_inventory_hold(tx_ref: str) -> None:
+    supabase.rpc("consume_inventory_hold", {"p_tx_ref": tx_ref}).execute()
 
 
 def decrement_tie_stock(tie_id: str, quantity: int) -> TieInventoryResponse:
@@ -200,6 +265,11 @@ async def read_tie_quantity(tie_id: str):
     if not tie_row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{tie_id}' was not found")
     return _normalize_inventory_row(tie_row)
+
+
+@router.post("/availability")
+async def read_inventory_availability(payload: InventoryAvailabilityRequest):
+    return check_inventory_availability(payload.items)
 
 
 @router.get("/paid-users", response_model=PaidUsersResponse)

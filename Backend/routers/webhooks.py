@@ -5,10 +5,11 @@ import re
 from urllib import response
 from fastapi.responses import JSONResponse
 from fastapi import APIRouter, HTTPException, status, Header, Request, BackgroundTasks
+import hmac
 from database import supabase
 from config import settings
 from datetime import timezone, datetime
-from routers.quantity import decrement_stock_for_order
+from routers.quantity import consume_inventory_hold, decrement_stock_for_order, release_inventory_hold
 
 
 router = APIRouter(prefix="/webhook", tags=["Third Party Web Hooks"])
@@ -58,7 +59,14 @@ async def flutterwave_webhook(
 
     # Verify the shared secret header before trusting the payload
     # Psst, this occurs after payment
-    if not verif_hash or verif_hash != settings.FLW_SECRET_HASH:
+    expected_hash = settings.FLW_SECRET_HASH.strip()
+    received_hash = (verif_hash or "").strip()
+    print(
+        "Flutterwave webhook received: "
+        f"hash_present={bool(received_hash)}, expected_hash_configured={bool(expected_hash)}"
+    )
+    if not expected_hash or not received_hash or not hmac.compare_digest(received_hash, expected_hash):
+        print("Flutterwave webhook rejected: invalid or missing verif-hash")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Signature validation handshake mismatch"
@@ -67,13 +75,34 @@ async def flutterwave_webhook(
     # parse the webhook body after the signature check passes
     payload = await request.json()
 
-    if payload.get("status") == "successful" or payload.get("data", {}).get("status")=="successful":
+    data_block = payload.get("data") or payload
+    payment_status = str(data_block.get("status") or payload.get("status") or "").lower()
+    tx_ref = str(data_block.get("tx_ref") or payload.get("tx_ref") or "").strip()
 
-        data_block = payload.get("data",payload)
-        tx_ref = data_block.get("tx_ref")
+    if payment_status in {"failed", "cancelled", "canceled", "error"}:
+        if tx_ref:
+            supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
+            release_inventory_hold(tx_ref)
+        return {"status": "acknowledged", "order_status": "failed"}
+
+    if payment_status == "successful":
+
+        print(f"Flutterwave webhook transaction: tx_ref={tx_ref or '<missing>'}")
+
+        if not tx_ref:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Flutterwave webhook did not include tx_ref",
+            )
 
         # Ignore duplicate webhook orders for the same orders
-        existing_order =  supabase.table("orders").select("*").eq("tx_ref",tx_ref).execute()
+        existing_order = (
+            supabase.table("orders")
+            .select("*")
+            .eq("tx_ref", tx_ref)
+            .limit(1)
+            .execute()
+        )
 
         if not existing_order.data:
             raise HTTPException(
@@ -110,6 +139,7 @@ async def flutterwave_webhook(
             # background_tasks.add_task(send_email_order_receipt, order_record)
             if cart_snapshot:
                 background_tasks.add_task(decrement_stock_for_order, cart_snapshot)
+            background_tasks.add_task(consume_inventory_hold, tx_ref)
         else:
             print("DEBUG: Supabase update failed or returned empty data.")
 

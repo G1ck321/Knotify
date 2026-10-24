@@ -1,9 +1,28 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import { ArrowLeft } from 'lucide-react';
 
-export default function SellPage() {
+interface SellPageProps {
+  onBackToShop?: () => void;
+}
+
+export default function SellPage({ onBackToShop }: SellPageProps) {
   return (
     <div className="max-w-4xl mx-auto px-4 py-20 md:py-32 text-center flex flex-col items-center justify-center min-h-[60vh]" id="sell-page-root">
+
+      {/* BOLD BACK-TO-SHOP ANCHOR (top-left) */}
+      {onBackToShop && (
+        <div className="w-full mb-8 text-left">
+          <button
+            onClick={onBackToShop}
+            className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"
+            id="btn-back-to-shop"
+          >
+            <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Shop</span>
+          </button>
+        </div>
+      )}
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}

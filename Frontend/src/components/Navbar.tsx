@@ -4,6 +4,7 @@ import {
   Home, 
   Compass, 
   User, 
+  Info,
   Menu, 
   X,
   LogOut
@@ -11,9 +12,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 interface NavbarProps {
-  currentTab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard';
-  setCurrentTab: (tab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
+  currentTab: 'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard';
+  setCurrentTab: (tab: 'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
   cartCount: number;
+  isBagHighlighted?: boolean;
   wishlistCount: number;
   onOpenCart: () => void;
   onOpenWishlist: () => void;
@@ -27,6 +29,7 @@ export default function Navbar({
   currentTab,
   setCurrentTab,
   cartCount,
+  isBagHighlighted = false,
   onOpenCart,
   currentUser,
   onOpenAuth,
@@ -81,19 +84,32 @@ export default function Navbar({
               {/* Store Button */}
               <button
                 onClick={() => setCurrentTab('marketplace')}
-                className={`text-xs sm:text-sm font-sans font-medium transition-colors cursor-pointer px-3 py-1.5 rounded-full ${
+                className={`text-xs sm:text-sm font-sans transition-all cursor-pointer px-3.5 py-1.5 rounded-full ${
                   currentTab === 'marketplace'
-                    ? 'text-brand-secondary bg-brand-secondary/10 font-semibold'
-                    : 'text-brand-primary/80 hover:text-brand-secondary'
+                    ? 'bg-brand-secondary text-[#FFFEF2] font-bold shadow-sm ring-1 ring-brand-secondary/60'
+                    : 'text-brand-primary/80 hover:text-brand-secondary hover:bg-brand-secondary/10 font-medium'
                 }`}
+                aria-current={currentTab === 'marketplace' ? 'page' : undefined}
               >
                 Store
+              </button>
+
+              <button
+                onClick={() => setCurrentTab('about')}
+                className={`text-xs sm:text-sm font-sans transition-all cursor-pointer px-3.5 py-1.5 rounded-full ${
+                  currentTab === 'about'
+                    ? 'bg-brand-secondary text-[#FFFEF2] font-bold shadow-sm ring-1 ring-brand-secondary/60'
+                    : 'text-brand-primary/80 hover:text-brand-secondary hover:bg-brand-secondary/10 font-medium'
+                }`}
+                aria-current={currentTab === 'about' ? 'page' : undefined}
+              >
+                About
               </button>
 
               {/* Bag Button */}
               <button
                 onClick={onOpenCart}
-                className="flex items-center gap-1.5 text-xs sm:text-sm font-sans font-medium text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-black/5 relative"
+                className={`flex items-center gap-1.5 text-xs sm:text-sm font-sans font-medium text-brand-primary hover:text-brand-secondary transition-all cursor-pointer px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-black/5 relative ${isBagHighlighted ? 'ring-2 ring-brand-secondary bg-brand-secondary/10 scale-105' : ''}`}
                 aria-label="Shopping Bag"
                 id="btn-cart"
               >
@@ -114,9 +130,13 @@ export default function Navbar({
                       setCurrentTab('dashboard');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
-                    className="text-xs sm:text-sm font-sans font-medium text-brand-secondary bg-brand-secondary/10 px-3 py-1.5 rounded-full hover:bg-brand-secondary/15 transition-all max-w-[100px] truncate cursor-pointer"
+                    className="flex items-center gap-1.5 text-xs sm:text-sm font-sans font-semibold text-brand-secondary bg-brand-secondary/10 px-3 py-1.5 rounded-full hover:bg-brand-secondary/20 transition-all max-w-[130px] cursor-pointer"
+                    title="My account"
                   >
-                    {currentUser.name?.split(' ')[0]}
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-secondary text-[#FFFEF2] shrink-0">
+                      <User size={12} strokeWidth={2.4} />
+                    </span>
+                    <span className="hidden md:inline">{currentUser.name?.split(' ')[0]}</span>
                   </button>
                   <button
                     onClick={onLogout}
@@ -182,6 +202,26 @@ export default function Navbar({
             <Compass size={19} strokeWidth={currentTab === 'marketplace' ? 2.2 : 1.7} />
             <span className="text-[10px] font-sans">Store</span>
             {currentTab === 'marketplace' && (
+              <motion.div
+                layoutId="bottomNavIndicator"
+                className="absolute -bottom-1 w-4 h-0.5 bg-brand-secondary rounded-full"
+                transition={{ type: 'spring', stiffness: 350, damping: 30 }}
+              />
+            )}
+          </button>
+
+          <button
+            onClick={() => {
+              setCurrentTab('about');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
+              currentTab === 'about' ? 'text-brand-secondary font-bold' : 'text-brand-primary/55 hover:text-brand-primary'
+            }`}
+          >
+            <Info size={19} strokeWidth={currentTab === 'about' ? 2.2 : 1.7} />
+            <span className="text-[10px] font-sans">About</span>
+            {currentTab === 'about' && (
               <motion.div
                 layoutId="bottomNavIndicator"
                 className="absolute -bottom-1 w-4 h-0.5 bg-brand-secondary rounded-full"

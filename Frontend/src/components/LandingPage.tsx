@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowRight, 
-  ShoppingBag, 
   Package, 
   MapPin, 
   CheckCircle2, 
@@ -17,7 +16,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Product } from '../types';
+import { INITIAL_PRODUCTS, Product } from '../types';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -28,8 +27,8 @@ interface LandingPageProps {
   featuredProducts: Product[];
   onOpenProductDetail: (product: Product) => void;
   onToggleWishlist: (product: Product, e: React.MouseEvent) => void;
-  onAddToCart: (product: Product, e: React.MouseEvent) => void;
   isInWishlist: (productId: string) => boolean;
+  onNavigateAbout?: () => void;
   inventorySummary?: {
     totalQuantity: number;
     availableTies: number;
@@ -72,7 +71,9 @@ export default function LandingPage({
   onBrowseMarketplace,
   featuredProducts,
   products,
-  onAddToCart,
+  onOpenProductDetail,
+  onNavigateAbout,
+  inventorySummary,
 }: LandingPageProps) {
   const [activeModelIndex, setActiveModelIndex] = useState(2); // Center model default
   const [isCarouselPaused, setIsCarouselPaused] = useState(false);
@@ -88,6 +89,25 @@ export default function LandingPage({
     return () => clearInterval(interval);
   }, [isCarouselPaused]);
 
+  // ── Preload hero + catalog imagery on idle so taps feel instant even
+  // on slow campus Wi-Fi (also covers the meme asset preloaded in App).
+  useEffect(() => {
+    const preload = () => {
+      const sources = [
+        ...HERO_MODELS.map((model) => model.src),
+        ...CTA_GALLERY_TIES.map((tie) => tie.image),
+        ...FALLBACK_TIES.map((tie) => tie.image),
+        ...INITIAL_PRODUCTS.slice(0, 12).map((product) => product.image).filter(Boolean),
+      ];
+      sources.forEach((src) => {
+        const img = new Image();
+        img.src = src;
+      });
+    };
+
+    const timer = window.setTimeout(preload, 600);
+    return () => window.clearTimeout(timer);
+  }, []);
   // GSAP Entrance
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -114,8 +134,10 @@ export default function LandingPage({
     setActiveModelIndex((prev) => (prev + 1) % HERO_MODELS.length);
   };
 
-  // ── Available ties (stock > 0) strictly above unavailable ties (stock <= 0) ──
-  const baseTiesList = products.length >= 6 ? products : FALLBACK_TIES;
+  // ── Home showcase uses the STATIC catalog (INITIAL_PRODUCTS), never the
+  // Supabase-synced `products` state. Prices here are display-only and are
+  // intentionally NOT live-synced; real stock/price live on the collection page.
+  const baseTiesList = INITIAL_PRODUCTS;
   const sortedProducts = [...baseTiesList].sort((a, b) => {
     const aInStock = Number(a.stock) > 0;
     const bInStock = Number(b.stock) > 0;
@@ -142,7 +164,7 @@ export default function LandingPage({
         {/* Main Headline — High Readability Sans/Bold hierarchy (Covenant tag removed) */}
         <h1 className="hero-anim-item font-sans font-black text-3xl sm:text-5xl md:text-6xl lg:text-[62px] text-brand-primary tracking-tight leading-[1.12] max-w-3xl mx-auto">
           No need to borrow ties <br className="hidden sm:inline" />
-          in school anymore.
+          in school anymore
           <span className="block font-sans font-extrabold text-brand-secondary mt-1.5 sm:mt-2">
             We gat you.
           </span>
@@ -150,7 +172,13 @@ export default function LandingPage({
 
         {/* Crisp Subtitle with tie humor */}
         <p className="hero-anim-item text-xs sm:text-sm md:text-base font-sans text-brand-primary/80 max-w-lg mx-auto mt-3.5 sm:mt-4 leading-relaxed px-2 font-medium">
-          Hand-inspected, chapel-approved ties delivered right to your hall lobby before resumption.
+          Hand-inspected, chapel-approved
+          <strong id='tie-bold'>
+          ties
+          </strong>
+          delivered right to your hall lobby or room before resumption <br></br> & <br></br> <strong>
+          during school.
+          </strong>
           <span className="block mt-1 font-serif italic text-brand-secondary font-semibold">
             "Knots happen. Being untidy is a choice."
           </span>
@@ -286,7 +314,12 @@ export default function LandingPage({
               Why Knotify
             </span>
             <h2 className="font-display font-bold text-2xl sm:text-4xl text-[#FFFEF2] tracking-tight leading-snug">
-              Getting your ties shouldn't be stressful.
+              Getting your ties should
+              <br/>
+              Not
+              <br/>
+              
+              be stressful.
             </h2>
             <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/80 mt-2.5 leading-relaxed">
               We make it quick and easy to get dress-code approved ties delivered straight to your hostel lobby before you resume.
@@ -332,10 +365,20 @@ export default function LandingPage({
             </div>
           </div>
 
-          <div className="mt-8 pt-5 border-t border-[#FFFEF2]/15 text-center">
+          <div className="mt-8 pt-5 border-t border-[#FFFEF2]/15 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
             <p className="text-xs font-sans text-[#FFFEF2]/80">
               Simple, affordable, and built specifically for Covenant University students.
             </p>
+            {onNavigateAbout && (
+              <button
+                onClick={onNavigateAbout}
+                className="inline-flex items-center gap-2 text-xs font-sans font-bold text-[#FFFEF2] hover:text-[#FFFEF2]/80 border border-[#FFFEF2]/30 hover:border-[#FFFEF2]/70 px-5 py-2.5 rounded-full transition-colors cursor-pointer shrink-0"
+                id="btn-about-us"
+              >
+                <span>Our Mission &amp; About Us</span>
+                <ArrowRight size={13} />
+              </button>
+            )}
           </div>
 
         </div>
@@ -361,6 +404,24 @@ export default function LandingPage({
             </p>
           </div>
 
+          {/* Live counter strip — "Be the No. {n} student" */}
+          <div className="text-center mb-10 sm:mb-12 space-y-2" id="live-student-counter">
+            <div className="text-[10px] sm:text-[11px] font-mono uppercase tracking-[0.35em] text-brand-secondary">
+              Live stock synced from Knotify API
+            </div>
+            <div className="font-display font-black text-2xl sm:text-4xl md:text-5xl text-brand-primary tracking-tight leading-none">
+              Be the{' '}
+              <span className="font-serif italic font-light text-brand-secondary">
+                No. {(inventorySummary?.paidUsers ?? 0) + 1}
+              </span>{' '}
+              student
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-[10px] font-mono uppercase tracking-[0.22em] text-brand-secondary/90">
+              <span>{inventorySummary?.totalQuantity ?? 0}+ ties in stock</span>
+              <span>{inventorySummary?.paidUsers ?? 0}+ paid students</span>
+            </div>
+          </div>
+
           {/* 2 Full Rows of Ties (3 columns × 2 rows = 6 Ties) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {displayTies.map((tie) => {
@@ -370,7 +431,8 @@ export default function LandingPage({
               return (
                 <div
                   key={tie.id}
-                  className="bg-[#FBF9F3]/40 border border-black/8 hover:border-brand-secondary/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group"
+                  onClick={() => onBrowseMarketplace()}
+                  className="bg-[#FBF9F3]/40 border border-black/8 hover:border-brand-secondary/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group cursor-pointer"
                 >
                   <div>
                     {/* Tie Image Canvas */}
@@ -380,48 +442,27 @@ export default function LandingPage({
                         alt={tie.name}
                         className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
+                        decoding="async"
                       />
-                      <span className={`absolute top-2.5 right-2.5 text-[9px] font-mono uppercase px-2 py-0.5 rounded-full font-semibold border ${
-                        isAvailable 
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                          : 'bg-rose-50 text-rose-800 border-rose-200'
-                      }`}>
-                        {isAvailable ? `${tie.stock} In Stock` : 'Sold Out'}
-                      </span>
                     </div>
 
                     {/* Tie Details */}
                     <h3 className="font-serif font-bold text-sm sm:text-base text-brand-primary mb-1 line-clamp-1 group-hover:text-brand-secondary transition-colors">
                       {tie.name}
                     </h3>
-                    <div className="flex items-baseline gap-2 mb-4">
-                      <span className="text-base sm:text-lg font-bold font-sans text-brand-secondary">
-                        ₦{currentPrice.toLocaleString()}
-                      </span>
-                      {tie.originalPrice && tie.originalPrice > currentPrice && (
-                        <span className="text-xs text-brand-primary/40 line-through font-sans">
-                          ₦{tie.originalPrice.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
                   </div>
 
                   {/* 1-Click Add to Bag */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (isAvailable) onAddToCart(tie as Product, e);
-                    }}
-                    disabled={!isAvailable}
-                    className={`w-full inline-flex items-center justify-center gap-2 font-sans font-semibold text-xs sm:text-sm py-2.5 sm:py-3 rounded-xl transition-all duration-200 min-h-[42px] ${
+                  <span
+                    className={`w-full inline-flex items-center justify-center gap-2 font-sans font-semibold text-xs sm:text-sm py-2.5 sm:py-3 rounded-xl min-h-[42px] border transition-colors ${
                       isAvailable
-                        ? 'bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] hover:shadow-md cursor-pointer active:scale-98'
-                        : 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                        ? 'border-brand-secondary/30 text-brand-secondary group-hover:border-brand-secondary'
+                        : 'border-black/8 text-neutral-400'
                     }`}
                   >
-                    <ShoppingBag size={15} />
-                    <span>{isAvailable ? 'Add to Bag' : 'Out of Stock'}</span>
-                  </button>
+                    <span>{isAvailable ? 'View in catalog' : 'Out of Stock'}</span>
+                    {isAvailable && <ArrowRight size={14} />}
+                  </span>
                 </div>
               );
             })}
@@ -485,9 +526,6 @@ export default function LandingPage({
                     {tie.name}
                   </h4>
                   <div className="flex items-center justify-between mt-1">
-                    <span className="font-sans font-bold text-xs sm:text-sm text-brand-secondary">
-                      {tie.price}
-                    </span>
                     <span className="text-[9px] font-mono uppercase tracking-wider text-brand-primary/45 group-hover:text-brand-secondary transition-colors">
                       View tie →
                     </span>

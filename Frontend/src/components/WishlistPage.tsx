@@ -32,10 +32,10 @@ export default function WishlistPage({
       <div className="mb-8 text-left">
         <button
           onClick={onBackToCollection}
-          className="inline-flex items-center gap-2 text-xs font-mono tracking-widest uppercase text-brand-primary/60 hover:text-brand-secondary transition-colors cursor-pointer group"
+          className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"
         >
-          <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
-          <span>Back to Collection</span>
+          <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+          <span>Back to Shop</span>
         </button>
       </div>
 
@@ -144,15 +144,15 @@ export default function WishlistPage({
 
                     <button
                       onClick={() => onAddToCart(prod, 1)}
-                      disabled={prod.stock === 0}
+                      disabled={Number(prod.stock) <= 0}
                       className={`px-4.5 py-2.5 font-mono tracking-widest uppercase text-[9px] font-bold flex items-center gap-1.5 transition-all rounded-md shadow-sm ${
-                        prod.stock === 0
+                        Number(prod.stock) <= 0
                           ? 'bg-brand-bg border border-brand-border text-brand-primary/40 cursor-not-allowed'
                           : 'bg-brand-secondary hover:bg-brand-primary text-brand-bg cursor-pointer hover:scale-105'
                       }`}
                     >
                       <ShoppingBag size={10} />
-                      {prod.stock === 0 ? 'SOLD OUT' : 'ADD TO BAG'}
+                      {Number(prod.stock) <= 0 ? 'SOLD OUT' : 'ADD TO BAG'}
                     </button>
                   </div>
                 </div>
