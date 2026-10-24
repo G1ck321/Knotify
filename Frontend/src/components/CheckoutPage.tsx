@@ -969,7 +969,7 @@ export default function CheckoutPage({
                           <input
                             type="tel"
                             required
-                            placeholder="e.g. 08012345678"
+                            placeholder="e.g. 0123456789"
                             value={buyerPhone}
                             onChange={(e) => setBuyerPhone(e.target.value)}
                             className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"

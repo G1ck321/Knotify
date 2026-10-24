@@ -259,12 +259,42 @@ async def get_my_past_orders(current_user: dict = Depends(get_current_user)):
     ]
 
 # -----------------------------------------------------------------------------
-# 2. GET /api/orders/status/{tx_ref} - Verify Webhook Transaction State
+# 2. GET /api/status/{tx_ref} - Payment-confirmation status lookup
 # -----------------------------------------------------------------------------
-@router.get("/status/{tx_ref}")
-async def get_order_by_tx_ref(tx_ref: str):
+class OrderStatusResponse(BaseModel):
+    """Whitelist returned by GET /api/status/{tx_ref}.
+
+    The orders row also holds buyer PII (buyer_name, email_snapshot,
+    phone_snapshot, parentsNumber, room_number, delivery_address,
+    order_details, cart_snapshot, user_id) — never serialize those here.
+    The route's response_model enforces this subset even if the handler
+    body is changed later.
     """
-    Called by CheckoutPage.tsx to confirm if an order status is 'completed' or 'successful'.
+
+    tx_ref: str
+    status: str
+    amountpaid: Optional[float] = None
+    items_total: Optional[float] = None
+    item_count: Optional[int] = None
+    currency: Optional[str] = None
+    created_at: Optional[str] = None
+    paid_at: Optional[str] = None
+
+
+@router.get("/status/{tx_ref}", response_model=OrderStatusResponse)
+async def get_order_by_tx_ref(tx_ref: str):
+    """Called by CheckoutPage.tsx after the Flutterwave redirect to confirm
+    whether an order reached 'paid'.
+
+    Why this route stays unauthenticated: guest checkout (POST /api/pay)
+    never issues a JWT — the guest user row is created server-side only —
+    so requiring a session would break the post-redirect confirmation for
+    every guest. The 128-bit server-generated tx_ref acts as the capability:
+    whoever holds it may read this order's STATUS and nothing else.
+
+    Any future endpoint that returns PII must instead use
+    Depends(get_current_user) and bind the query with
+    .eq("user_id", current_user["id"]) like GET /api/me does.
     """
     normalized_tx_ref = tx_ref.strip()
     response = (
@@ -280,7 +310,18 @@ async def get_order_by_tx_ref(tx_ref: str):
     if not response.data:
         raise HTTPException(status_code=404, detail="Transaction reference not found.")
 
-    return response.data[0]
+    row = response.data[0]
+    # Project the whitelist explicitly — the raw row never reaches the client.
+    return OrderStatusResponse(
+        tx_ref=str(row.get("tx_ref") or normalized_tx_ref),
+        status=str(row.get("status") or ""),
+        amountpaid=row.get("amountpaid"),
+        items_total=row.get("items_total"),
+        item_count=row.get("item_count"),
+        currency=row.get("currency"),
+        created_at=str(row["created_at"]) if row.get("created_at") else None,
+        paid_at=str(row["paid_at"]) if row.get("paid_at") else None,
+    )
 
 # --------------
 # 3. POST /api/reviews  Get user reviews from client

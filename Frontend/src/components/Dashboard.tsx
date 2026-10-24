@@ -886,7 +886,7 @@ export default function Dashboard({
                       required
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="e.g. 08012345678"
+                      placeholder="e.g. 0123456789"
                       className="w-full px-4 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all"
                     />
                     <p className="text-[11px] text-neutral-400 mt-1">We will contact you on this number when your tie arrives in the lobby.</p>
