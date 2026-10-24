@@ -72,17 +72,17 @@ export async function fetchOrderStatus(txRef: string) {
     return null;
   }
 
+  // Whitelist mirrors the backend's OrderStatusResponse: GET /api/status
+  // no longer returns buyer PII (name/email/phone/room/address/cart), only
+  // the status fields this confirmation flow reads.
   const order = await response.json() as {
     tx_ref: string;
     status: string;
     amountpaid?: number;
-    buyer_name?: string;
-    order_details?: string;
-    cart_snapshot?: Array<{ tie_id?: string; tie_name?: string; quantity?: number }>;
-    email_snapshot?: string;
-    phone_snapshot?: string;
-    room_number?: string;
-    delivery_address?: string;
+    items_total?: number;
+    item_count?: number;
+    currency?: string;
+    created_at?: string;
     paid_at?: string;
   };
 

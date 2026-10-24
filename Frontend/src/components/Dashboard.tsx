@@ -3,24 +3,29 @@ import {
   User, 
   MapPin, 
   Phone, 
+  Mail,
   Calendar, 
   Clock, 
-  CheckCircle, 
-  XCircle, 
+  CheckCircle2, 
   Trash2, 
   ShoppingBag, 
   Edit3, 
   Save, 
   Heart,
-  AlertCircle,
-  Copy,
-  Check,
-  QrCode,
-  X,
-  LogOut,
-  LogIn,
-  Star,
-  MessageSquare
+  Copy, 
+  Check, 
+  QrCode, 
+  X, 
+  LogOut, 
+  LogIn, 
+  Star, 
+  MessageSquare,
+  ShieldCheck,
+  ArrowLeft,
+  ArrowRight,
+  Sparkles,
+  PackageCheck,
+  AlertCircle
 } from 'lucide-react';
 import { Product, Reservation, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
@@ -37,7 +42,7 @@ interface DashboardProps {
   onAddToCart: (product: Product, quantity: number) => void;
   onLogout?: () => void;
   onOpenAuth?: () => void;
-  setCurrentTab?: (tab: 'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
+  setCurrentTab?: (tab: 'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard') => void;
 }
 
 export default function Dashboard({
@@ -67,11 +72,11 @@ export default function Dashboard({
   // Copy to clipboard state
   const [copiedResId, setCopiedResId] = useState<string | null>(null);
 
-  // Settings form state
-  const [editName, setEditName] = useState(currentUser?.name || '');
-  const [editPhone, setEditPhone] = useState(currentUser?.telegramPhone || '');
+  // Profile edit form state
+  const [editName, setEditName] = useState(currentUser?.name || currentUser?.full_name || '');
+  const [editPhone, setEditPhone] = useState(currentUser?.telegramPhone || currentUser?.phone || '');
   const [editRoom, setEditRoom] = useState(currentUser?.roomNumber || '');
-  const [editHall, setEditHall] = useState(currentUser?.residenceHall || COVENANT_HALLS[0]);
+  const [editHall, setEditHall] = useState(currentUser?.residenceHall || currentUser?.address || COVENANT_HALLS[0]);
   const [settingsSuccess, setSettingsSuccess] = useState(false);
 
   // Review form state
@@ -86,10 +91,10 @@ export default function Dashboard({
   // Sync settings when currentUser changes
   React.useEffect(() => {
     if (currentUser) {
-      setEditName(currentUser.name || '');
-      setEditPhone(currentUser.telegramPhone || '');
+      setEditName(currentUser.name || currentUser.full_name || '');
+      setEditPhone(currentUser.telegramPhone || currentUser.phone || '');
       setEditRoom(currentUser.roomNumber || '');
-      setEditHall(currentUser.residenceHall || COVENANT_HALLS[0]);
+      setEditHall(currentUser.residenceHall || currentUser.address || COVENANT_HALLS[0]);
       setReviewEmail(currentUser.email || '');
     }
   }, [currentUser]);
@@ -97,7 +102,7 @@ export default function Dashboard({
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewEmail || !reviewText) {
-      setReviewError('Please fill in both your email and review.');
+      setReviewError('Please enter your email and your review text.');
       return;
     }
     setReviewSubmitting(true);
@@ -123,8 +128,8 @@ export default function Dashboard({
 
       setReviewSuccess(true);
       setReviewText('');
-    } catch (err) {
-      setReviewError(`${err} Failed to submit review. Please try again.`);
+    } catch {
+      setReviewError('Unable to send review right now. Please try again later.');
     } finally {
       setReviewSubmitting(false);
     }
@@ -133,9 +138,9 @@ export default function Dashboard({
   // Filter reservations for current user
   const userReservations = currentUser ? reservations.filter(
     (res) =>
-      res.name.toLowerCase() === currentUser.name.toLowerCase() ||
-      res.phone === currentUser.telegramPhone ||
-      res.email === currentUser.email
+      (res.name && currentUser.name && res.name.toLowerCase() === currentUser.name.toLowerCase()) ||
+      (res.phone && (res.phone === currentUser.telegramPhone || res.phone === currentUser.phone)) ||
+      (res.email && currentUser.email && res.email.toLowerCase() === currentUser.email.toLowerCase())
   ) : [];
 
   // Categorize for filters
@@ -162,17 +167,20 @@ export default function Dashboard({
     
     const updated = {
       ...currentUser,
-      name: editName,
-      telegramPhone: editPhone,
-      roomNumber: editRoom,
-      residenceHall: editHall
+      name: editName.trim(),
+      full_name: editName.trim(),
+      telegramPhone: editPhone.trim(),
+      phone: editPhone.trim(),
+      roomNumber: editRoom.trim(),
+      residenceHall: editHall,
+      address: editHall
     };
     
     onUpdateUser(updated);
     setSettingsSuccess(true);
     setTimeout(() => {
       setSettingsSuccess(false);
-    }, 3000);
+    }, 3500);
   };
 
   const handleCopyCode = (code: string) => {
@@ -193,7 +201,6 @@ export default function Dashboard({
     e.preventDefault();
     if (!activeRescheduleRes || !rescheduleDate) return;
 
-    // Convert date string from yyyy-mm-dd to readable format
     const dateObj = new Date(rescheduleDate);
     const formattedDate = dateObj.toLocaleDateString('en-US', {
       month: 'short',
@@ -212,8 +219,7 @@ export default function Dashboard({
 
   // Mock QR Code Generator SVG
   const QRCodeSVG = ({ code }: { code: string }) => (
-    <svg width="140" height="140" viewBox="0 0 140 140" className="mx-auto bg-white p-2 border border-brand-border/40 rounded-xs shadow-xs">
-      {/* Position Detection Patterns */}
+    <svg width="140" height="140" viewBox="0 0 140 140" className="mx-auto bg-white p-2.5 border border-black/10 rounded-xl shadow-xs">
       <rect x="10" y="10" width="30" height="30" fill="#1F3E2B" />
       <rect x="15" y="15" width="20" height="20" fill="white" />
       <rect x="20" y="20" width="10" height="10" fill="#1F3E2B" />
@@ -226,11 +232,9 @@ export default function Dashboard({
       <rect x="15" y="105" width="20" height="20" fill="white" />
       <rect x="20" y="110" width="10" height="10" fill="#1F3E2B" />
 
-      {/* Alignment / Smaller marker */}
       <rect x="100" y="100" width="15" height="15" fill="#1F3E2B" />
       <rect x="105" y="105" width="5" height="5" fill="white" />
       
-      {/* QR code noise simulation */}
       <path d="M 50,10 H 60 V 20 H 70 V 30 H 60 V 50 H 50 Z" fill="#1F3E2B" />
       <path d="M 80,10 H 90 V 40 H 80 Z" fill="#1F3E2B" />
       <path d="M 10,50 H 30 V 60 H 10 Z" fill="#1F3E2B" />
@@ -245,343 +249,461 @@ export default function Dashboard({
     </svg>
   );
 
+  // Helper for star rating text
+  const getRatingLabel = (rating: number) => {
+    switch (rating) {
+      case 5: return 'Excellent! Very satisfied';
+      case 4: return 'Very good! Great experience';
+      case 3: return 'Good, met expectations';
+      case 2: return 'Fair, could be better';
+      case 1: return 'Poor, needs improvement';
+      default: return '';
+    }
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 select-none" id="knotify-user-dashboard">
-      
-      {/* 👤 1. PROFILE HEADER CARD (FULL-WIDTH DARK GREEN) */}
-      <div className="bg-[#1F3E2B] border border-brand-primary/10 rounded-xs p-6 sm:p-8 text-[#FFFEF2] relative overflow-hidden shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6">
-        {/* Decorative Grid Line styling */}
-        <div className="absolute inset-0 bg-[radial-gradient(rgba(255,254,242,0.03)_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none" />
+    <div className="max-w-6xl mx-auto px-3 sm:px-6 pt-24 sm:pt-32 pb-28 sm:pb-16 space-y-6 sm:space-y-8 font-sans" id="knotify-user-profile">
+
+      {/* BOLD BACK-TO-SHOP ANCHOR (top-left) */}
+      {setCurrentTab && (
+        <div className="text-left">
+          <button
+            onClick={() => setCurrentTab('marketplace')}
+            className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"
+            id="btn-back-to-shop"
+          >
+            <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Shop</span>
+          </button>
+        </div>
+      )}
+
+      {/* 👤 1. PROFILE HEADER CARD */}
+      <div className="bg-gradient-to-br from-[#1F3E2B] via-[#244732] to-[#172E20] rounded-2xl sm:rounded-3xl p-5 sm:p-8 text-[#FFFEF2] relative overflow-hidden shadow-md border border-white/10">
         
+        {/* Soft background glow */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#D4AF37]/10 rounded-full blur-3xl pointer-events-none -mr-20 -mt-20" />
+        <div className="absolute bottom-0 left-0 w-60 h-60 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none -ml-20 -mb-20" />
+
         {currentUser ? (
-          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 text-left">
-            {/* Avatar Circle */}
-            <div className="bg-[#FFFEF2] text-[#1F3E2B] w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center rounded-full font-display text-2xl font-bold shadow-sm shrink-0 border border-brand-primary/5">
-              {currentUser.name ? currentUser.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2) : 'S'}
-            </div>
-            
-            {/* Details */}
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h2 className="font-display font-black text-2xl sm:text-3xl text-[#FFFEF2] uppercase tracking-wide">
-                  {currentUser.name}
-                </h2>
-                
-                {/* Scholar Status Badge */}
-                <span className="bg-[#D4AF37]/10 border border-[#D4AF37]/35 text-[#D4AF37] font-mono text-[9px] font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-xs">
-                  {currentUser.isSeller ? 'Tie Merchant' : 'Verified Scholar'}
-                </span>
-              </div>
+          <div className="relative z-10 space-y-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
               
-              <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-[#FFFEF2]/80 font-sans">
-                <span className="flex items-center gap-1.5">
-                  <MapPin size={13} className="text-[#D4AF37]" />
-                  <span>{currentUser.residenceHall || 'Daniel Hall'}, Room {currentUser.roomNumber || '302'}</span>
-                </span>
-                <span className="hidden sm:inline text-[#FFFEF2]/40">•</span>
-                <span className="flex items-center gap-1.5">
-                  <Phone size={13} className="text-[#D4AF37]" />
-                  <span className="font-mono">{currentUser.telegramPhone || 'N/A'}</span>
-                </span>
+              {/* User details & avatar */}
+              <div className="flex items-center gap-4 sm:gap-5 text-left">
+                {/* Initials Avatar */}
+                <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl bg-[#FFFEF2] text-[#1F3E2B] flex items-center justify-center font-display font-bold text-2xl sm:text-3xl shadow-sm ring-4 ring-[#D4AF37]/25 shrink-0">
+                  {currentUser.name
+                    ? currentUser.name
+                        .split(' ')
+                        .filter(Boolean)
+                        .map((n: string) => n[0])
+                        .join('')
+                        .toUpperCase()
+                        .substring(0, 2)
+                    : 'CU'}
+                </div>
+                
+                {/* Name, Hall & Badges */}
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="font-display font-bold text-xl sm:text-3xl text-[#FFFEF2] tracking-tight">
+                      {currentUser.name || currentUser.full_name || 'Covenant Student'}
+                    </h1>
+                    <span className="inline-flex items-center gap-1 bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#F5E6B3] text-[10px] sm:text-xs font-medium px-2.5 py-0.5 rounded-full">
+                      <ShieldCheck size={12} className="text-[#D4AF37]" />
+                      {currentUser.isSeller ? 'Tie Merchant' : 'Verified Student'}
+                    </span>
+                  </div>
+
+                  {/* Contact pills */}
+                  <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-[#FFFEF2]/80">
+                    <span className="inline-flex items-center gap-1.5">
+                      <MapPin size={13} className="text-[#D4AF37] shrink-0" />
+                      <span>{currentUser.residenceHall || currentUser.address || 'Daniel Hall'}, Room {currentUser.roomNumber || '302'}</span>
+                    </span>
+                    <span className="hidden sm:inline text-white/30">•</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Phone size={13} className="text-[#D4AF37] shrink-0" />
+                      <span>{currentUser.telegramPhone || currentUser.phone || 'No phone set'}</span>
+                    </span>
+                    {currentUser.email && (
+                      <>
+                        <span className="hidden md:inline text-white/30">•</span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Mail size={13} className="text-[#D4AF37] shrink-0" />
+                          <span className="truncate max-w-[200px]">{currentUser.email}</span>
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2.5 self-start md:self-center shrink-0">
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                    activeTab === 'settings'
+                      ? 'bg-[#FFFEF2] text-[#1F3E2B] shadow-sm font-semibold'
+                      : 'bg-white/10 hover:bg-white/20 text-[#FFFEF2] border border-white/15'
+                  }`}
+                >
+                  <Edit3 size={14} />
+                  <span>Edit Details</span>
+                </button>
+
+                <button
+                  onClick={() => onLogout?.()}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium bg-white/10 hover:bg-rose-500/25 hover:border-rose-400/40 text-[#FFFEF2] border border-white/15 transition-all cursor-pointer"
+                  title="Sign out of your account"
+                >
+                  <LogOut size={14} />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Glance Stats Cards */}
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-4 pt-4 border-t border-white/15">
+              <button
+                onClick={() => {
+                  setActiveTab('reservations');
+                  setFilter('all');
+                }}
+                className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 sm:p-4 text-left transition-all cursor-pointer group"
+              >
+                <span className="text-[10px] sm:text-xs text-[#FFFEF2]/70 block font-medium">My Orders</span>
+                <span className="text-xl sm:text-2xl font-bold font-display text-[#FFFEF2] group-hover:scale-105 inline-block transition-transform">
+                  {userReservations.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('reservations');
+                  setFilter('pending');
+                }}
+                className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 sm:p-4 text-left transition-all cursor-pointer group"
+              >
+                <span className="text-[10px] sm:text-xs text-[#FFFEF2]/70 block font-medium">Ready for Pickup</span>
+                <span className="text-xl sm:text-2xl font-bold font-display text-emerald-300 group-hover:scale-105 inline-block transition-transform">
+                  {pendingCount}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('wishlist')}
+                className="bg-white/10 hover:bg-white/15 border border-white/10 rounded-xl p-3 sm:p-4 text-left transition-all cursor-pointer group"
+              >
+                <span className="text-[10px] sm:text-xs text-[#FFFEF2]/70 block font-medium">Saved Ties</span>
+                <span className="text-xl sm:text-2xl font-bold font-display text-[#F5E6B3] group-hover:scale-105 inline-block transition-transform">
+                  {wishlist.length}
+                </span>
+              </button>
             </div>
           </div>
         ) : (
-          <div className="relative z-10 flex items-center gap-4 text-left">
-            <div className="bg-[#FFFEF2]/10 text-[#FFFEF2] w-14 h-14 flex items-center justify-center rounded-full font-display text-xl font-bold border border-white/20">
-              ?
+          /* Guest Welcome State */
+          <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 text-left">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center text-[#FFFEF2] shrink-0">
+                <User size={26} />
+              </div>
+              <div className="space-y-1">
+                <h2 className="font-display font-bold text-xl sm:text-2xl text-[#FFFEF2]">
+                  Welcome to Knotify
+                </h2>
+                <p className="text-xs sm:text-sm text-[#FFFEF2]/80 max-w-md leading-relaxed">
+                  Sign in to view your orders, get your hostel pickup pass, and save your delivery details.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-display font-black text-2xl text-[#FFFEF2] uppercase tracking-wide">
-                Guest Scholar
-              </h2>
-              <p className="text-xs text-[#FFFEF2]/75 font-sans mt-0.5">
-                Authentication required to track reservations.
-              </p>
-            </div>
-          </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="relative z-10 shrink-0 flex items-center gap-3 self-start md:self-center">
-          {currentUser && (
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`px-4 py-2.5 border text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 cursor-pointer shadow-xs ${
-                activeTab === 'settings' 
-                  ? 'bg-[#FFFEF2] text-[#1F3E2B] border-[#FFFEF2]' 
-                  : 'bg-transparent text-[#FFFEF2] border-[#FFFEF2]/30 hover:border-[#FFFEF2] hover:bg-[#FFFEF2]/5'
-              }`}
-            >
-              Account Settings
-            </button>
-          )}
-
-          {currentUser ? (
-            <button
-              onClick={() => onLogout?.()}
-              className="px-4 py-2.5 bg-[#FFFEF2] hover:bg-[#FFFEF2]/90 text-[#1F3E2B] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 cursor-pointer shadow-xs flex items-center gap-1.5"
-            >
-              <LogOut size={12} />
-              <span>Sign Out</span>
-            </button>
-          ) : (
             <button
               onClick={() => onOpenAuth?.()}
-              className="px-4 py-2.5 bg-[#FFFEF2] hover:bg-[#FFFEF2]/90 text-[#1F3E2B] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 cursor-pointer shadow-xs flex items-center gap-1.5"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-[#FFFEF2] text-[#1F3E2B] hover:bg-white transition-all shadow-sm cursor-pointer shrink-0"
             >
-              <LogIn size={12} />
-              <span>Sign In</span>
+              <LogIn size={15} />
+              <span>Sign In / Sign Up</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
-      {/* 📌 2. TOP NAVIGATION BAR */}
-      <div className="border-b border-brand-border/40 pb-px flex items-center justify-between" id="dashboard-navbar-tabs">
-        <div className="flex space-x-8">
-          <button
-            onClick={() => setActiveTab('reservations')}
-            className={`pb-4 text-[10px] font-mono tracking-[0.25em] uppercase border-b-2 transition-all duration-300 cursor-pointer flex items-center gap-2 ${
-              activeTab === 'reservations'
-                ? 'border-brand-secondary text-brand-secondary font-black scale-105'
-                : 'border-transparent text-neutral-500 hover:text-brand-secondary hover:border-brand-border'
-            }`}
-          >
-            <span>My Reservations</span>
-            <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold transition-colors ${
-              activeTab === 'reservations' 
-                ? 'bg-[#1F3E2B] text-[#FFFEF2]' 
-                : 'bg-brand-card text-neutral-600'
-            }`}>
-              {currentUser ? userReservations.length : 0}
-            </span>
-          </button>
+      {/* 📌 2. MODERN TAB NAVIGATION BAR */}
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 border-b border-black/8" id="dashboard-navbar-tabs">
+        <button
+          onClick={() => setActiveTab('reservations')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'reservations'
+              ? 'bg-brand-secondary text-[#FFFEF2] shadow-sm font-semibold'
+              : 'text-brand-primary/70 hover:text-brand-primary hover:bg-black/5'
+          }`}
+        >
+          <PackageCheck size={16} />
+          <span>My Orders</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+            activeTab === 'reservations' ? 'bg-white/20 text-white' : 'bg-black/5 text-brand-primary/70'
+          }`}>
+            {currentUser ? userReservations.length : 0}
+          </span>
+        </button>
 
-          <button
-            onClick={() => setActiveTab('wishlist')}
-            className={`pb-4 text-[10px] font-mono tracking-[0.25em] uppercase border-b-2 transition-all duration-300 cursor-pointer flex items-center gap-2 ${
-              activeTab === 'wishlist'
-                ? 'border-brand-secondary text-brand-secondary font-black scale-105'
-                : 'border-transparent text-neutral-500 hover:text-brand-secondary hover:border-brand-border'
-            }`}
-          >
-            <span>Wish List</span>
-            <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold transition-colors ${
-              activeTab === 'wishlist' 
-                ? 'bg-[#1F3E2B] text-[#FFFEF2]' 
-                : 'bg-brand-card text-neutral-600'
-            }`}>
-              {wishlist.length}
-            </span>
-          </button>
+        <button
+          onClick={() => setActiveTab('wishlist')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'wishlist'
+              ? 'bg-brand-secondary text-[#FFFEF2] shadow-sm font-semibold'
+              : 'text-brand-primary/70 hover:text-brand-primary hover:bg-black/5'
+          }`}
+        >
+          <Heart size={16} />
+          <span>Wishlist</span>
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+            activeTab === 'wishlist' ? 'bg-white/20 text-white' : 'bg-black/5 text-brand-primary/70'
+          }`}>
+            {wishlist.length}
+          </span>
+        </button>
 
-          <button
-            onClick={() => setActiveTab('reviews')}
-            className={`pb-4 text-[10px] font-mono tracking-[0.25em] uppercase border-b-2 transition-all duration-300 cursor-pointer ${
-              activeTab === 'reviews'
-                ? 'border-brand-secondary text-brand-secondary font-black scale-105'
-                : 'border-transparent text-neutral-500 hover:text-brand-secondary hover:border-brand-border'
-            }`}
-          >
-            Submit Review
-          </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'settings'
+              ? 'bg-brand-secondary text-[#FFFEF2] shadow-sm font-semibold'
+              : 'text-brand-primary/70 hover:text-brand-primary hover:bg-black/5'
+          }`}
+        >
+          <User size={16} />
+          <span>Profile Details</span>
+        </button>
 
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`pb-4 text-[10px] font-mono tracking-[0.25em] uppercase border-b-2 transition-all duration-300 cursor-pointer ${
-              activeTab === 'settings'
-                ? 'border-brand-secondary text-brand-secondary font-black scale-105'
-                : 'border-transparent text-neutral-500 hover:text-brand-secondary hover:border-brand-border'
-            }`}
-          >
-            Account Settings
-          </button>
-        </div>
+        <button
+          onClick={() => setActiveTab('reviews')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'reviews'
+              ? 'bg-brand-secondary text-[#FFFEF2] shadow-sm font-semibold'
+              : 'text-brand-primary/70 hover:text-brand-primary hover:bg-black/5'
+          }`}
+        >
+          <Star size={16} />
+          <span>Leave a Review</span>
+        </button>
       </div>
 
       {/* 📦 3. TAB CONTENTS */}
-      <div className="min-h-[400px]">
-        {/* If Guest/Not Signed In, block access with beautiful prompt */}
+      <div className="min-h-[380px]">
+        {/* If Guest/Not Signed In and trying to see orders or settings */}
         {!currentUser && activeTab !== 'wishlist' && activeTab !== 'reviews' ? (
-          <div className="max-w-md mx-auto py-16 px-6 border border-brand-border/40 bg-brand-card/25 rounded-xs text-center space-y-6 shadow-xs">
-            <div className="w-12 h-12 bg-brand-secondary/5 text-brand-secondary border border-brand-secondary/20 rounded-full flex items-center justify-center mx-auto">
-              <User size={20} />
+          <div className="max-w-md mx-auto py-12 px-6 bg-white border border-black/8 rounded-2xl text-center space-y-5 shadow-xs">
+            <div className="w-14 h-14 bg-emerald-50 text-brand-secondary border border-emerald-100 rounded-2xl flex items-center justify-center mx-auto">
+              <User size={24} />
             </div>
-            <div className="space-y-2">
-              <h3 className="font-mono text-xs uppercase font-bold text-brand-secondary tracking-widest">
-                AUTHENTICATION REQUIRED
+            <div className="space-y-1.5">
+              <h3 className="font-display font-bold text-lg text-brand-primary">
+                Please Sign In
               </h3>
-              <p className="font-sans text-xs text-neutral-600 leading-relaxed">
-                Access to reservations, lobby pickup tickets, and personal account configurations is reserved for authenticated Covenant scholars.
+              <p className="font-sans text-xs sm:text-sm text-neutral-600 leading-relaxed">
+                You need to be signed in to see your tie orders, lobby pickup passes, and saved hostel details.
               </p>
             </div>
-            <button
-              onClick={() => onOpenAuth?.()}
-              className="w-full py-3 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 shadow-sm cursor-pointer"
-            >
-              Sign In to Knotify
-            </button>
+            <div className="pt-2 flex flex-col sm:flex-row gap-2.5">
+              <button
+                onClick={() => onOpenAuth?.()}
+                className="flex-1 py-2.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm cursor-pointer"
+              >
+                Sign In to Knotify
+              </button>
+              <button
+                onClick={() => setCurrentTab?.('marketplace')}
+                className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs sm:text-sm font-semibold rounded-xl transition-all cursor-pointer"
+              >
+                Browse Shop
+              </button>
+            </div>
           </div>
         ) : (
           <>
-            {/* A. MY RESERVATIONS TAB */}
+            {/* ── A. MY ORDERS TAB ── */}
             {activeTab === 'reservations' && (
-              <div className="space-y-6 text-left">
-                {/* Filter Bar */}
-                <div className="flex items-center justify-between border-b border-brand-border/20 pb-3">
-                  <div className="flex gap-2">
+              <div className="space-y-5 text-left">
+                
+                {/* Filter pills & helpful tip */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => setFilter('all')}
-                      className={`px-3.5 py-1.5 font-mono text-[9px] uppercase tracking-wider font-bold rounded-xs transition-all border cursor-pointer ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all border cursor-pointer ${
                         filter === 'all'
-                          ? 'bg-[#1F3E2B] text-[#FFFEF2] border-[#1F3E2B]'
-                          : 'bg-brand-card hover:bg-brand-light-gray text-neutral-600 border-brand-border/30'
+                          ? 'bg-brand-secondary text-[#FFFEF2] border-brand-secondary'
+                          : 'bg-white hover:bg-neutral-50 text-neutral-600 border-black/10'
                       }`}
                     >
-                      All ({userReservations.length})
+                      All Orders ({userReservations.length})
                     </button>
                     <button
                       onClick={() => setFilter('pending')}
-                      className={`px-3.5 py-1.5 font-mono text-[9px] uppercase tracking-wider font-bold rounded-xs transition-all border cursor-pointer ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all border cursor-pointer ${
                         filter === 'pending'
-                          ? 'bg-[#1F3E2B] text-[#FFFEF2] border-[#1F3E2B]'
-                          : 'bg-brand-card hover:bg-brand-light-gray text-neutral-600 border-brand-border/30'
+                          ? 'bg-brand-secondary text-[#FFFEF2] border-brand-secondary'
+                          : 'bg-white hover:bg-neutral-50 text-neutral-600 border-black/10'
                       }`}
                     >
-                      Not Picked Up ({pendingCount})
+                      Ready for Pickup ({pendingCount})
                     </button>
                     <button
                       onClick={() => setFilter('completed')}
-                      className={`px-3.5 py-1.5 font-mono text-[9px] uppercase tracking-wider font-bold rounded-xs transition-all border cursor-pointer ${
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all border cursor-pointer ${
                         filter === 'completed'
-                          ? 'bg-[#1F3E2B] text-[#FFFEF2] border-[#1F3E2B]'
-                          : 'bg-brand-card hover:bg-brand-light-gray text-neutral-600 border-brand-border/30'
+                          ? 'bg-brand-secondary text-[#FFFEF2] border-brand-secondary'
+                          : 'bg-white hover:bg-neutral-50 text-neutral-600 border-black/10'
                       }`}
                     >
                       Picked Up ({completedCount})
                     </button>
                   </div>
-                  
-                  <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-widest">
-                    LOBBY RESERVATION TRACKING
-                  </span>
+
+                  <div className="text-[11px] text-neutral-500 font-sans flex items-center gap-1.5 bg-amber-50/70 border border-amber-200/60 px-3 py-1.5 rounded-xl">
+                    <Sparkles size={13} className="text-amber-600 shrink-0" />
+                    <span>Show your pickup code at your hall lobby to collect your tie.</span>
+                  </div>
                 </div>
 
                 {filteredReservations.length === 0 ? (
-                  <div className="py-16 border border-dashed border-brand-border/40 rounded-xs text-center space-y-4 bg-brand-card/10">
-                    <Calendar size={28} className="text-neutral-400 mx-auto" />
+                  <div className="py-16 px-4 bg-white border border-dashed border-black/12 rounded-2xl text-center space-y-4">
+                    <div className="w-12 h-12 bg-neutral-100 rounded-full flex items-center justify-center mx-auto text-neutral-400">
+                      <Calendar size={22} />
+                    </div>
                     <div className="space-y-1">
-                      <h4 className="text-xs font-mono text-brand-secondary uppercase font-bold tracking-wider">No matching reservations</h4>
-                      <p className="text-xs text-neutral-500 max-w-xs mx-auto font-sans leading-relaxed">
-                        No pickup records found matching this filter status. Buy custom ties in the collection tab to create reservations.
+                      <h4 className="text-sm font-semibold text-brand-primary">No orders found</h4>
+                      <p className="text-xs text-neutral-500 max-w-sm mx-auto leading-relaxed">
+                        {filter === 'all'
+                          ? "You haven't reserved any ties yet. Browse our store to order approved ties for resumption."
+                          : `You have no orders currently in "${filter === 'pending' ? 'Ready for Pickup' : 'Picked Up'}" status.`}
                       </p>
                     </div>
+                    <button
+                      onClick={() => setCurrentTab?.('marketplace')}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-secondary text-[#FFFEF2] text-xs font-semibold rounded-xl hover:bg-brand-accent transition-all cursor-pointer"
+                    >
+                      <span>Explore Ties</span>
+                      <ArrowRight size={13} />
+                    </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
                     {filteredReservations.map((res) => {
                       const isPickedUp = res.status === 'Collected';
                       
                       return (
                         <div 
                           key={res.id}
-                          className={`bg-brand-card border rounded-xs p-5 transition-all shadow-xs relative flex flex-col justify-between ${
+                          className={`bg-white border rounded-2xl p-5 sm:p-6 transition-all shadow-xs flex flex-col justify-between gap-4 ${
                             isPickedUp 
-                              ? 'border-brand-border/40 opacity-75 hover:opacity-100' 
-                              : 'border-brand-border hover:border-brand-secondary/40'
+                              ? 'border-black/8 opacity-80 hover:opacity-100' 
+                              : 'border-brand-secondary/25 hover:border-brand-secondary/40 hover:shadow-md'
                           }`}
                         >
-                          <div className="space-y-4">
-                            {/* Header */}
-                            <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-3.5">
+                            {/* Card Top: Code & Status */}
+                            <div className="flex items-start justify-between gap-3">
                               <div>
-                                <span className="text-[10px] font-mono font-bold text-brand-secondary tracking-widest bg-white border border-brand-border/30 px-2 py-0.5 rounded-xs">
-                                  {res.id}
+                                <span className="text-[10px] font-mono font-bold text-neutral-500 uppercase block mb-1">
+                                  Pickup Code
                                 </span>
-                                <h4 className={`font-display font-bold text-base text-brand-primary uppercase mt-2.5 ${isPickedUp ? 'line-through text-neutral-500' : ''}`}>
-                                  {res.productNames}
-                                </h4>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-sm sm:text-base font-bold text-brand-secondary bg-neutral-100 px-2.5 py-1 rounded-lg border border-black/5">
+                                    {res.id}
+                                  </span>
+                                  <button
+                                    onClick={() => handleCopyCode(res.id)}
+                                    className="p-1.5 rounded-lg text-neutral-500 hover:text-brand-secondary hover:bg-neutral-100 transition-colors cursor-pointer"
+                                    title="Copy pickup code"
+                                  >
+                                    {copiedResId === res.id ? (
+                                      <Check size={14} className="text-emerald-600" />
+                                    ) : (
+                                      <Copy size={14} />
+                                    )}
+                                  </button>
+                                </div>
                               </div>
                               
                               {/* Status Badge */}
-                              <span className={`text-[9px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs border ${
+                              <span className={`text-[10px] sm:text-xs font-semibold px-2.5 py-1 rounded-full border ${
                                 isPickedUp
-                                  ? 'bg-neutral-100 text-neutral-600 border-neutral-300/40'
-                                  : 'bg-[#D4AF37]/15 text-[#B8860B] border-[#D4AF37]/35 animate-pulse'
+                                  ? 'bg-neutral-100 text-neutral-600 border-neutral-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                               }`}>
-                                {isPickedUp ? 'Picked Up' : 'Not Picked Up'}
+                                {isPickedUp ? 'Picked Up' : 'Ready for Pickup'}
                               </span>
                             </div>
 
-                            {/* Info grid */}
-                            <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-brand-border/25">
-                              <div>
-                                <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Purchased Ties</span>
-                                <span className="font-sans font-bold text-neutral-800 line-clamp-2">{res.productNames}</span>
-                              </div>
-                              <div>
-                                <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Tie Count</span>
-                                <span className="font-sans font-bold text-neutral-800">
-                                  {res.quantity} {res.quantity > 1 ? 'Ties' : 'Tie'}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Lobby pickup point</span>
-                                <span className="font-sans font-bold text-neutral-800">{res.pickupPoint || `${res.hall} Lobby`}</span>
-                              </div>
-                              <div>
-                                <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">Pickup Date</span>
-                                <span className="font-sans font-bold text-neutral-800 flex items-center gap-1">
-                                  <Clock size={11} className="text-[#D4AF37] shrink-0" />
-                                  {res.dateAdded}
-                                </span>
-                              </div>
+                            {/* Product Name */}
+                            <div>
+                              <h4 className={`font-serif font-bold text-base sm:text-lg text-brand-primary ${isPickedUp ? 'line-through text-neutral-400' : ''}`}>
+                                {res.productNames}
+                              </h4>
+                              <p className="text-xs text-neutral-500 mt-0.5">
+                                Quantity: <span className="font-semibold text-neutral-700">{res.quantity} {res.quantity > 1 ? 'Ties' : 'Tie'}</span>
+                              </p>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] font-mono border-t border-brand-border/25 pt-3">
-                              <div className="text-[#1F3E2B]">
-                                <span>Status: </span>
-                                <strong>{res.status}</strong>
+                            {/* Details 2x2 grid */}
+                            <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-black/5 text-xs">
+                              <div className="bg-neutral-50 rounded-xl p-2.5">
+                                <span className="text-[10px] text-neutral-500 block mb-0.5">Pickup Location</span>
+                                <span className="font-semibold text-neutral-800 flex items-center gap-1">
+                                  <MapPin size={12} className="text-emerald-600 shrink-0" />
+                                  <span className="truncate">{res.pickupPoint || `${res.hall} Lobby`}</span>
+                                </span>
                               </div>
-                              <div className="text-right text-brand-secondary">
-                                <span>Reference: </span>
-                                <strong>{res.id}</strong>
+                              <div className="bg-neutral-50 rounded-xl p-2.5">
+                                <span className="text-[10px] text-neutral-500 block mb-0.5">Pickup Date</span>
+                                <span className="font-semibold text-neutral-800 flex items-center gap-1">
+                                  <Clock size={12} className="text-amber-600 shrink-0" />
+                                  <span>{res.dateAdded}</span>
+                                </span>
                               </div>
                             </div>
                           </div>
 
-                          {/* Action Bar */}
-                          <div className="pt-4 mt-4 border-t border-brand-border/25 flex items-center justify-between gap-2">
-                            <div className="flex gap-2">
+                          {/* Card Bottom: Action buttons */}
+                          <div className="pt-3 border-t border-black/5 flex flex-wrap items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setActivePassRes(res)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 transition-colors cursor-pointer"
+                              >
+                                <QrCode size={13} />
+                                <span>Digital Pass</span>
+                              </button>
+
                               {!isPickedUp && (
                                 <button
                                   onClick={() => {
                                     setActiveRescheduleRes(res);
                                     setRescheduleDate('');
                                   }}
-                                  className="text-[9px] font-mono uppercase font-bold text-brand-secondary hover:text-[#FFFEF2] border border-brand-secondary/40 hover:bg-[#1F3E2B] px-2.5 py-1.5 rounded-xs cursor-pointer transition-all"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-brand-secondary hover:bg-brand-secondary/10 transition-colors cursor-pointer"
                                 >
-                                  Reschedule Date
+                                  <Calendar size={13} />
+                                  <span>Change Date</span>
                                 </button>
                               )}
-                              <button
-                                onClick={() => setActivePassRes(res)}
-                                className="text-[9px] font-mono uppercase font-bold text-neutral-600 hover:text-brand-primary border border-brand-border hover:bg-brand-light-gray px-2.5 py-1.5 rounded-xs cursor-pointer transition-all"
-                              >
-                                Pass / Code
-                              </button>
                             </div>
 
                             <button
                               onClick={() => toggleReservationStatus(res)}
-                              className={`text-[9px] font-mono uppercase font-bold px-3 py-1.5 rounded-xs shadow-xs cursor-pointer transition-all border ${
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                                 isPickedUp
-                                  ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border-neutral-300'
-                                  : 'bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] border-[#1F3E2B]'
+                                  ? 'bg-neutral-100 hover:bg-neutral-200 text-neutral-600'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                               }`}
                             >
-                              {isPickedUp ? 'Mark Uncollected' : 'Mark as Picked Up'}
+                              {isPickedUp ? 'Mark Uncollected' : 'Mark Picked Up'}
                             </button>
                           </div>
                         </div>
@@ -592,58 +714,66 @@ export default function Dashboard({
               </div>
             )}
 
-            {/* B. WISHLIST TAB */}
+            {/* ── B. WISHLIST TAB ── */}
             {activeTab === 'wishlist' && (
-              <div className="space-y-6 text-left">
-                <div className="border-b border-brand-border/20 pb-3 flex items-center justify-between">
-                  <span className="text-[9px] font-mono text-neutral-400 uppercase tracking-widest">
-                    SAVED MARKETPLACE ITEMS
-                  </span>
-                  <span className="font-mono text-[9px] text-[#1F3E2B] font-bold">
-                    {savedProducts.length} Items Total
+              <div className="space-y-5 text-left">
+                <div className="flex items-center justify-between pb-2 border-b border-black/8">
+                  <div>
+                    <h3 className="font-display font-bold text-base sm:text-lg text-brand-primary">
+                      Your Saved Ties
+                    </h3>
+                    <p className="text-xs text-neutral-500">
+                      Ties you've bookmarked while exploring the catalog.
+                    </p>
+                  </div>
+                  <span className="text-xs font-semibold text-brand-secondary bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                    {savedProducts.length} {savedProducts.length === 1 ? 'item' : 'items'}
                   </span>
                 </div>
 
                 {savedProducts.length === 0 ? (
-                  <div className="py-16 border border-dashed border-brand-border/40 rounded-xs text-center space-y-4 bg-brand-card/10">
-                    <Heart size={28} className="text-neutral-400 mx-auto" />
+                  <div className="py-16 px-4 bg-white border border-dashed border-black/12 rounded-2xl text-center space-y-4">
+                    <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto">
+                      <Heart size={22} />
+                    </div>
                     <div className="space-y-1">
-                      <h4 className="text-xs font-mono text-brand-secondary uppercase font-bold tracking-wider">Your wishlist is empty</h4>
-                      <p className="text-xs text-neutral-500 max-w-xs mx-auto font-sans leading-relaxed">
-                        Browse the marketplace, inspect certified ties, and click the wishlist trigger to build your list.
+                      <h4 className="text-sm font-semibold text-brand-primary">Your wishlist is empty</h4>
+                      <p className="text-xs text-neutral-500 max-w-sm mx-auto leading-relaxed">
+                        Tap the heart icon on any tie in the store to save it here so you can easily review and order it later.
                       </p>
                     </div>
                     <button
                       onClick={() => setCurrentTab?.('marketplace')}
-                      className="px-4 py-2 bg-[#1F3E2B] text-[#FFFEF2] text-[10px] font-mono font-bold uppercase tracking-wider rounded-xs cursor-pointer hover:bg-[#2E5C3E]"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-secondary text-[#FFFEF2] text-xs font-semibold rounded-xl hover:bg-brand-accent transition-all cursor-pointer"
                     >
-                      Browse Collection
+                      <span>Browse Ties</span>
+                      <ArrowRight size={13} />
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" id="dashboard-wishlist-grid">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5" id="dashboard-wishlist-grid">
                     {savedProducts.map((prod) => (
                       <div 
                         key={prod.id} 
-                        className="bg-brand-card border border-brand-border/40 rounded-xs p-4 flex flex-col justify-between text-left transition-all duration-300 shadow-xs hover:shadow-sm group relative"
+                        className="bg-white border border-black/8 rounded-2xl p-4 flex flex-col justify-between text-left transition-all duration-200 hover:shadow-md group relative"
                       >
                         {/* Remove button */}
                         <button
                           onClick={() => onToggleWishlist(prod)}
-                          className="absolute top-3 right-3 p-1.5 rounded-full bg-[#FFFEF2] hover:bg-red-50 border border-brand-border/40 text-neutral-500 hover:text-red-600 transition-colors shadow-xs cursor-pointer z-10"
-                          title="Remove from Wishlist"
+                          className="absolute top-3 right-3 p-1.5 rounded-full bg-white hover:bg-rose-50 border border-black/8 text-neutral-400 hover:text-rose-600 transition-colors shadow-xs cursor-pointer z-10"
+                          title="Remove from wishlist"
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={13} />
                         </button>
 
                         <div className="space-y-3">
                           {/* Image */}
-                          <div className="aspect-w-16 aspect-h-12 w-full h-36 bg-white rounded-xs overflow-hidden border border-brand-border/20 relative">
+                          <div className="aspect-[4/3] w-full bg-neutral-50 rounded-xl overflow-hidden border border-black/5 relative flex items-center justify-center p-2">
                             {prod.image ? (
                               <img
                                 src={prod.image}
                                 alt={prod.name}
-                                className="h-full w-full object-cover grayscale-[5%] group-hover:grayscale-0 group-hover:scale-102 transition-all duration-500"
+                                className="h-full w-full object-contain group-hover:scale-105 transition-all duration-300"
                                 referrerPolicy="no-referrer"
                               />
                             ) : (
@@ -654,33 +784,33 @@ export default function Dashboard({
                                 className="w-full h-full"
                               />
                             )}
+                            <span className="absolute bottom-2 left-2 text-[9px] font-semibold bg-white/90 backdrop-blur-xs text-brand-secondary px-2 py-0.5 rounded-md border border-black/5">
+                              {prod.category}
+                            </span>
                           </div>
 
                           {/* Info */}
                           <div className="space-y-1">
-                            <span className="text-[7px] font-mono bg-[#1F3E2B]/10 text-brand-secondary px-1.5 py-0.5 rounded-xs font-bold uppercase tracking-wider inline-block">
-                              {prod.category}
-                            </span>
-                            <h5 className="font-display font-bold text-sm text-brand-primary leading-tight uppercase line-clamp-1">
+                            <h5 className="font-serif font-bold text-sm sm:text-base text-brand-primary line-clamp-1">
                               {prod.name}
                             </h5>
-                            <p className="text-[8px] font-mono text-neutral-400 uppercase">
-                              Seller: {prod.seller} • {prod.stock} left
+                            <p className="text-xs text-neutral-500">
+                              {prod.stock > 0 ? (
+                                <span className="text-emerald-700 font-medium">{prod.stock} available</span>
+                              ) : (
+                                <span className="text-rose-600 font-medium">Out of stock</span>
+                              )}
                             </p>
                           </div>
                         </div>
 
-                        {/* Prices & Reserve */}
-                        <div className="mt-4 pt-3 border-t border-brand-border/25">
-                          <div className="flex items-center justify-between text-xs mb-3 font-mono">
-                            <div>
-                              <span className="text-[8px] text-neutral-400 block uppercase">Full Price</span>
-                              <span className="font-bold text-brand-primary">₦{(prod.price ?? prod.originalPrice ?? 0).toLocaleString()}</span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-[8px] text-neutral-400 block uppercase">Price (Full Payment)</span>
-                              <span className="font-bold text-[#B8860B]">₦{(prod.deposit ?? prod.price ?? prod.originalPrice ?? 0).toLocaleString()}</span>
-                            </div>
+                        {/* Price & Action */}
+                        <div className="mt-4 pt-3 border-t border-black/5 flex items-center justify-between gap-3">
+                          <div>
+                            <span className="text-[10px] text-neutral-400 block">Price</span>
+                            <span className="font-bold text-sm text-brand-primary">
+                              ₦{(prod.price ?? prod.originalPrice ?? 0).toLocaleString()}
+                            </span>
                           </div>
 
                           <button
@@ -688,15 +818,15 @@ export default function Dashboard({
                               onAddToCart(prod, 1);
                               setCurrentTab?.('checkout');
                             }}
-                            disabled={Number(prod.stock) <= 0}
-                            className={`w-full py-2 font-mono tracking-widest uppercase text-[9px] font-bold flex items-center justify-center gap-1.5 transition-all rounded-xs cursor-pointer border ${
-                              Number(prod.stock) <= 0
-                                ? 'bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed'
-                                : 'bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] border-[#1F3E2B]'
+                            disabled={prod.stock === 0}
+                            className={`px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                              prod.stock === 0
+                                ? 'bg-neutral-100 text-neutral-400 cursor-not-allowed'
+                                : 'bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] shadow-xs'
                             }`}
                           >
-                            <ShoppingBag size={11} />
-                            {Number(prod.stock) <= 0 ? 'Out of Stock' : 'Reserve Now'}
+                            <ShoppingBag size={13} />
+                            <span>{prod.stock === 0 ? 'Out of Stock' : 'Reserve'}</span>
                           </button>
                         </div>
                       </div>
@@ -706,70 +836,71 @@ export default function Dashboard({
               </div>
             )}
 
-            {/* C. ACCOUNT SETTINGS TAB */}
+            {/* ── C. PROFILE DETAILS (SETTINGS) TAB ── */}
             {activeTab === 'settings' && (
-              <div className="space-y-6 text-left max-w-xl mx-auto bg-brand-card/35 p-6 sm:p-8 border border-brand-border/40 rounded-xs shadow-xs">
-                <div className="border-b border-brand-border/25 pb-3">
-                  <h3 className="font-display font-bold text-lg text-brand-secondary uppercase">
-                    Pickup Contact Configuration
+              <div className="max-w-2xl mx-auto bg-white p-6 sm:p-8 border border-black/8 rounded-2xl shadow-xs text-left space-y-6">
+                <div className="border-b border-black/8 pb-4">
+                  <h3 className="font-display font-bold text-lg text-brand-primary">
+                    Personal Information
                   </h3>
-                  <p className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mt-0.5">
-                    Essential details used for lobby verification and pickup coordination.
+                  <p className="text-xs text-neutral-500 mt-1">
+                    Keep your contact and hostel information updated so your ties are delivered to the right hall lobby.
                   </p>
                 </div>
 
-                <form onSubmit={handleSaveSettings} className="space-y-4">
+                <form onSubmit={handleSaveSettings} className="space-y-4 sm:space-y-5">
                   <div>
-                    <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                      Scholar Full Name
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                      Full Name
                     </label>
                     <input
                       type="text"
                       required
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
-                      placeholder="e.g. DANIEL KOWALSKI"
-                      className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xs font-sans text-xs focus:outline-none transition-all"
+                      placeholder="e.g. Daniel Adeleke"
+                      className="w-full px-4 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all"
                     />
+                    <p className="text-[11px] text-neutral-400 mt-1">Your registered name for lobby verification.</p>
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                      Contact Phone Number
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                      Email Address
                     </label>
                     <input
-                      type="text"
+                      type="email"
+                      disabled
+                      value={currentUser?.email || ''}
+                      className="w-full px-4 py-2.5 bg-neutral-100 border border-black/10 text-neutral-500 rounded-xl text-xs sm:text-sm cursor-not-allowed"
+                    />
+                    <p className="text-[11px] text-neutral-400 mt-1">Your student account email address (used for order receipts).</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                      Phone Number (WhatsApp / Call)
+                    </label>
+                    <input
+                      type="tel"
                       required
                       value={editPhone}
                       onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="e.g. 08012345678"
-                      className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xs font-mono text-xs focus:outline-none transition-all"
+                      placeholder="e.g. 0123456789"
+                      className="w-full px-4 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all"
                     />
+                    <p className="text-[11px] text-neutral-400 mt-1">We will contact you on this number when your tie arrives in the lobby.</p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                        Room Number
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={editRoom}
-                        onChange={(e) => setEditRoom(e.target.value)}
-                        placeholder="e.g. 302"
-                        className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xs font-mono text-xs focus:outline-none transition-all"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                        Residence Hall
+                      <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                        Hall of Residence
                       </label>
                       <select
                         value={editHall}
                         onChange={(e) => setEditHall(e.target.value)}
-                        className="w-full px-3 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xs font-sans text-xs focus:outline-none transition-all"
+                        className="w-full px-3.5 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all"
                       >
                         {COVENANT_HALLS.map((hall) => (
                           <option key={hall} value={hall}>
@@ -778,76 +909,93 @@ export default function Dashboard({
                         ))}
                       </select>
                     </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                        Room Number
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editRoom}
+                        onChange={(e) => setEditRoom(e.target.value)}
+                        placeholder="e.g. B204"
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all"
+                      />
+                    </div>
                   </div>
 
                   {settingsSuccess && (
-                    <div className="p-3 bg-green-50 border border-green-200 text-green-800 text-[10px] font-mono uppercase tracking-wider rounded-xs flex items-center gap-2">
-                      <CheckCircle size={12} className="text-green-600" />
-                      <span>Configuration settings updated and saved!</span>
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                      <span className="font-medium">Profile details updated successfully!</span>
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    className="w-full py-3 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 shadow-sm cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <Save size={13} />
-                    <span>Save Settings</span>
-                  </button>
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      className="w-full py-3 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                    >
+                      <Save size={15} />
+                      <span>Save Changes</span>
+                    </button>
+                  </div>
                 </form>
               </div>
             )}
 
+            {/* ── D. LEAVE A REVIEW TAB ── */}
             {activeTab === 'reviews' && (
-              <div className="space-y-6 text-left max-w-xl mx-auto bg-brand-card/35 p-6 sm:p-8 border border-brand-border/40 rounded-xs shadow-xs">
-                <div className="border-b border-brand-border/25 pb-3">
-                  <h3 className="font-display font-bold text-lg text-brand-secondary uppercase">
-                    Submit Experience Feedback
+              <div className="max-w-xl mx-auto bg-white p-6 sm:p-8 border border-black/8 rounded-2xl shadow-xs text-left space-y-6">
+                <div className="border-b border-black/8 pb-4">
+                  <h3 className="font-display font-bold text-lg text-brand-primary">
+                    Share Your Feedback
                   </h3>
-                  <p className="text-[10px] font-mono text-neutral-400 uppercase tracking-wider mt-0.5">
-                    We appreciate your thoughts! Share your experience with Knotify.
+                  <p className="text-xs text-neutral-500 mt-1">
+                    How was your experience with Knotify? We read every review to make the tie pickup service better for you.
                   </p>
                 </div>
 
                 {reviewSuccess ? (
                   <div className="space-y-4 py-8 text-center">
-                    <div className="w-12 h-12 rounded-full bg-green-50 border border-green-200 flex items-center justify-center text-green-800 mx-auto">
-                      <CheckCircle size={24} />
+                    <div className="w-14 h-14 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 mx-auto">
+                      <CheckCircle2 size={28} />
                     </div>
                     <div className="space-y-1">
-                      <h4 className="text-sm font-mono text-brand-secondary uppercase font-bold tracking-wider">Review Submitted Successfully!</h4>
-                      <p className="text-xs text-neutral-500 max-w-xs mx-auto font-sans leading-relaxed">
-                        Thank you for taking the time to share your feedback.
+                      <h4 className="text-base font-bold text-brand-primary">Thank you for your feedback!</h4>
+                      <p className="text-xs text-neutral-500 max-w-xs mx-auto leading-relaxed">
+                        Your review has been saved. We appreciate you taking the time to help us improve.
                       </p>
                     </div>
                     <button
                       onClick={() => setReviewSuccess(false)}
-                      className="px-6 py-2.5 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 shadow-sm cursor-pointer"
+                      className="px-5 py-2.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs font-semibold rounded-xl transition-all cursor-pointer shadow-xs"
                     >
                       Write Another Review
                     </button>
                   </div>
                 ) : (
-                  <form onSubmit={handleReviewSubmit} className="space-y-4">
+                  <form onSubmit={handleReviewSubmit} className="space-y-4 sm:space-y-5">
                     <div>
-                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                        Email Address
+                      <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                        Your Email
                       </label>
                       <input
                         type="email"
                         required
                         value={reviewEmail}
                         onChange={(e) => setReviewEmail(e.target.value)}
-                        placeholder="e.g. scholar@covenant.edu"
-                        className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xs font-sans text-xs focus:outline-none transition-all"
+                        placeholder="e.g. student@covenant.edu.ng"
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                        Experience Rating
+                      <label className="block text-xs font-semibold text-neutral-700 mb-1">
+                        How would you rate your experience?
                       </label>
-                      <div className="flex gap-1.5 py-1">
+                      <div className="flex items-center gap-1.5 py-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <button
                             key={star}
@@ -855,50 +1003,55 @@ export default function Dashboard({
                             onClick={() => setReviewRating(star)}
                             onMouseEnter={() => setReviewHoveredRating(star)}
                             onMouseLeave={() => setReviewHoveredRating(null)}
-                            className="p-1 text-brand-primary hover:scale-110 transition-transform cursor-pointer"
+                            className="p-1 hover:scale-115 transition-transform cursor-pointer"
+                            title={`${star} Star`}
                           >
                             <Star
-                              size={22}
+                              size={26}
                               fill={(reviewHoveredRating !== null ? star <= reviewHoveredRating : star <= reviewRating) ? '#D4AF37' : 'none'}
                               stroke={(reviewHoveredRating !== null ? star <= reviewHoveredRating : star <= reviewRating) ? '#D4AF37' : 'currentColor'}
                               className={
                                 (reviewHoveredRating !== null ? star <= reviewHoveredRating : star <= reviewRating)
                                   ? 'text-[#D4AF37]'
-                                  : 'text-brand-primary/40'
+                                  : 'text-neutral-300'
                               }
                             />
                           </button>
                         ))}
                       </div>
+                      <span className="text-xs font-medium text-brand-secondary block mt-0.5">
+                        {getRatingLabel(reviewHoveredRating !== null ? reviewHoveredRating : reviewRating)}
+                      </span>
                     </div>
 
                     <div>
-                      <label className="block text-[9px] font-mono font-bold text-neutral-500 uppercase tracking-widest mb-1.5">
-                        Your Feedback / Review
+                      <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                        Your Feedback
                       </label>
                       <textarea
                         required
-                        rows={5}
+                        rows={4}
                         value={reviewText}
                         onChange={(e) => setReviewText(e.target.value)}
-                        placeholder="Tell us about your experience..."
-                        className="w-full px-4 py-2.5 bg-[#FFFEF2] border border-brand-border/50 focus:border-[#1F3E2B] focus:ring-1 focus:ring-[#1F3E2B]/20 text-brand-primary rounded-xs font-sans text-xs focus:outline-none transition-all resize-none"
+                        placeholder="Tell us what went well, or what we can do better..."
+                        className="w-full px-4 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:bg-white focus:ring-2 focus:ring-brand-secondary/15 text-neutral-800 rounded-xl text-xs sm:text-sm focus:outline-none transition-all resize-none"
                       />
                     </div>
 
                     {reviewError && (
-                      <div className="p-3 bg-red-50 border border-red-200 text-red-800 text-[10px] font-mono uppercase tracking-wider rounded-xs">
-                        {reviewError}
+                      <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl flex items-center gap-2">
+                        <AlertCircle size={15} className="shrink-0 text-rose-600" />
+                        <span>{reviewError}</span>
                       </div>
                     )}
 
                     <button
                       type="submit"
                       disabled={reviewSubmitting}
-                      className="w-full py-3 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-all duration-300 shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full py-3 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs sm:text-sm font-semibold rounded-xl transition-all shadow-sm cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                      <MessageSquare size={13} />
-                      <span>{reviewSubmitting ? 'SUBMITTING...' : 'SUBMIT REVIEW'}</span>
+                      <MessageSquare size={15} />
+                      <span>{reviewSubmitting ? 'Sending Review...' : 'Submit Feedback'}</span>
                     </button>
                   </form>
                 )}
@@ -910,59 +1063,62 @@ export default function Dashboard({
 
       {/* 📱 4. INTERACTIVE MODALS */}
       
-      {/* 1. DIGITAL PASS / CODE MODAL */}
+      {/* 1. DIGITAL PASS MODAL */}
       {activePassRes && (
-        <div className="fixed inset-0 z-50 bg-[#1B1B19]/65 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFEF2] border border-brand-border max-w-sm w-full rounded-xs shadow-xl p-6 relative text-left space-y-6">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFEF2] border border-black/10 max-w-sm w-full rounded-3xl shadow-2xl p-6 relative text-left space-y-5">
             
             {/* Close */}
             <button
               onClick={() => setActivePassRes(null)}
-              className="absolute top-4 right-4 p-1 rounded-full text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-brand-primary hover:bg-black/5 transition-colors cursor-pointer"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
 
             {/* Modal Title */}
             <div className="text-center space-y-1">
-              <span className="text-[9px] font-mono text-[#D4AF37] font-bold uppercase tracking-[0.25em] block">
-                COVENANT UNIVERSITY
+              <span className="text-[10px] font-mono text-brand-secondary font-bold uppercase tracking-widest block">
+                Knotify • Covenant University
               </span>
-              <h3 className="font-display font-black text-xl text-brand-primary uppercase">
-                Digital Pickup Pass
+              <h3 className="font-display font-bold text-xl text-brand-primary">
+                Lobby Pickup Pass
               </h3>
+              <p className="text-xs text-neutral-500">
+                Show this ticket to collect your tie
+              </p>
             </div>
 
             {/* QR Code */}
-            <div className="py-2">
+            <div className="py-1">
               <QRCodeSVG code={activePassRes.id} />
-              <p className="text-[8px] font-mono text-center text-neutral-400 mt-2 uppercase tracking-widest">
-                Scan at lobby station for verification
+              <p className="text-[10px] text-center text-neutral-500 mt-2">
+                Scan or read code to verify
               </p>
             </div>
 
             {/* Pickup Code Details with Copy */}
-            <div className="bg-brand-card/50 border border-brand-border/30 p-3.5 rounded-xs space-y-2">
-              <span className="text-[8px] font-mono text-neutral-400 block uppercase tracking-wider">
-                Pickup Alphanumeric Code
+            <div className="bg-neutral-50 border border-black/8 p-3.5 rounded-2xl space-y-1.5">
+              <span className="text-[10px] text-neutral-500 block uppercase font-medium">
+                Pickup Code
               </span>
               <div className="flex items-center justify-between">
-                <span className="font-mono text-sm font-black text-brand-secondary tracking-widest">
+                <span className="font-mono text-base font-bold text-brand-secondary tracking-wider">
                   {activePassRes.id}
                 </span>
                 
                 <button
                   onClick={() => handleCopyCode(activePassRes.id)}
-                  className="px-2.5 py-1 text-[9px] font-mono uppercase font-black bg-white hover:bg-brand-secondary hover:text-[#FFFEF2] text-brand-secondary border border-brand-secondary/30 hover:border-brand-secondary rounded-xs cursor-pointer transition-all flex items-center gap-1"
+                  className="px-3 py-1.5 text-xs font-semibold bg-white hover:bg-neutral-100 text-brand-secondary border border-black/10 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 shadow-xs"
                 >
                   {copiedResId === activePassRes.id ? (
                     <>
-                      <Check size={10} className="text-green-600" />
-                      <span>Copied</span>
+                      <Check size={12} className="text-emerald-600" />
+                      <span>Copied!</span>
                     </>
                   ) : (
                     <>
-                      <Copy size={10} />
+                      <Copy size={12} />
                       <span>Copy</span>
                     </>
                   )}
@@ -970,33 +1126,33 @@ export default function Dashboard({
               </div>
             </div>
 
-            {/* Pass Metadata details */}
-            <div className="grid grid-cols-2 gap-y-3.5 gap-x-2 text-[10px] font-sans text-neutral-700 pt-1 border-t border-brand-border/20">
+            {/* Pass Metadata */}
+            <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-xs text-neutral-700 pt-2 border-t border-black/8">
               <div>
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Scholar Name</span>
-                <span className="font-bold text-brand-primary uppercase">{activePassRes.name}</span>
+                <span className="text-[10px] text-neutral-400 block">Student</span>
+                <span className="font-semibold text-brand-primary">{activePassRes.name}</span>
               </div>
               <div>
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Date Scheduled</span>
-                <span className="font-bold text-brand-primary">{activePassRes.dateAdded}</span>
+                <span className="text-[10px] text-neutral-400 block">Pickup Date</span>
+                <span className="font-semibold text-brand-primary">{activePassRes.dateAdded}</span>
               </div>
               <div className="col-span-2">
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Purchased Ties</span>
-                <span className="font-bold text-brand-primary">{activePassRes.productNames}</span>
+                <span className="text-[10px] text-neutral-400 block">Tie Ordered</span>
+                <span className="font-semibold text-brand-primary">{activePassRes.productNames} ({activePassRes.quantity})</span>
               </div>
               <div>
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Tie Count</span>
-                <span className="font-bold text-brand-primary">{activePassRes.quantity} {activePassRes.quantity > 1 ? 'Ties' : 'Tie'}</span>
+                <span className="text-[10px] text-neutral-400 block">Hall Lobby</span>
+                <span className="font-semibold text-emerald-800">{activePassRes.pickupPoint || `${activePassRes.hall} Lobby`}</span>
               </div>
               <div className="text-right">
-                <span className="text-[8px] font-mono text-neutral-400 block uppercase">Status</span>
-                <span className="font-mono font-bold text-emerald-700 text-xs">{activePassRes.status}</span>
+                <span className="text-[10px] text-neutral-400 block">Status</span>
+                <span className="font-semibold text-emerald-700">{activePassRes.status}</span>
               </div>
             </div>
 
             <button
               onClick={() => setActivePassRes(null)}
-              className="w-full py-2.5 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs transition-colors cursor-pointer text-center block"
+              className="w-full py-2.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs sm:text-sm font-semibold rounded-xl transition-colors cursor-pointer text-center block shadow-xs"
             >
               Done / Close
             </button>
@@ -1006,58 +1162,58 @@ export default function Dashboard({
 
       {/* 2. RESCHEDULE DATE MODAL */}
       {activeRescheduleRes && (
-        <div className="fixed inset-0 z-50 bg-[#1B1B19]/65 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-[#FFFEF2] border border-brand-border max-w-sm w-full rounded-xs shadow-xl p-6 relative text-left space-y-5">
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-[#FFFEF2] border border-black/10 max-w-sm w-full rounded-3xl shadow-2xl p-6 relative text-left space-y-4">
             
             {/* Close */}
             <button
               onClick={() => setActiveRescheduleRes(null)}
-              className="absolute top-4 right-4 p-1 rounded-full text-neutral-400 hover:text-brand-primary hover:bg-neutral-100 transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-brand-primary hover:bg-black/5 transition-colors cursor-pointer"
             >
-              <X size={16} />
+              <X size={18} />
             </button>
 
             <div className="space-y-1">
-              <span className="text-[9px] font-mono text-[#D4AF37] font-bold uppercase tracking-[0.2em] block">
-                RESERVATION ADJUSTMENT
+              <span className="text-[10px] font-mono text-brand-secondary font-bold uppercase tracking-wider block">
+                Pickup Date
               </span>
-              <h3 className="font-display font-black text-lg text-brand-primary uppercase">
-                Reschedule Pickup Date
+              <h3 className="font-display font-bold text-lg text-brand-primary">
+                Reschedule Pickup
               </h3>
             </div>
 
-            <p className="font-sans text-xs text-neutral-500 leading-relaxed">
-              Adjust the scheduled collection date for reservation <strong className="font-mono text-brand-secondary">{activeRescheduleRes.id}</strong>. Rescheduling ensures lobby merchant notification.
+            <p className="font-sans text-xs text-neutral-600 leading-relaxed">
+              Choose a new date to collect your tie (<strong className="font-mono text-brand-secondary">{activeRescheduleRes.id}</strong>) from your hostel lobby.
             </p>
 
             <form onSubmit={handleRescheduleSubmit} className="space-y-4 pt-1">
               <div>
-                <label className="block text-[8px] font-mono font-bold text-neutral-400 uppercase tracking-widest mb-1.5">
-                  Select Future Date
+                <label className="block text-xs font-semibold text-neutral-700 mb-1.5">
+                  Choose New Date
                 </label>
                 <input
                   type="date"
                   required
                   value={rescheduleDate}
                   onChange={(e) => setRescheduleDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]} // restrict past dates
-                  className="w-full px-3 py-2 bg-brand-card/40 border border-brand-border/40 focus:border-brand-secondary focus:outline-none rounded-xs font-mono text-xs text-brand-primary"
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3.5 py-2.5 bg-neutral-50 border border-black/10 focus:border-brand-secondary focus:outline-none rounded-xl text-xs text-neutral-800"
                 />
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
                   onClick={() => setActiveRescheduleRes(null)}
-                  className="flex-1 py-2.5 bg-brand-card hover:bg-brand-light-gray text-neutral-700 text-xs font-mono font-bold uppercase tracking-widest rounded-xs border border-brand-border/30 cursor-pointer text-center"
+                  className="flex-1 py-2.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-xs font-semibold rounded-xl cursor-pointer text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 bg-[#1F3E2B] hover:bg-[#2E5C3E] text-[#FFFEF2] text-xs font-mono font-bold uppercase tracking-widest rounded-xs cursor-pointer text-center"
+                  className="flex-1 py-2.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs font-semibold rounded-xl cursor-pointer text-center shadow-xs"
                 >
-                  Confirm Date
+                  Save Date
                 </button>
               </div>
             </form>

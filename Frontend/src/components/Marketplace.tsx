@@ -9,7 +9,8 @@ import {
   Check, 
   Eye, 
   ChevronDown,
-  X
+  X,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product } from '../types';
@@ -35,6 +36,7 @@ function hasStock(stock: Product['stock']) {
 interface MarketplaceProps {
   products: Product[];
   onOpenProductDetail: (product: Product) => void;
+  onBackToShop?: () => void;
   onToggleWishlist: (product: Product, e: React.MouseEvent) => void;
   onAddToCart: (product: Product, e: React.MouseEvent) => void;
   isInWishlist: (productId: string) => boolean;
@@ -47,6 +49,7 @@ interface MarketplaceProps {
 export default function Marketplace({
   products,
   onOpenProductDetail,
+  onBackToShop,
   onToggleWishlist,
   onAddToCart,
   isInWishlist,
@@ -100,7 +103,7 @@ export default function Marketplace({
 
   // Constants
   const categories = ['All', 'Official Tie', 'Premium', 'Department', 'Bow Tie', 'Corporate', 'Vintage'];
-  const conditions = ['All', 'Brand New', 'Like New', 'Gently Used', 'Used'];
+  const conditions = ['All', 'Student-Ready', 'Like New', 'Gently Used', 'Used'];
   const colors = ['All', 'Navy', 'Crimson', 'Gold', 'Forest Green', 'Black', 'Wine', 'Stripes'];
 
   // Reset Filters
@@ -135,11 +138,11 @@ export default function Marketplace({
         return matchesSearch && matchesCategory && matchesCondition && matchesColor && matchesPrice && matchesRating && matchesStock;
       })
       .sort((a, b) => {
-        const aHasStock = hasStock(a.stock);
-        const bHasStock = hasStock(b.stock);
-
-        // Keep purchasable ties ahead of sold-out ties for every sort mode.
-        if (aHasStock !== bHasStock) return bHasStock ? 1 : -1;
+        // ALWAYS put available ties (stock > 0) above ties that are not available
+        const aAvailable = Number(a.stock) > 0;
+        const bAvailable = Number(b.stock) > 0;
+        if (aAvailable && !bAvailable) return -1;
+        if (!aAvailable && bAvailable) return 1;
 
         if (sortBy === 'price-low') return (a.price ?? a.originalPrice) - (b.price ?? b.originalPrice);
         if (sortBy === 'price-high') return (b.price ?? b.originalPrice) - (a.price ?? a.originalPrice);
@@ -152,6 +155,20 @@ export default function Marketplace({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-brand-bg min-h-screen" id="marketplace-root">
       
+      {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left, keeps users oriented) */}
+      {onBackToShop && (
+        <div className="mb-2 text-left">
+          <button
+            onClick={onBackToShop}
+            className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"
+            id="btn-back-to-shop"
+          >
+            <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
+            <span>Back to Shop</span>
+          </button>
+        </div>
+      )}
+
       {/* 1. ELEVATED TYPOGRAPHY HEADER (UGMONK-INSPIRED) */}
       <div className="text-center py-8 md:py-14 max-w-2xl mx-auto" id="marketplace-header">
         <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary block mb-2 select-none">
@@ -273,7 +290,7 @@ export default function Marketplace({
                     transition={{ duration: 0.3 }}
                     key={product.id}
                     className={`bg-transparent border-0 rounded-none p-0 flex flex-col relative group transition-all duration-300 text-left ${isOutOfStock ? 'opacity-40 blur-[1px] cursor-not-allowed pointer-events-none' : 'cursor-pointer'}`}
-                    onClick={() => !isOutOfStock && onOpenProductDetail(product)}
+                    onClick={(e) => !isOutOfStock && onOpenProductDetail(product)}
                     id={`product-${product.id}`}
                   >
                     {/* Thumbnail Container (Flat Ugmonk Style, Pure Sharp Corners) */}
@@ -305,20 +322,22 @@ export default function Marketplace({
                             -{discountPercent}%
                           </span>
                         ) : null}
-
-                        {product.condition === 'Brand New' && !isOutOfStock && (
+                      
+                        {product.condition === 'Student-Ready' && !isOutOfStock && (
                           <span className="bg-brand-bg text-brand-primary font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold border border-brand-border rounded">
                             NEW
                           </span>
+                          
                         )}
-                        {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+                        
+                      </div>
 
-                <div className="absolute top-6 text-white left-0 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
+              {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+
+                <div className="absolute top-16 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
                   HOT
               </div>
                 : ""}
-                      </div>
-
                       {/* Wishlist Button */}
                       <button
                         onClick={(e) => {
@@ -331,7 +350,7 @@ export default function Marketplace({
                         <Heart 
                           size={11} 
                           strokeWidth={2}
-                          className={isWishlisted ? 'fill-brand-secondary text-brand-secondary' : 'text-brand-primary hover:text-brand-secondary'} 
+                          className={isWishlisted ? 'fill-brand-secondary text-brand-secondary' : 'text-brand-primary hover:text-brand-bg'} 
                         />
                       </button>
 
@@ -359,8 +378,8 @@ export default function Marketplace({
 
                       <div className="flex items-baseline justify-between font-sans text-xs text-brand-secondary font-medium">
                         <div className="flex items-baseline gap-1.5">
-                          <span>₦{(product?.price ?? 0).toLocaleString()}</span>
-                          {(product?.originalPrice ?? 0) > (product?.price ?? 0) && (
+                          <span>₦{(product?.price ?? product?.originalPrice ?? 0).toLocaleString()}</span>
+                          {(product?.originalPrice ?? 0) > (product?.price ?? product?.originalPrice ?? 0) && (
                             <span className="font-sans text-[9px] text-brand-secondary/40 line-through">
                               ₦{(product?.originalPrice ?? 0).toLocaleString()}
                             </span>

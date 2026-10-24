@@ -5,6 +5,7 @@ const CLIENT_STORAGE_KEYS = [
   USER_KEY,
   TOKEN_KEY,
   'cu_marketplace_products_v4',
+  'cu_marketplace_products_v5',
   'cu_marketplace_cart',
   'cu_marketplace_wishlist',
   'knotify_reservations',

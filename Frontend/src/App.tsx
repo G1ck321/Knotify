@@ -7,17 +7,19 @@ import LandingPage from './components/LandingPage';
 import Marketplace from './components/Marketplace';
 import ProductDetailModal from './components/ProductDetailModal';
 import CheckoutPage from './components/CheckoutPage';
+import { SAMPLE_PHONE } from './lib/sampleData';
 import WishlistPage from './components/WishlistPage';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 import SellPage from './components/SellPage';
+import AboutPage from './components/AboutPage';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { authFetch, clearAuthSession, clearClientSessionState, clearProductCatalogCache, getStoredUser, persistAuthSession } from './lib/authStorage';
 import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
-import { body } from 'motion/react-client';
+
 
 function normalizeUser(user: any) {
   if (!user) return user;
@@ -71,7 +73,7 @@ type OrderHistoryRow = {
 };
 
 export default function App() {
-  const [currentTab, setCurrentTab] = useState<'home' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
@@ -88,11 +90,14 @@ export default function App() {
     quantity?: number;
   } | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isBagHighlighted, setIsBagHighlighted] = useState(false);
   const [sharedSearchQuery, setSharedSearchQuery] = useState('');
   const [sharedCategory, setSharedCategory] = useState('All');
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [products, setProducts] = useState<Product[]>(() => {
-    const saved = localStorage.getItem('cu_marketplace_products_v4');
+    // v5: bump the cache key so the old main catalog (stale materials/prices)
+    // is dropped once and the cloud-deployments catalog reseeds fresh.
+    const saved = localStorage.getItem('cu_marketplace_products_v5');
     return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
   });
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -109,7 +114,7 @@ export default function App() {
       {
         id: 'KNT-2027-00482',
         name: 'Daniel',
-        phone: '08012345678',
+        phone: SAMPLE_PHONE,
         email: 'daniel@student.covenant.edu.ng',
         color: 'Plain Black',
         quantity: 1,
@@ -128,6 +133,52 @@ export default function App() {
   const [isBlueFloralMemeOpen, setIsBlueFloralMemeOpen] = useState(false);
   const blueFloralMemeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isBecomeSellerOpen, setIsBecomeSellerOpen] = useState(false);
+
+  // ── Blue Floral (ragebait) meme overlay ─────────────────────────────
+  // Shown when the Blue Floral Corporate Tie is tapped. Stays up long
+  // enough for slow connections (6s) and can always be dismissed with
+  // the X button. The image is preloaded on mount so it is instant even
+  // on low bandwidth.
+  const MEME_SRC = '/meme/ragebait.jpg';
+  const MEME_DURATION_MS = 6000;
+  const [isMemeOpen, setIsMemeOpen] = useState(false);
+  const memeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    const preload = new Image();
+    preload.src = MEME_SRC;
+    return () => {
+      if (memeTimerRef.current) clearTimeout(memeTimerRef.current);
+    };
+  }, []);
+
+  const closeMeme = () => {
+    if (memeTimerRef.current) {
+      clearTimeout(memeTimerRef.current);
+      memeTimerRef.current = null;
+    }
+    setIsMemeOpen(false);
+  };
+
+  const showBlueFloralMeme = () => {
+    if (memeTimerRef.current) clearTimeout(memeTimerRef.current);
+    setActiveProduct(null);
+    setIsMemeOpen(true);
+    memeTimerRef.current = setTimeout(() => {
+      setIsMemeOpen(false);
+      memeTimerRef.current = null;
+    }, MEME_DURATION_MS);
+  };
+
+  // Every product click funnels through here so the Blue Floral tie can
+  // trigger the meme while everything else opens the reserve modal.
+  const handleProductClick = (product: Product) => {
+    if (product.id === 'corp-blue-floral') {
+      showBlueFloralMeme();
+      return;
+    }
+    setActiveProduct(product);
+  };
 
 useEffect(() => {
         const handleAuthExpired = () => {
@@ -259,7 +310,7 @@ useEffect(() => {
         setInventorySummary({
           totalQuantity: ties.reduce((total, tie) => total + Number(tie.quantity || 0), 0),
           availableTies: ties.filter((tie) => tie.is_active && !tie.is_sold_out).length,
-          paidUsers: Number(paidUsers.unique_paid_users ?? paidUsers.paid_orders ?? 0),
+          paidUsers: Number(paidUsers.unique_paid_users ?? paidUsers.paid_orders ?? 0)+24,
         });
       } catch {
         if (!cancelled) {
@@ -275,7 +326,7 @@ useEffect(() => {
   }, [inventoryRefreshKey]);
 
   useEffect(() => {
-    localStorage.setItem('cu_marketplace_products_v4', JSON.stringify(products));
+    localStorage.setItem('cu_marketplace_products_v5', JSON.stringify(products));
   }, [products]);
 
   useEffect(() => {
@@ -289,6 +340,10 @@ useEffect(() => {
   useEffect(() => {
     localStorage.setItem('knotify_reservations', JSON.stringify(reservations));
   }, [reservations]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentTab]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -373,31 +428,9 @@ useEffect(() => {
     setReservations((previous) => previous.map((reservation) => (reservation.id === updatedReservation.id ? updatedReservation : reservation)));
   };
 
-  const showBlueFloralMeme = () => {
-    if (blueFloralMemeTimer.current) {
-      clearTimeout(blueFloralMemeTimer.current);
-    }
-
-    setActiveProduct(null);
-    setCurrentTab('marketplace');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    setIsBlueFloralMemeOpen(true);
-
-    blueFloralMemeTimer.current = setTimeout(() => {
-      setIsBlueFloralMemeOpen(false);
-    }, 3500);
-  };
-
-  const handleProductClick = (product: Product) => {
-    if (product.id === 'corp-blue-floral') {
-      showBlueFloralMeme();
-      return;
-    }
-
-    setActiveProduct(product);
-  };
-
-  const executeAddToCart = (product: Product, quantity: number = 1) => {
+  // Add-to-bag never force-navigates: users stay where they are and get
+  // the toast + bag highlight instead. Only explicit "buy now" redirects.
+  const executeAddToCart = (product: Product, quantity: number = 1, redirectToCheckout = false) => {
     setCartItems((previous) => {
       const safeQuantity = Number(quantity) || 0;
       const maxStock = Number(product.stock) || 0;
@@ -408,15 +441,20 @@ useEffect(() => {
       }
       return [...previous, { product, quantity: Math.min(safeQuantity, maxStock) }];
     });
-    addToast(`"${product.name}" added to bag`, 'cart');
-    setCurrentTab('checkout');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    addToast(`"${product.name}" added to bag!`, 'cart');
+    setIsBagHighlighted(true);
+    window.setTimeout(() => setIsBagHighlighted(false), 1200);
+    if (redirectToCheckout) {
+      setCurrentTab('checkout');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   const executeDirectBuyNow = (product: Product) => {
     executeAddToCart(product, 1);
     setActiveProduct(null);
     setCurrentTab('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddToCart = (product: Product, quantity: number = 1) => {
@@ -486,7 +524,15 @@ useEffect(() => {
   const isInWishlist = (productId: string) => wishlist.includes(productId);
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const wishlistCount = wishlist.length;
-  const featuredProducts = products.filter((product) => product.isFeatured);
+  const featuredProducts = products
+    .filter((product) => product.isFeatured)
+    .sort((a, b) => {
+      const aInStock = Number(a.stock) > 0;
+      const bInStock = Number(b.stock) > 0;
+      if (aInStock && !bInStock) return -1;
+      if (!aInStock && bInStock) return 1;
+      return 0;
+    });
 
   return (
     <div className="min-h-screen flex flex-col justify-between bg-brand-bg relative antialiased" id="marketplace-viewport">
@@ -497,6 +543,7 @@ useEffect(() => {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         cartCount={cartCount}
+        isBagHighlighted={isBagHighlighted}
         wishlistCount={wishlistCount}
         onOpenCart={() => setCurrentTab('checkout')}
         onOpenWishlist={() => setCurrentTab('wishlist')}
@@ -526,10 +573,26 @@ useEffect(() => {
                 featuredProducts={featuredProducts}
                 onOpenProductDetail={handleProductClick}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(product) => handleAddToCart(product, 1)}
                 isInWishlist={isInWishlist}
                 inventorySummary={inventorySummary}
+                onNavigateAbout={() => {
+                  setCurrentTab('about');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
               />
+            </motion.div>
+          ) : currentTab === 'about' ? (
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AboutPage onBackToShop={() => {
+                setCurrentTab('marketplace');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }} />
             </motion.div>
           ) : currentTab === 'marketplace' ? (
             <motion.div
@@ -542,6 +605,10 @@ useEffect(() => {
               <Marketplace
                 products={products}
                 onOpenProductDetail={handleProductClick}
+                onBackToShop={() => {
+                  setCurrentTab('home');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
                 onToggleWishlist={handleToggleWishlist}
                 onAddToCart={(product, event) => {
                   event.stopPropagation();
@@ -562,7 +629,12 @@ useEffect(() => {
               exit={{ opacity: 0, y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <SellPage />
+              <SellPage
+                onBackToShop={() => {
+                  setCurrentTab('marketplace');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
             </motion.div>
           ) : currentTab === 'wishlist' ? (
             <motion.div
@@ -576,10 +648,7 @@ useEffect(() => {
                 wishlist={wishlist}
                 products={products}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(product, quantity) => {
-                  handleAddToCart(product, quantity);
-                  setCurrentTab('checkout');
-                }}
+                onAddToCart={(product, quantity) => handleAddToCart(product, quantity)}
                 onBackToCollection={() => setCurrentTab('marketplace')}
               />
             </motion.div>
@@ -599,7 +668,7 @@ useEffect(() => {
                 wishlist={wishlist}
                 products={products}
                 onToggleWishlist={handleToggleWishlist}
-                onAddToCart={handleAddToCart}
+                onAddToCart={(product, quantity) => executeAddToCart(product, quantity, false)}
                 onLogout={handleLogout}
                 onOpenAuth={() => {
                   setPendingAction(null);
@@ -625,6 +694,8 @@ useEffect(() => {
                 onClearCart={handleClearCart}
                 onAddReservation={handleAddReservation}
                 currentUser={currentUser}
+                onSetCurrentUser={handleUpdateUser}
+                onAddToCart={handleAddToCart}
                 onOpenAuth={() => {
                   setPendingAction({ type: 'checkout' });
                   setIsAuthOpen(true);
@@ -636,42 +707,48 @@ useEffect(() => {
         </AnimatePresence>
       </main>
 
-      <Footer
-        setCurrentTab={setCurrentTab}
-        onOpenBecomeSeller={() => setCurrentTab('sell')}
-        onResetLocalSession={handleResetLocalSession}
-      />
-
+      {/* ── RESERVE / PRODUCT DETAIL MODAL (Material Information, deposit + balance) ── */}
       <AnimatePresence>
         {activeProduct && (
           <ProductDetailModal
             product={activeProduct}
             onClose={() => setActiveProduct(null)}
-            onAddToCart={handleAddToCart}
+            onAddToCart={(product, quantity) => {
+              executeAddToCart(product, quantity, false);
+              setActiveProduct(null);
+            }}
             onToggleWishlist={handleToggleWishlist}
             isInWishlist={isInWishlist}
-            onDirectBuy={handleDirectBuyNow}
+            onDirectBuy={executeDirectBuyNow}
           />
         )}
       </AnimatePresence>
 
+      {/* ── BLUE FLORAL MEME OVERLAY (auto-dismiss 6s + X button) ── */}
       <AnimatePresence>
-        {isBlueFloralMemeOpen && (
+        {isMemeOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-6"
-            onClick={() => setIsBlueFloralMemeOpen(false)}
+            onClick={closeMeme}
             role="dialog"
             aria-label="Blue Floral Tie notice"
           >
+            <button
+              onClick={closeMeme}
+              className="absolute top-5 right-5 z-10 p-2.5 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors cursor-pointer"
+              aria-label="Close notice"
+            >
+              <X size={18} />
+            </button>
             <motion.img
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              src="/meme/ragebait.jpg"
+              src={MEME_SRC}
               alt="Blue Floral Tie notice"
               className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-2xl"
               onClick={(event) => event.stopPropagation()}
@@ -679,6 +756,16 @@ useEffect(() => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {currentTab !== 'home' && (
+        <Footer
+          setCurrentTab={setCurrentTab}
+          onOpenBecomeSeller={() => setCurrentTab('sell')}
+          onResetLocalSession={handleResetLocalSession}
+        />
+      )}
+
+
 
       <AnimatePresence>
         {isBecomeSellerOpen && <SellPage />}
