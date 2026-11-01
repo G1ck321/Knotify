@@ -52,6 +52,11 @@ class CheckoutRequest(BaseModel):
     items: list[OrderItemInput] = Field(default_factory=list, min_length=1)
     order_details: Optional[str] = Field(default=None, alias="orderDetails")
     amount: float = Field(..., gt=0)
+    # Feature C: the device's unguessable key (localStorage) and the pic
+    # requests the buyer opened. The SERVER decides the fee from its own
+    # pic_requests rows - these only help match a guest to their obligations.
+    client_key: Optional[str] = Field(default=None, max_length=64)
+    pic_keys: list[str] = Field(default_factory=list)
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -73,6 +78,30 @@ class CheckoutRequest(BaseModel):
         if value in (None, ""):
             return None
         return str(value).strip()
+
+    @field_validator("pic_keys", mode="before")
+    @classmethod
+    def normalize_pic_keys(cls, value):
+        # Bounded and shape-checked so the lookup below cannot be abused as
+        # an arbitrary query parameter.
+        if value in (None, ""):
+            return []
+        if isinstance(value, str):
+            value = [value]
+        keys = [str(item).strip() for item in value if str(item or "").strip()]
+        pattern = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+        clean = [key for key in keys if pattern.match(key)]
+        return clean[:10]
+
+    @field_validator("client_key", mode="before")
+    @classmethod
+    def normalize_client_key(cls, value):
+        if value in (None, ""):
+            return None
+        value = str(value).strip()
+        if not re.fullmatch(r"[A-Za-z0-9_-]{16,64}", value):
+            return None
+        return value
 
     @field_validator("matricNumber", mode="before")
     @classmethod
