@@ -150,12 +150,6 @@ export default function TiePlaceholder({
               <path d="M 43 65 L 57 57 M 42 85 L 58 77 M 40 105 L 60 97" stroke="#F5F2EB" strokeWidth="1.5" strokeLinecap="round" />
             </g>
           )}
-
-          {/* Academic Laurel / Stars Indicator of Chapel Compliance */}
-          <g transform="translate(42, 6) scale(0.8)" opacity="0.25">
-            <circle cx="10" cy="10" r="2" fill="#F5F2EB" />
-            <path d="M 5 10 C 5 7, 15 7, 15 10 C 15 13, 5 13, 5 10" stroke="#F5F2EB" strokeWidth="0.75" />
-          </g>
         </svg>
       </div>
 

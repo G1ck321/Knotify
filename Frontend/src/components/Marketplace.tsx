@@ -33,6 +33,72 @@ function hasStock(stock: Product['stock']) {
   return Number(stock) > 0;
 }
 
+// ── Feature B: curated catalog ordering ───────────────────────────────────────────────────────
+// Row 1 is fixed: the plain black tie, the plain wine tie, then two vintage
+// ties. Everything after it is generated from TYPE_POOL — the list of types
+// that may appear — by randomly selecting a type, then randomly selecting the
+// ties inside that type, until the catalog is exhausted.
+//
+// The result is memoized on the SET of product ids, so an inventory refresh
+// (price/stock change) never reshuffles the grid while a customer is browsing.
+
+const LEAD_TIE_IDS = ['new-plain-black', 'new-plain-wine'];
+
+const TYPE_POOL: Product['category'][] = [
+  'Vintage',
+  'Corporate',
+  'Official Tie',
+  'Premium',
+  'Department',
+  'Bow Tie',
+];
+
+function shuffled<T>(items: T[]): T[] {
+  const copy = [...items];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+}
+
+function buildCatalogOrder(products: Product[]): Map<string, number> {
+  const byId = new Map(products.map((product) => [product.id, product]));
+  const used = new Set<string>();
+  const ordered: Product[] = [];
+
+  const push = (product?: Product) => {
+    if (!product || used.has(product.id)) return;
+    used.add(product.id);
+    ordered.push(product);
+  };
+
+  // Row 1: the plain black and the plain wine first, then two vintage ties.
+  LEAD_TIE_IDS.forEach((id) => push(byId.get(id)));
+  shuffled(products.filter((product) => product.category === 'Vintage'))
+    .slice(0, 2)
+    .forEach(push);
+
+  // All others follow: random selection over the list of types, then random
+  // selection of the ties belonging to each chosen type.
+  const remaining = products.filter((product) => !used.has(product.id));
+  const presentTypes = [...new Set(remaining.map((product) => product.category))];
+  const typeOrder = [
+    ...shuffled(TYPE_POOL.filter((type) => presentTypes.includes(type))),
+    // Types outside the pool still get shown, just after the listed ones.
+    ...shuffled(presentTypes.filter((type) => !TYPE_POOL.includes(type))),
+  ];
+
+  typeOrder.forEach((type) => {
+    shuffled(remaining.filter((product) => product.category === type)).forEach(push);
+  });
+
+  // Anything still unplaced (defensive) keeps its original relative order.
+  products.forEach(push);
+
+  return new Map(ordered.map((product, index) => [product.id, index]));
+}
+
 interface MarketplaceProps {
   products: Product[];
   onOpenProductDetail: (product: Product) => void;
@@ -118,6 +184,15 @@ export default function Marketplace({
     setSortBy('featured');
   };
 
+  // Stable per product SET: recomputed only when ties are added or removed,
+  // not when live price/stock refreshes replace the array.
+  const productSignature = products.map((product) => product.id).join('|');
+  const catalogOrder = useMemo(
+    () => buildCatalogOrder(products),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [productSignature]
+  );
+
   // Live Filtering Logic
   const filteredProducts = useMemo(() => {
     return products
@@ -148,9 +223,12 @@ export default function Marketplace({
         if (sortBy === 'price-high') return (b.price ?? b.originalPrice) - (a.price ?? a.originalPrice);
         if (sortBy === 'rating') return b.rating - a.rating;
         if (sortBy === 'popular') return b.reviewsCount - a.reviewsCount;
-        return Number(b.isFeatured) - Number(a.isFeatured); // Featured default
+        // Default "RELEVANCE": the curated Feature B order — plain black,
+        // plain wine and two vintage up front, everything else in its random
+        // type bucket.
+        return (catalogOrder.get(a.id) ?? 0) - (catalogOrder.get(b.id) ?? 0);
       });
-  }, [products, searchQuery, selectedCategory, selectedCondition, selectedColor, maxPrice, minRating, onlyInStock, sortBy]);
+  }, [products, productSignature, catalogOrder, searchQuery, selectedCategory, selectedCondition, selectedColor, maxPrice, minRating, onlyInStock, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 bg-brand-bg min-h-screen" id="marketplace-root">
@@ -277,7 +355,12 @@ export default function Marketplace({
             /* CRISTINE GRID OF ITEMS */
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-8 gap-y-14" id="products-grid-list">
               {filteredProducts.map((product) => {
-                const discountPercent = Math.round(((product.originalPrice - (product.price ?? product.originalPrice)) / product.originalPrice) * 100);
+                const discountPercent = product.originalPrice > 0
+                  ? Math.round(((product.originalPrice - (product.price ?? product.originalPrice)) / product.originalPrice) * 100)
+                  : 0;
+                // "HOT" is a rule, not a hand-picked list: any tie discounted
+                // by MORE than 27% earns the badge (same rule in ProductDetailModal).
+                const isHot = discountPercent > 27;
                 const isWishlisted = isInWishlist(product.id);
                 const isOutOfStock = !hasStock(product.stock);
 
@@ -299,7 +382,7 @@ export default function Marketplace({
                         <img
                           src={product.image}
                           alt={product.name}
-                          className={`w-full h-full object-cover grayscale-[8%] group-hover:grayscale-0 group-hover:scale-[1.03] transition-all duration-700 ${isOutOfStock ? 'opacity-40 grayscale' : ''}`}
+                          className={`w-full h-full object-cover grayscale-[8%] group-hover:grayscale-0 group-hover:scale-[1.04] transition-all duration-700 ${isOutOfStock ? 'opacity-40 grayscale' : ''}`}
                           referrerPolicy="no-referrer"
                         />
                       ) : (
@@ -332,12 +415,12 @@ export default function Marketplace({
                         
                       </div>
 
-              {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+              {isHot ? (
 
                 <div className="absolute top-16 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
                   HOT
               </div>
-                : ""}
+                ) : null}
                       {/* Wishlist Button */}
                       <button
                         onClick={(e) => {

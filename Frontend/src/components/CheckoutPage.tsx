@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   X, 
   Trash2, 
@@ -39,6 +39,12 @@ import {
   PAYMENT_SUCCESS_STATUSES,
   savePendingCheckout,
 } from '../lib/checkoutPayment';
+import {
+  PIC_FEE,
+  clearLocalPicRequests,
+  getOutstandingPicFee,
+  getPicClientKey,
+} from '../lib/picRequests';
 import Marketplace from './Marketplace';
 
 async function createCheckoutSession(payload: unknown) {
@@ -276,7 +282,23 @@ export default function CheckoutPage({
     () => localStorage.getItem("tx") || ""
   );
 
-  const DELIVERY_FEE = 250;
+  const DELIVERY_FEE = 350;
+
+  // Feature B: the Jumia-style ties strip at the bottom of checkout.
+  // Newest arrivals first (ties with the latest `added_at` surface first),
+  // and never suggesting a tie that is already in the bag or out of stock.
+  const stripProducts = useMemo(() => {
+    const inBag = new Set(cartItems.map((item) => item.product.id));
+
+    return products
+      .filter((product) => !inBag.has(product.id) && Number(product.stock) > 0)
+      .sort((a, b) => {
+        const aTime = a.addedAt ? Date.parse(a.addedAt) : 0;
+        const bTime = b.addedAt ? Date.parse(b.addedAt) : 0;
+        return bTime - aTime;
+      })
+      .slice(0, 10);
+  }, [products, cartItems]);
 
   const SAMPLE_USER = {
     name: 'Daniel Adeleke',
@@ -402,6 +424,8 @@ export default function CheckoutPage({
         clearPendingCheckout();
       }
 
+      // The pic fees this order covered are now charged server-side.
+      clearLocalPicRequests();
       setCheckoutStep('success');
       loadgeneratedId();
       onClearCart();
@@ -483,7 +507,11 @@ export default function CheckoutPage({
   };
 
   const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
-  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
+  // Feature C: every knotted-pic request this device opened owes ₦100. The
+  // DISPLAY uses the local list; the SERVER independently adds the same fee
+  // from its pic_requests rows, so tampering here cannot change the charge.
+  const picFeeTotal = getOutstandingPicFee();
+  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE + picFeeTotal : 0;
   const loadgeneratedId = () => {
     
     const tx = localStorage.getItem("tx");
@@ -516,7 +544,9 @@ export default function CheckoutPage({
         setSubmitError('');
         try {
           const availability = await checkInventoryAvailability(
-            cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity }))
+            cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity })),
+            // Your OWN 24h pic hold must not block your own checkout.
+            getPicClientKey()
           );
           const unavailable = availability.filter((item) => !item.available).map((item) => item.tie_id);
           setUnavailableItemIds(unavailable);
@@ -570,6 +600,10 @@ export default function CheckoutPage({
         items: orderItems,
         orderDetails: productNames,
         amount: itemsTotal,
+        // Feature C: identifies this device's outstanding pic rows. The server
+        // still re-queries pic_requests — these keys only help match a guest.
+        client_key: getPicClientKey(),
+        pic_keys: [getPicClientKey()],
       });
 
       const txRef = response.tx_ref;
@@ -1285,6 +1319,15 @@ export default function CheckoutPage({
                     <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
                   </div>
 
+                  {picFeeTotal > 0 ? (
+                    <div className="flex justify-between text-brand-secondary font-semibold">
+                      <span>
+                        Knotted Pic Request ({picFeeTotal / PIC_FEE})
+                      </span>
+                      <span className="font-sans text-sm">₦{picFeeTotal.toLocaleString()}</span>
+                    </div>
+                  ) : null}
+
                   <div className="flex justify-between text-brand-primary/80 text-xs pt-1.5 border-t border-brand-border/40">
                     <span className="font-semibold">Total Payable</span>
                     <span className="font-sans font-bold text-base text-brand-primary">₦{totalAmountPayable.toLocaleString()}</span>
@@ -1346,6 +1389,91 @@ export default function CheckoutPage({
           )}
 
         </div>
+      )}
+
+      {/* 3. JUMIA-STYLE TIES STRIP (Feature B): newest arrivals, one tap into the bag */}
+      {checkoutStep !== 'success' && stripProducts.length > 0 && (
+        <section className="mt-12 border-t border-brand-border/40 pt-8 text-left" id="checkout-ties-strip">
+          <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+            <div>
+              <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary select-none">
+                Just added to the catalog
+              </span>
+              <h2 className="font-serif font-bold text-lg sm:text-xl text-brand-primary tracking-tight">
+                Complete the look
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={onContinueShopping}
+              className="text-[10px] font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer border-b border-brand-border hover:border-brand-secondary pb-0.5"
+            >
+              View all ties
+            </button>
+          </div>
+
+          <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" id="checkout-ties-strip-list">
+            {stripProducts.map((product) => {
+              const price = product.price ?? product.originalPrice;
+              const discountPercent =
+                product.originalPrice > 0 && product.originalPrice > price
+                  ? Math.round(((product.originalPrice - price) / product.originalPrice) * 100)
+                  : 0;
+
+              return (
+                <div key={product.id} className="w-36 sm:w-40 shrink-0" id={`strip-${product.id}`}>
+                  <div className="aspect-[3/4] w-full rounded-xl overflow-hidden bg-brand-card border border-brand-border/70 relative">
+                    {product.image ? (
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <TiePlaceholder
+                        color={product.color}
+                        category={product.category}
+                        name={product.name}
+                        className="w-full h-full"
+                      />
+                    )}
+
+                    {discountPercent > 0 && (
+                      <span className="absolute top-2 left-2 bg-brand-secondary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded">
+                        -{discountPercent}%
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="mt-2 text-[11px] font-sans text-brand-primary leading-snug line-clamp-2">
+                    {product.name}
+                  </p>
+
+                  <div className="mt-1 flex items-baseline gap-1.5">
+                    <span className="text-xs font-sans font-bold text-brand-primary">₦{price.toLocaleString()}</span>
+                    {discountPercent > 0 && (
+                      <span className="text-[9px] font-sans text-brand-secondary/50 line-through">
+                        ₦{product.originalPrice.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+
+                  {onAddToCart && (
+                    <button
+                      type="button"
+                      onClick={() => onAddToCart(product, 1)}
+                      className="mt-2 w-full py-2 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-mono text-[9px] tracking-widest uppercase font-bold rounded-full transition-colors cursor-pointer"
+                    >
+                      + Add to bag
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
  {/* <motion.div
               key="marketplace"
