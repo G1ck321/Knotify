@@ -3,10 +3,11 @@ from __future__ import annotations
 from typing import Any, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from database import supabase
+from dependencies import get_optional_current_user
 
 
 router = APIRouter(prefix="/quantity", tags=["Inventory and paid user metrics"])
@@ -20,6 +21,9 @@ class TieInventoryResponse(BaseModel):
     quantity: int = Field(ge=0)
     is_active: bool = True
     is_sold_out: bool = False
+    # When the tie entered the catalog (Feature B). The frontend uses it to
+    # surface the latest arrivals first.
+    added_at: Optional[str] = None
 
 
 class PaidUsersResponse(BaseModel):
@@ -30,6 +34,11 @@ class PaidUsersResponse(BaseModel):
 
 class InventoryAvailabilityRequest(BaseModel):
     items: list[dict[str, Any]]
+    # Unguessable per-device secret from localStorage. Lets the caller's OWN
+    # 24-hour pic hold be ignored so a pic request never locks them out of
+    # checking out that same tie. Safe to trust because it is a bearer secret
+    # (128+ bits), unlike a user id which is public.
+    client_key: Optional[str] = None
 
 
 HOLD_MINUTES = 10
@@ -99,15 +108,16 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
         quantity=quantity,
         is_active=is_active,
         is_sold_out=quantity <= 0 or not is_active,
+        added_at=str(row.get("added_at") or "") or None,
     )
 
 
-def _active_hold_quantities() -> dict[str, int]:
+def _active_hold_quantities(client_key: Optional[str] = None) -> dict[str, int]:
     try:
         supabase.rpc("expire_inventory_holds").execute()
         response = (
             supabase.table("inventory_holds")
-            .select("tie_id, quantity")
+            .select("tie_id, quantity, reason, client_key")
             .eq("status", "active")
             .gt("expires_at", datetime.now(timezone.utc).isoformat())
             .execute()
@@ -117,6 +127,15 @@ def _active_hold_quantities() -> dict[str, int]:
 
     held: dict[str, int] = {}
     for hold in response.data or []:
+        # Show the requester their own tie as available: their pic hold must
+        # not make the catalog render "OUT OF STOCK" for the one person who
+        # is allowed to buy it. Other people's pic holds still count.
+        if (
+            client_key
+            and hold.get("reason") == "pic_request"
+            and str(hold.get("client_key") or "") == client_key
+        ):
+            continue
         tie_id = str(hold.get("tie_id") or "")
         held[tie_id] = held.get(tie_id, 0) + int(hold.get("quantity") or 0)
     return held
@@ -137,10 +156,23 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     return response.data[0]
 
 
-def get_all_ties() -> list[TieInventoryResponse]:
-    response = supabase.table("ties").select("*").order("tie_name", desc=False).execute()
+def get_all_ties(client_key: Optional[str] = None) -> list[TieInventoryResponse]:
+    # Newest first (Feature B): ties added later sit at the top of the catalog.
+    # tie_name only breaks ties between rows inserted in the same instant.
+    try:
+        response = (
+            supabase.table("ties")
+            .select("*")
+            .order("added_at", desc=True)
+            .order("tie_name", desc=False)
+            .execute()
+        )
+    except Exception:
+        # The 20261030_ties_added_at migration has not run yet: serve the
+        # catalog in the old order rather than taking the whole store down.
+        response = supabase.table("ties").select("*").order("tie_name", desc=False).execute()
     rows = response.data or []
-    held_quantities = _active_hold_quantities()
+    held_quantities = _active_hold_quantities(client_key)
     normalized_rows = []
     for row in rows:
         available_row = dict(row)
@@ -160,17 +192,38 @@ def get_paid_user_totals() -> PaidUsersResponse:
     )
 
 
-def check_inventory_availability(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    response = supabase.rpc("check_inventory_availability", {"p_items": items}).execute()
+def check_inventory_availability(
+    items: list[dict[str, Any]],
+    client_key: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> list[dict[str, Any]]:
+    params: dict[str, Any] = {"p_items": items}
+    if client_key:
+        params["p_pic_client_key"] = client_key
+    if user_id:
+        params["p_pic_user_id"] = str(user_id)
+    response = supabase.rpc("check_inventory_availability", params).execute()
     return response.data or []
 
 
-def reserve_inventory(tx_ref: str, items: list[dict[str, Any]]) -> None:
+def reserve_inventory(
+    tx_ref: str,
+    items: list[dict[str, Any]],
+    minutes: int = HOLD_MINUTES,
+    client_key: Optional[str] = None,
+    user_id: Optional[str] = None,
+) -> None:
+    params: dict[str, Any] = {
+        "p_tx_ref": tx_ref,
+        "p_items": items,
+        "p_minutes": int(minutes),
+    }
+    if client_key:
+        params["p_client_key"] = str(client_key)
+    if user_id:
+        params["p_user_id"] = str(user_id)
     try:
-        supabase.rpc(
-            "reserve_inventory",
-            {"p_tx_ref": tx_ref, "p_items": items, "p_minutes": HOLD_MINUTES},
-        ).execute()
+        supabase.rpc("reserve_inventory", params).execute()
     except Exception as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -252,8 +305,14 @@ def compute_order_total(cart_snapshot: list[dict[str, Any]]) -> float:
 
 
 @router.get("/ties", response_model=list[TieInventoryResponse])
-async def list_tie_quantities(only_active: bool = Query(False, description="Return only active ties with stock")):
-    ties = get_all_ties()
+async def list_tie_quantities(
+    only_active: bool = Query(False, description="Return only active ties with stock"),
+    client_key: Optional[str] = Query(
+        None,
+        description="Device key so the caller's own 24h pic hold still shows as available",
+    ),
+):
+    ties = get_all_ties(client_key=client_key)
     if only_active:
         ties = [tie for tie in ties if tie.is_active and tie.quantity > 0]
     return ties
@@ -268,8 +327,18 @@ async def read_tie_quantity(tie_id: str):
 
 
 @router.post("/availability")
-async def read_inventory_availability(payload: InventoryAvailabilityRequest):
-    return check_inventory_availability(payload.items)
+async def read_inventory_availability(
+    payload: InventoryAvailabilityRequest,
+    current_user: Optional[dict] = Depends(get_optional_current_user),
+):
+    # user_id comes from the JWT, never from the body: a spoofed user id would    # otherwise let an attacker ignore someone else's pic hold and buy the
+    # tie out from under them.
+    user_id = current_user.get("id") if current_user else None
+    return check_inventory_availability(
+        payload.items,
+        client_key=(payload.client_key or "").strip() or None,
+        user_id=user_id,
+    )
 
 
 @router.get("/paid-users", response_model=PaidUsersResponse)

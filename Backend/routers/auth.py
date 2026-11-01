@@ -1,12 +1,14 @@
 from uuid import uuid4
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 
 from config import settings
 from database import supabase
+from dependencies import require_auth_secret
 from services.auth_service import authenticate_user, register_user
+from utils.ratelimit import login_rate_limit, reset_login_rate_limit
 from utils.tokens import create_access_token
 
 
@@ -119,8 +121,13 @@ async def signup(payload: SignupRequest):
 
 
 @router.post("/login")
-async def login(payload: LoginRequest):
+async def login(payload: LoginRequest, request: Request):
     """Validate credentials and return a signed access token for protected routes."""
+
+    # Passwords are only 6+ characters, so without a cap this endpoint is a
+    # free credential-stuffing oracle. Limited per source IP AND per target
+    # account (the account key cannot be spoofed away).
+    login_rate_limit(request, payload.email)
 
     repository = _user_repo()
     user = authenticate_user(repository, payload.email, payload.password)
@@ -131,7 +138,13 @@ async def login(payload: LoginRequest):
             detail="Invalid email or password",
         )
 
-    secret_key = settings.AUTH_SECRET_KEY or settings.FW_SECRET_KEY or settings.SUPABASE_KEY
+    # A correct password clears the per-account counter so the real owner
+    # never trips their own limit later in the session.
+    reset_login_rate_limit(payload.email)
+
+    # Dedicated AUTH_SECRET_KEY only (must-fix): signing with FW_SECRET_KEY or
+    # SUPABASE_KEY would let anyone holding those keys mint valid sessions.
+    secret_key = require_auth_secret()
     access_token = create_access_token(
         data={"sub": user.id, "email": user.email, "name": user.full_name},
         secret_key=secret_key,
