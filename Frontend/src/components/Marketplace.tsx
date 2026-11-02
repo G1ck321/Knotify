@@ -42,7 +42,7 @@ function hasStock(stock: Product['stock']) {
 // The result is memoized on the SET of product ids, so an inventory refresh
 // (price/stock change) never reshuffles the grid while a customer is browsing.
 
-const LEAD_TIE_IDS = ['new-plain-black', 'new-plain-wine'];
+const LEAD_TIE_IDS = ['new-plain-black', 'new-plain-wine','corp-blue-floral'];
 
 const TYPE_POOL: Product['category'][] = [
   'Vintage',

@@ -70,7 +70,7 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(orders.router)
-app.include_router(pic_requests.router)
+# app.include_router(pic_requests.router)
 app.include_router(quantity.router)
 app.include_router(webhooks.router)
 

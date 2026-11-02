@@ -199,13 +199,13 @@ export default function ProductDetailModal({
               {/* Request Pic trigger — replaces the old chapel-compliance badge.
                   Mirrors the Reserve Now anchor: scrolls to the request-pic
                   button and opens the confirmation dialog. */}
-              <a
+              {/* <a
                 onClick={() => openPicConfirm()}
                 className="absolute top-4 left-4 z-10 text-white cursor-pointer bg-green-800 hover:bg-green-700 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 rounded shadow border border-brand-border flex items-center gap-1 transition-colors"
                 id="link-request-pic"
               >
                 <Camera size={10} /> Request Pic
-              </a>
+              </a> */}
               {isHot ? (
 
                 <div className="absolute top-8 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
@@ -485,7 +485,7 @@ export default function ProductDetailModal({
       ) : null}
 
       {/* Pic request confirmation: X to dismiss, "Are you sure?" Yes / No */}
-      {showPicConfirm ? (
+      {/* {showPicConfirm ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center p-4"
           id="pic-confirm-dialog"
@@ -543,7 +543,7 @@ export default function ProductDetailModal({
             </p>
           </div>
         </div>
-      ) : null}
+      ) : null} */}
     </div>
   );
 }
