@@ -5,12 +5,14 @@ import httpx
 from datetime import datetime, timedelta, timezone
 
 from fastapi.responses import JSONResponse
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
 
 from schemas import UserReviews
 from database import supabase
 from config import settings
 from routers.quantity import compute_order_total, disount_logic, get_tie_by_id, reserve_inventory
+from routers.pic_requests import collect_unpaid_pic_requests, pic_fee_total
+from utils.ratelimit import pay_rate_limit
 
 from typing import Optional, List, Any
 from dependencies import get_optional_current_user, get_current_user
@@ -25,8 +27,12 @@ NON_PURCHASABLE_TIE_IDS = {"corp-blue-floral"}
 @router.post("/pay")
 async def initialize_payment(
     payload: OrderCreateRequest,
+    request: Request,
     current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
+    # Each hit inserts an order row AND takes a 10-minute inventory hold, so
+    # this endpoint is free resource exhaustion without a cap.
+    pay_rate_limit(request)
     try:
         tx_ref = generate_tx_ref("order")
         normalized_items = []
@@ -69,8 +75,6 @@ async def initialize_payment(
                 }
             )
 
-        # Add delivery fee of 250 on the server so the frontend cannot alter it.
-        calculated_total = server_items_total + 250
         # Determine valid user_id UUID from authenticated session or lookup/auto-create guest user in Supabase
         user_id = current_user.get("id") if current_user else None
 
@@ -100,6 +104,28 @@ async def initialize_payment(
                 else:
                     user_id = guest_uuid
 
+        # ---- Feature C: knotted-tie-pic fees ---------------------------------
+        # Every unpaid pic request this buyer owes is added HERE, server-side,
+        # exactly like the 350 delivery fee: the browser can neither add nor
+        # strip it. Matching runs on three identities (account id, checkout
+        # email, device key) so a guest who signs in mid-journey still carries
+        # their outstanding 100 NGN rows.
+        matching_keys = list(payload.pic_keys or [])
+        if payload.client_key and payload.client_key not in matching_keys:
+            matching_keys.append(payload.client_key)
+
+        pic_rows = collect_unpaid_pic_requests(
+            user_id=user_id,
+            email=payload.email,
+            client_keys=matching_keys,
+        )
+        pic_fees = pic_fee_total(pic_rows)
+        pic_refs = [str(row.get("tx_ref")) for row in pic_rows]
+
+        # Delivery fee (350) + pic fees, both computed on the server so the
+        # amount charged always equals the amount shown.
+        calculated_total = server_items_total + 350 + pic_fees
+
         db_payload = {
             "user_id": user_id,
             "buyer_name": payload.name.strip(),
@@ -111,6 +137,10 @@ async def initialize_payment(
             "currency": "NGN",
             "order_details": payload.order_summary,
             "cart_snapshot": normalized_items,
+            # Feature C: what this order covers, so the webhook can flip
+            # exactly those pic_requests to paid and nothing else.
+            "pic_fees": pic_fees,
+            "pic_refs": pic_refs,
             "delivery_address": payload.address,
             "room_number": payload.roomNumber,
             "email_snapshot": payload.email,
@@ -124,7 +154,14 @@ async def initialize_payment(
         print(f"Order inserted: tx_ref={tx_ref}, rows={len(order_insert.data or [])}")
 
         try:
-            reserve_inventory(tx_ref, normalized_items)
+            reserve_inventory(
+                tx_ref,
+                normalized_items,
+                # Stamp ownership so the buyer's OWN 24h pic hold does not
+                # block this checkout, while everyone else's holds still do.
+                client_key=payload.client_key,
+                user_id=user_id,
+            )
         except HTTPException:
             supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
             raise
@@ -175,7 +212,8 @@ async def initialize_payment(
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{
                 "title":"KnotifyCu",
-                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 250"
+                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 350"
+                + (f" | Pic requests: NGN {pic_fees:.0f}" if pic_fees else "")
             }
         }
 
@@ -206,9 +244,12 @@ async def initialize_payment(
         traceback.print_exc()
         print("!!!!!!!!!!!!!!!!!!!!!!!! \n")
 
+        # Never echo driver/DB internals back to the client: exception text
+        # can carry table names, connection strings and SQL fragments. The
+        # traceback above stays in the server log where it belongs.
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Crash details: {str(e)}"
+            detail="We could not start your checkout. Please try again."
         )
 
 # ---- helpers

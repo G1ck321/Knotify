@@ -18,7 +18,10 @@ class Settings(BaseSettings):
     FLW_SECRET_HASH: str = ""
     FW_SECRET_KEY: str = ""
 
-    # Auth tokens should ideally use their own secret; fall back to the payment key only if needed.
+    # Dedicated JWT signing key (MUST-FIX: never share it with anything else).
+    # It must NOT default to FW_SECRET_KEY or SUPABASE_KEY: anyone holding the
+    # payment key or the database service-role key would otherwise be able to
+    # mint valid sessions for any user. main.py refuses to boot without it.
     AUTH_SECRET_KEY: str | None = None
     AUTH_ALGORITHM: str = "HS256"
     AUTH_TOKEN_EXPIRES_MINUTES: int = 60
@@ -26,6 +29,13 @@ class Settings(BaseSettings):
     # Telegram and email settings for admin notifications.
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    # Public bot handle (no @) used to build the t.me deep link that the
+    # "Request knotted pic" button opens. Never a secret.
+    TELEGRAM_BOT_USERNAME: str = ""
+    # Shared secret from setWebhook(secret_token=...). Telegram echoes it in
+    # X-Telegram-Bot-Api-Secret-Token on every update, so the /webhook/telegram
+    # endpoint can reject anyone else who finds its URL.
+    TELEGRAM_WEBHOOK_SECRET: str = ""
     # RESEND_API_KEY: str
     @field_validator("FW_SECRET_KEY", mode="before")
     @classmethod
@@ -66,6 +76,15 @@ class Settings(BaseSettings):
 
     #Load variables from the project-local .env file or Backend subdirectory
     model_config = SettingsConfigDict(env_file=(".env", "Backend/.env"), env_file_encoding="utf-8")
+
+def auth_secret() -> str:
+    """Return the dedicated JWT signing key, trimmed, or ``""`` when unset.
+
+    The only correct value is a random key written for this app alone — see
+    ``main.py`` for the startup check that refuses to run without one.
+    """
+    return (settings.AUTH_SECRET_KEY or "").strip()
+
 
 #create one shared settings instance so every module reads he configuration
 settings = Settings()

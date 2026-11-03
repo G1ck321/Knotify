@@ -1,3 +1,5 @@
+import { getAccessToken } from './authStorage';
+
 export const PENDING_CHECKOUT_KEY = 'knotify_pending_checkout';
 
 export const PAYMENT_SUCCESS_STATUSES = new Set(['successful', 'completed', 'success']);
@@ -43,11 +45,21 @@ export function clearPendingCheckout() {
   sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
 }
 
-export async function checkInventoryAvailability(items: Array<{ tie_id: string; quantity: number }>) {
+export async function checkInventoryAvailability(
+  items: Array<{ tie_id: string; quantity: number }>,
+  clientKey?: string
+) {
+  const token = getAccessToken();
   const response = await fetch(`${getBackendUrl()}/quantity/availability`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ items }),
+    headers: {
+      'Content-Type': 'application/json',
+      // The server derives the caller's user id from this JWT and their
+      // device key from client_key, so their OWN 24h pic hold is ignored
+      // while everyone else's hold still blocks them.
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(clientKey ? { items, client_key: clientKey } : { items }),
   });
 
   if (!response.ok) {

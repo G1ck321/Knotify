@@ -3,11 +3,17 @@ import {
   X, 
   ShoppingBag, 
   CheckCircle, 
-  Truck
+  Truck,
+  Eye,
+  Camera,
+  Loader2,
+  Send
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Product } from '../types';
 import TiePlaceholder from './TiePlaceholder';
+import { getStoredUser } from '../lib/authStorage';
+import { PIC_FEE, createPicRequest, type PicRequestResult } from '../lib/picRequests';
 
 interface ProductDetailModalProps {
   product: Product;
@@ -27,10 +33,62 @@ export default function ProductDetailModal({
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState<'info' | 'faqs'>('info');
   const [isHighlighted, setIsHighlighted] = useState(false);
+  // Eye-icon lightbox: the catalog crops ties to a 10:6 frame, so the logo at
+  // the blade tip is cut off. This shows the whole tie, uncropped.
+  const [showFullImage, setShowFullImage] = useState(false);
+  // Feature C: knotted-tie-pic request (+₦150, 48-hour hold).
+  const [picBusy, setPicBusy] = useState(false);
+  // Yes/No confirmation dialog for the pic request (has its own X button).
+  const [showPicConfirm, setShowPicConfirm] = useState(false);
+  const [picError, setPicError] = useState('');
+  const [picResult, setPicResult] = useState<PicRequestResult | null>(null);
 
   const price = product?.price ?? product?.originalPrice ?? 0;
-  const deposit = product?.deposit ?? 0;
-  const outstandingBalance = price - deposit;
+  // Reservations are 100% prepaid, so the "deposit" is the full price and
+  // nothing is left outstanding. The old `product.deposit` field is never
+  // populated, which is why the modal rendered a ₦0 deposit with the whole
+  // price still "due".
+  const deposit = price;
+  const outstandingBalance = 0;
+
+  // Discount as a whole percentage. "HOT" is a rule, not a hand-picked list:
+  // any tie discounted by MORE than 27% earns it (see Marketplace.tsx, same rule).
+  const discountPercent =
+    product.originalPrice > 0
+      ? Math.round(
+          ((product.originalPrice - price) / product.originalPrice) * 100
+        )
+      : 0;
+  const isHot = discountPercent > 27;
+
+  const handlePicRequest = async () => {
+    // Second tap just re-opens the same one-time link: no duplicate fee, no
+    // duplicate hold (the backend is idempotent per device + tie).
+    if (picResult?.deep_link) {
+      window.open(picResult.deep_link, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    setPicBusy(true);
+    setPicError('');
+    try {
+      const storedUser = getStoredUser<{ email?: string }>();
+      const result = await createPicRequest({
+        tieId: product.id,
+        email: storedUser?.email,
+      });
+      setPicResult(result);
+      if (result.deep_link) {
+        window.open(result.deep_link, '_blank', 'noopener,noreferrer');
+      }
+    } catch (error) {
+      setPicError(
+        error instanceof Error ? error.message : 'Could not request the pic'
+      );
+    } finally {
+      setPicBusy(false);
+    }
+  };
 
   const handleIncrement = () => {
     if (quantity < product.stock) {
@@ -47,6 +105,21 @@ export default function ProductDetailModal({
   const handleAddToCartAndClose = () => {
     onAddToCart(product, quantity);
     onClose();
+  };
+
+  // Target of the "Request Pic" link: same pattern as the Reserve Now anchor.
+  const picTargetRef = useRef<HTMLButtonElement | null>(null);
+
+  // One entry point for both triggers: scroll to the request-pic button and
+  // open the "Are you sure? Yes / No" confirmation dialog.
+  const openPicConfirm = () => {
+    picTargetRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setShowPicConfirm(true);
+  };
+
+  const confirmPicRequest = () => {
+    setShowPicConfirm(false);
+    handlePicRequest();
   };
   //scroll to reserve button
   //create the ref
@@ -123,17 +196,22 @@ export default function ProductDetailModal({
                 />
               )}
 
-              {/* Premium Compliance Badge */}
-              <div className="absolute top-4 left-4 bg-brand-bg text-brand-primary font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1">
-                <CheckCircle size={10} className="text-brand-secondary" />
-                CHAPEL COMPLIANT
-              </div>
-              {product.name == "Plain Black Tie" || product.name == "Plain Wine Tie" ?
+              {/* Request Pic trigger — replaces the old chapel-compliance badge.
+                  Mirrors the Reserve Now anchor: scrolls to the request-pic
+                  button and opens the confirmation dialog. */}
+              {/* <a
+                onClick={() => openPicConfirm()}
+                className="absolute top-4 left-4 z-10 text-white cursor-pointer bg-green-800 hover:bg-green-700 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 rounded shadow border border-brand-border flex items-center gap-1 transition-colors"
+                id="link-request-pic"
+              >
+                <Camera size={10} /> Request Pic
+              </a> */}
+              {isHot ? (
 
                 <div className="absolute top-8 text-white right-4 bg-rose-500 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
                   HOT
               </div>
-                : ""}
+                ) : null}
               
               
 
@@ -141,6 +219,18 @@ export default function ProductDetailModal({
                 <a onClick={()=>handleScroll()} className="absolute top-13 text-white left-4 cursor-pointer bg-green-800 font-mono text-[9px] tracking-widest uppercase px-3 py-1.5 font-bold rounded shadow border border-brand-border flex items-center gap-1 ">
                  ₦ Re$erve Now
               </a>
+
+              {/* Eye icon: view the WHOLE tie so the logo/blade tip is visible */}
+              {product.image ? (
+                <button
+                  onClick={() => setShowFullImage(true)}
+                  className="absolute top-5 right-16 z-20 p-2 text-brand-primary rounded border border-brand-border bg-brand-bg hover:bg-brand-secondary hover:text-brand-bg transition-colors cursor-pointer"
+                  aria-label="View full tie image"
+                  id="btn-view-full-tie"
+                >
+                  <Eye size={16} />
+                </button>
+              ) : null}
             </div>
 
             {/* TAB SELECTORS: Pickup Info vs FAQs */}
@@ -172,7 +262,7 @@ export default function ProductDetailModal({
                     <div>
                       <h4 className="text-[10px] font-mono font-bold uppercase tracking-wider text-brand-primary">1. Secure Reservation</h4>
                       <p className="text-[11px] text-brand-primary/80 mt-1 font-sans leading-relaxed">
-                        Pay a safe deposit of ₦{(product?.deposit ?? 0).toLocaleString()} today. We handle ironed preparation, custom ziplock pouching, and stock assignment.
+                        Pay the full ₦{deposit.toLocaleString()} today to reserve your tie. We handle ironed preparation, custom ziplock pouching, and stock assignment.
                       </p>
                     </div>
                   </div>
@@ -193,7 +283,7 @@ export default function ProductDetailModal({
                 <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1" id="faqs-tab-content">
                   <div className="p-3 bg-brand-bg rounded border border-brand-border text-left">
                     <p className="text-[11px] font-mono text-brand-primary uppercase tracking-wider font-bold">Do I pay the full amount now?</p>
-                    <p className="text-xs text-brand-primary/80 font-sans mt-1">No, pay only the ₦{(product?.deposit ?? 0).toLocaleString()} reservation deposit to secure your tie. The remaining balance is paid upon resumption pickup.</p>
+                    <p className="text-xs text-brand-primary/80 font-sans mt-1">Yes — reservations are 100% prepaid, so the full ₦{deposit.toLocaleString()} is paid now and nothing remains outstanding. Your tie is then prepared and held for pickup.</p>
                   </div>
                   <div className="p-3 bg-brand-bg rounded border border-brand-border text-left">
                     <p className="text-[11px] font-mono text-brand-primary uppercase tracking-wider font-bold">Where do I collect my order?</p>
@@ -238,10 +328,10 @@ export default function ProductDetailModal({
             <div className="pt-2 border-t border-brand-border grid grid-cols-2 gap-4">
               <div>
                 <span className="text-[9px] font-mono text-brand-secondary uppercase block tracking-widest mb-1">
-                  RESERVATION DEPOSIT
+                  RESERVATION DEPOSIT (100%)
                 </span>
                 <span className="font-sans text-xl font-black text-brand-primary">
-                  ₦{(product?.deposit ?? 0).toLocaleString()}
+                  ₦{deposit.toLocaleString()}
                 </span>
               </div>
               <div>
@@ -249,7 +339,7 @@ export default function ProductDetailModal({
                   OUTSTANDING BALANCE
                 </span>
                 <span className="font-sans text-xl font-semibold text-brand-secondary">
-                  ₦{(outstandingBalance ?? 0).toLocaleString()}
+                  ₦{outstandingBalance.toLocaleString()}
                 </span>
               </div>
             </div>
@@ -312,11 +402,148 @@ export default function ProductDetailModal({
             >
               RESERVE NOW
             </button>
+
+            {/* Feature C — knotted-tie-pic request (+₦150, 48-hour hold) */}
+            <button
+              ref={picTargetRef}
+              onClick={() => setShowPicConfirm(true)}
+              disabled={picBusy || product.stock <= 0}
+              className="w-full py-4 bg-brand-bg hover:bg-brand-card text-brand-primary border border-brand-border font-mono tracking-widest uppercase text-xs rounded transition-all flex items-center justify-center gap-2 cursor-pointer font-bold disabled:opacity-50 disabled:cursor-not-allowed"
+              id="btn-request-pic"
+            >
+              {picBusy ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  HOLDING TIE...
+                </>
+              ) : picResult ? (
+                <>
+                  <Send size={14} />
+                  OPEN TELEGRAM DRAFT
+                </>
+              ) : (
+                <>
+                  <Camera size={14} />
+                  REQUEST KNOTTED PIC (+₦{PIC_FEE})
+                </>
+              )}
+            </button>
+
+            {picResult ? (
+              <p
+                className="text-[10px] font-sans text-brand-primary/80 leading-relaxed text-center"
+                id="pic-request-status"
+              >
+                ₦{picResult.fee} added to your bill (outstanding until you
+                check out) · this tie is held for you until{' '}
+                {picResult.hold_expires_at
+                  ? new Date(picResult.hold_expires_at).toLocaleString('en-NG', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })
+                  : 'up to 48 hours from now'}
+                , so the pic can reach your DM in time.
+              </p>
+            ) : null}
+
+            {picError ? (
+              <p className="text-[10px] font-sans text-rose-400 text-center" id="pic-request-error">
+                {picError}
+              </p>
+            ) : null}
+
             <div ref={targetRef} id="end"className="border-b border-brand-border mt-6"></div>
           </div>
 
         </div>
       </motion.div>
+
+      {/* Full-tie lightbox (eye icon): uncropped so the logo is readable */}
+      {showFullImage && product.image ? (
+        <div
+          className="fixed inset-0 z-[70] bg-black/95 flex flex-col items-center justify-center p-4 sm:p-8"
+          onClick={() => setShowFullImage(false)}
+          id="full-tie-lightbox"
+        >
+          <button
+            onClick={() => setShowFullImage(false)}
+            className="absolute top-5 right-5 p-2 text-white rounded border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
+            aria-label="Close full view"
+          >
+            <X size={18} />
+          </button>
+          <img
+            src={product.image}
+            alt={product.name}
+            className="max-h-[82vh] max-w-full object-contain"
+            referrerPolicy="no-referrer"
+          />
+          <p className="mt-4 font-mono text-[10px] tracking-widest uppercase text-brand-primary/70 text-center">
+            {product.name} — full view
+          </p>
+        </div>
+      ) : null}
+
+      {/* Pic request confirmation: X to dismiss, "Are you sure?" Yes / No */}
+      {/* {showPicConfirm ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center p-4"
+          id="pic-confirm-dialog"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowPicConfirm(false)}
+          />
+
+          <div className="relative bg-brand-bg border border-brand-border rounded-xl shadow-2xl max-w-sm w-full p-6 text-left">
+            <button
+              onClick={() => setShowPicConfirm(false)}
+              className="absolute top-3 right-3 p-2 text-brand-primary rounded border border-brand-border bg-brand-card hover:bg-brand-secondary hover:text-brand-bg transition-colors cursor-pointer"
+              aria-label="Close"
+              id="btn-pic-confirm-close"
+            >
+              <X size={14} />
+            </button>
+
+            <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary block mb-2">
+              Request knotted pic
+            </span>
+            <h3 className="font-serif font-bold text-lg text-brand-primary pr-6 leading-snug">
+              Are you sure you want this tie held?
+            </h3>
+            <p className="text-xs font-sans text-brand-primary/80 leading-relaxed mt-3">
+              We hold the tie for <strong>24–48 hours</strong> while the knotted
+              pic is shot and sent to your <strong>DM</strong>. It costs
+              <strong> ₦{PIC_FEE}</strong>, which joins your bill at checkout.
+            </p>
+
+            <div className="mt-5 flex gap-3">
+              <button
+                onClick={() => setShowPicConfirm(false)}
+                className="flex-1 py-2.5 border border-brand-border bg-brand-card hover:bg-brand-bg text-brand-primary font-mono text-[10px] tracking-widest uppercase font-bold rounded transition-colors cursor-pointer"
+                id="btn-pic-confirm-no"
+              >
+                No
+              </button>
+              <button
+                onClick={confirmPicRequest}
+                disabled={picBusy}
+                className="flex-1 py-2.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-mono text-[10px] tracking-widest uppercase font-bold rounded transition-colors cursor-pointer disabled:opacity-60"
+                id="btn-pic-confirm-yes"
+              >
+                {picBusy ? 'Holding…' : 'Yes, request it'}
+              </button>
+            </div>
+
+            <p className="text-[10px] text-brand-primary/55 font-sans text-center mt-3 leading-relaxed">
+              Pic requests pause automatically once 30% of our ties are already
+              held for other students.
+            </p>
+          </div>
+        </div>
+      ) : null} */}
     </div>
   );
 }
