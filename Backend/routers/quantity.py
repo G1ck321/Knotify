@@ -34,11 +34,6 @@ class PaidUsersResponse(BaseModel):
 
 class InventoryAvailabilityRequest(BaseModel):
     items: list[dict[str, Any]]
-    # Unguessable per-device secret from localStorage. Lets the caller's OWN
-    # 24-hour pic hold be ignored so a pic request never locks them out of
-    # checking out that same tie. Safe to trust because it is a bearer secret
-    # (128+ bits), unlike a user id which is public.
-    client_key: Optional[str] = None
 
 
 HOLD_MINUTES = 10
@@ -112,12 +107,12 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     )
 
 
-def _active_hold_quantities(client_key: Optional[str] = None) -> dict[str, int]:
+def _active_hold_quantities() -> dict[str, int]:
     try:
         supabase.rpc("expire_inventory_holds").execute()
         response = (
             supabase.table("inventory_holds")
-            .select("tie_id, quantity, reason, client_key")
+            .select("tie_id, quantity")
             .eq("status", "active")
             .gt("expires_at", datetime.now(timezone.utc).isoformat())
             .execute()
@@ -127,15 +122,6 @@ def _active_hold_quantities(client_key: Optional[str] = None) -> dict[str, int]:
 
     held: dict[str, int] = {}
     for hold in response.data or []:
-        # Show the requester their own tie as available: their pic hold must
-        # not make the catalog render "OUT OF STOCK" for the one person who
-        # is allowed to buy it. Other people's pic holds still count.
-        if (
-            client_key
-            and hold.get("reason") == "pic_request"
-            and str(hold.get("client_key") or "") == client_key
-        ):
-            continue
         tie_id = str(hold.get("tie_id") or "")
         held[tie_id] = held.get(tie_id, 0) + int(hold.get("quantity") or 0)
     return held
@@ -156,7 +142,7 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     return response.data[0]
 
 
-def get_all_ties(client_key: Optional[str] = None) -> list[TieInventoryResponse]:
+def get_all_ties() -> list[TieInventoryResponse]:
     # Newest first (Feature B): ties added later sit at the top of the catalog.
     # tie_name only breaks ties between rows inserted in the same instant.
     try:
@@ -172,7 +158,7 @@ def get_all_ties(client_key: Optional[str] = None) -> list[TieInventoryResponse]
         # catalog in the old order rather than taking the whole store down.
         response = supabase.table("ties").select("*").order("tie_name", desc=False).execute()
     rows = response.data or []
-    held_quantities = _active_hold_quantities(client_key)
+    held_quantities = _active_hold_quantities()
     normalized_rows = []
     for row in rows:
         available_row = dict(row)
@@ -192,38 +178,118 @@ def get_paid_user_totals() -> PaidUsersResponse:
     )
 
 
-def check_inventory_availability(
-    items: list[dict[str, Any]],
-    client_key: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> list[dict[str, Any]]:
-    params: dict[str, Any] = {"p_items": items}
-    if client_key:
-        params["p_pic_client_key"] = client_key
-    if user_id:
-        params["p_pic_user_id"] = str(user_id)
-    response = supabase.rpc("check_inventory_availability", params).execute()
-    return response.data or []
+def _own_pending_tx_refs(user_id: Optional[str]) -> list[str]:
+    """Order refs of this buyer's still-unpaid checkout attempts.
+
+    A pending order owns a 10-minute inventory hold. Those holds must never
+    count against the same buyer, or one cancelled/failed payment locks them
+    out of their own ties until the hold expires (or forever, for a guest who
+    then signs in to the same account).
+    """
+    if not user_id:
+        return []
+
+    # Holds only live 10 minutes, so only the most recent attempts matter; the
+    # cap also keeps the tx_ref list in the follow-up query small.
+    response = (
+        supabase.table("orders")
+        .select("tx_ref")
+        .eq("user_id", str(user_id))
+        .eq("status", "pending")
+        .order("created_at", desc=True)
+        .limit(20)
+        .execute()
+    )
+    return [str(row.get("tx_ref")) for row in (response.data or []) if row.get("tx_ref")]
 
 
-def reserve_inventory(
-    tx_ref: str,
-    items: list[dict[str, Any]],
-    minutes: int = HOLD_MINUTES,
-    client_key: Optional[str] = None,
-    user_id: Optional[str] = None,
-) -> None:
-    params: dict[str, Any] = {
-        "p_tx_ref": tx_ref,
-        "p_items": items,
-        "p_minutes": int(minutes),
-    }
-    if client_key:
-        params["p_client_key"] = str(client_key)
-    if user_id:
-        params["p_user_id"] = str(user_id)
+def own_held_quantities(user_id: Optional[str]) -> dict[str, int]:
+    """Active hold quantity per tie held by this buyer's own pending orders.
+
+    Guests never reach this path: an order (and therefore a hold) can only be
+    created from a signed-in checkout, so an anonymous caller has no holds of
+    their own to add back and keeps the plain, strict availability answer.
+    """
     try:
-        supabase.rpc("reserve_inventory", params).execute()
+        tx_refs = _own_pending_tx_refs(user_id)
+        if not tx_refs:
+            return {}
+        response = (
+            supabase.table("inventory_holds")
+            .select("tie_id, quantity")
+            .in_("tx_ref", tx_refs)
+            .eq("status", "active")
+            .gt("expires_at", datetime.now(timezone.utc).isoformat())
+            .execute()
+        )
+    except Exception as error:  # pragma: no cover - availability must not 500
+        print(f"inventory: own hold lookup failed: {error}")
+        return {}
+
+    held: dict[str, int] = {}
+    for hold in response.data or []:
+        tie_id = str(hold.get("tie_id") or "")
+        held[tie_id] = held.get(tie_id, 0) + int(hold.get("quantity") or 0)
+    return held
+
+
+def release_superseded_holds(user_id: Optional[str], keep_tx_ref: str) -> None:
+    """Release this buyer's holds from earlier, still-unpaid attempts.
+
+    reserve_inventory() only ignores holds that share the SAME tx_ref, so a
+    retry after a cancelled payment would otherwise fail with 409 even though
+    the buyer is the one holding the stock. Checkout calls this right before
+    reserving; the newest attempt wins.
+    """
+    if not user_id:
+        return
+
+    try:
+        stale_refs = [ref for ref in _own_pending_tx_refs(user_id) if ref != keep_tx_ref]
+    except Exception as error:  # pragma: no cover - never block a new checkout
+        print(f"inventory: superseded hold lookup failed: {error}")
+        return
+
+    for stale_ref in stale_refs:
+        try:
+            release_inventory_hold(stale_ref)
+        except Exception as error:  # pragma: no cover
+            print(f"inventory: could not release superseded hold {stale_ref}: {error}")
+
+
+def check_inventory_availability(
+    items: list[dict[str, Any]], user_id: Optional[str] = None
+) -> list[dict[str, Any]]:
+    response = supabase.rpc("check_inventory_availability", {"p_items": items}).execute()
+    rows = [dict(row) for row in (response.data or [])]
+
+    # The database counts every active hold, including the caller's own. Add
+    # the caller's own held quantity back so their earlier attempt never makes
+    # their own ties look sold out; other buyers' holds still count.
+    own_held = own_held_quantities(user_id)
+    if not own_held:
+        return rows
+
+    for row in rows:
+        own_quantity = own_held.get(str(row.get("tie_id") or ""), 0)
+        if not own_quantity:
+            continue
+        row["available_quantity"] = int(row.get("available_quantity") or 0) + own_quantity
+        row["available"] = row["available_quantity"] >= int(row.get("requested_quantity") or 0)
+
+    return rows
+
+
+def reserve_inventory(tx_ref: str, items: list[dict[str, Any]], minutes: int = HOLD_MINUTES) -> None:
+    try:
+        supabase.rpc(
+            "reserve_inventory",
+            {
+                "p_tx_ref": tx_ref,
+                "p_items": items,
+                "p_minutes": int(minutes),
+            },
+        ).execute()
     except Exception as error:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -307,12 +373,8 @@ def compute_order_total(cart_snapshot: list[dict[str, Any]]) -> float:
 @router.get("/ties", response_model=list[TieInventoryResponse])
 async def list_tie_quantities(
     only_active: bool = Query(False, description="Return only active ties with stock"),
-    client_key: Optional[str] = Query(
-        None,
-        description="Device key so the caller's own 24h pic hold still shows as available",
-    ),
 ):
-    ties = get_all_ties(client_key=client_key)
+    ties = get_all_ties()
     if only_active:
         ties = [tie for tie in ties if tie.is_active and tie.quantity > 0]
     return ties
@@ -331,13 +393,8 @@ async def read_inventory_availability(
     payload: InventoryAvailabilityRequest,
     current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
-    # user_id comes from the JWT, never from the body: a spoofed user id would    # otherwise let an attacker ignore someone else's pic hold and buy the
-    # tie out from under them.
-    user_id = current_user.get("id") if current_user else None
     return check_inventory_availability(
-        payload.items,
-        client_key=(payload.client_key or "").strip() or None,
-        user_id=user_id,
+        payload.items, user_id=(current_user or {}).get("id")
     )
 
 

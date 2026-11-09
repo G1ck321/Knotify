@@ -46,20 +46,16 @@ export function clearPendingCheckout() {
 }
 
 export async function checkInventoryAvailability(
-  items: Array<{ tie_id: string; quantity: number }>,
-  clientKey?: string
+  items: Array<{ tie_id: string; quantity: number }>
 ) {
   const token = getAccessToken();
   const response = await fetch(`${getBackendUrl()}/quantity/availability`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      // The server derives the caller's user id from this JWT and their
-      // device key from client_key, so their OWN 24h pic hold is ignored
-      // while everyone else's hold still blocks them.
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(clientKey ? { items, client_key: clientKey } : { items }),
+    body: JSON.stringify({ items }),
   });
 
   if (!response.ok) {

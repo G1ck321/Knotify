@@ -235,7 +235,7 @@ export default function Marketplace({
       
       {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left, keeps users oriented) */}
       {onBackToShop && (
-        <div className="mb-2 text-left">
+        <div className="mb-1 mt-16  text-left">
           <button
             onClick={onBackToShop}
             className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"

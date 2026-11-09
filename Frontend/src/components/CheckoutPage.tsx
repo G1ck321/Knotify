@@ -39,12 +39,6 @@ import {
   PAYMENT_SUCCESS_STATUSES,
   savePendingCheckout,
 } from '../lib/checkoutPayment';
-import {
-  PIC_FEE,
-  clearLocalPicRequests,
-  getOutstandingPicFee,
-  getPicClientKey,
-} from '../lib/picRequests';
 import Marketplace from './Marketplace';
 
 async function createCheckoutSession(payload: unknown) {
@@ -282,7 +276,8 @@ export default function CheckoutPage({
     () => localStorage.getItem("tx") || ""
   );
 
-  const DELIVERY_FEE = 350;
+  const DELIVERY_FEE = 250;
+  const EMAIL_UPDATES = 100
 
   // Feature B: the Jumia-style ties strip at the bottom of checkout.
   // Newest arrivals first (ties with the latest `added_at` surface first),
@@ -424,8 +419,6 @@ export default function CheckoutPage({
         clearPendingCheckout();
       }
 
-      // The pic fees this order covered are now charged server-side.
-      clearLocalPicRequests();
       setCheckoutStep('success');
       loadgeneratedId();
       onClearCart();
@@ -507,11 +500,7 @@ export default function CheckoutPage({
   };
 
   const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
-  // Feature C: every knotted-pic request this device opened owes ₦100. The
-  // DISPLAY uses the local list; the SERVER independently adds the same fee
-  // from its pic_requests rows, so tampering here cannot change the charge.
-  const picFeeTotal = getOutstandingPicFee();
-  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE + picFeeTotal : 0;
+  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
   const loadgeneratedId = () => {
     
     const tx = localStorage.getItem("tx");
@@ -544,9 +533,7 @@ export default function CheckoutPage({
         setSubmitError('');
         try {
           const availability = await checkInventoryAvailability(
-            cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity })),
-            // Your OWN 24h pic hold must not block your own checkout.
-            getPicClientKey()
+            cartItems.map((item) => ({ tie_id: item.product.id, quantity: item.quantity }))
           );
           const unavailable = availability.filter((item) => !item.available).map((item) => item.tie_id);
           setUnavailableItemIds(unavailable);
@@ -600,10 +587,6 @@ export default function CheckoutPage({
         items: orderItems,
         orderDetails: productNames,
         amount: itemsTotal,
-        // Feature C: identifies this device's outstanding pic rows. The server
-        // still re-queries pic_requests — these keys only help match a guest.
-        client_key: getPicClientKey(),
-        pic_keys: [getPicClientKey()],
       });
 
       const txRef = response.tx_ref;
@@ -649,10 +632,10 @@ export default function CheckoutPage({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-22 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
 
       {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left) */}
-      <div className="mb-4 text-left">
+      <div className="mb-1 text-left">
         <button
           type="button"
           onClick={onContinueShopping}
@@ -784,7 +767,8 @@ export default function CheckoutPage({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT SIDE CONTENT: Step screens */}
-          <div className="lg:col-span-8 space-y-6">
+            <div className="lg:col-span-8 space-y-6">
+              
             <AnimatePresence mode="wait">
               
               {/* SCREEN 1: SHOPPING BAG ITEMS LIST */}
@@ -797,7 +781,7 @@ export default function CheckoutPage({
                   transition={{ duration: 0.25 }}
                   className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 sm:p-8 shadow-xs"
                 >
-                  <div className="flex items-center justify-between mb-6 border-b border-brand-border/40 pb-4">
+                  <div className="flex items-center justify-between mb-6 border-b border-brand-border/40 pb-2">
                     <h2 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-secondary flex items-center gap-2">
                       <ShoppingBag size={14} className="text-brand-secondary" />
                       Bag Items ({cartItems.length})
@@ -814,7 +798,7 @@ export default function CheckoutPage({
                     {cartItems.map((item) => {
                       const unitPrice = getLiveUnitPrice(item);
                       return (
-                        <div key={item.product.id} className="flex py-5 gap-4 sm:gap-5 text-left items-start sm:items-center" id={`page-cart-item-${item.product.id}`}>
+                        <div key={item.product.id} className="flex py-3 gap-3 sm:gap-5 text-left items-start sm:items-center" id={`page-cart-item-${item.product.id}`}>
                           <div className="h-20 w-16 sm:h-24 sm:w-20 shrink-0 overflow-hidden rounded-2xl border border-brand-border/80 bg-brand-bg shadow-xs">
                             {item.product.image ? (
                               <img
@@ -920,8 +904,13 @@ export default function CheckoutPage({
                       <ArrowLeft size={14} />
                       Back to Shop
                     </button>
-                    <span className="text-[11px] text-brand-primary/70 font-sans hidden sm:inline">
-                      Complete checkout using the summary on the right →
+                    <span className="text-[11px] text-brand-primary/70 font-sans  ">
+                        Complete checkout using the summary on the <b>
+                        right →
+                        </b>
+                        <b>
+                        / bottom ↓
+                        </b>
                     </span>
                   </div>
                 </motion.div>
@@ -1295,105 +1284,8 @@ export default function CheckoutPage({
                   </div>
                 </motion.div>
               )}
-
-            </AnimatePresence>
-          </div>
-
-          {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY */}
-          {checkoutStep !== 'success' ? (
-            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
-              
-              <div className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 shadow-xs text-left">
-                <h3 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border/40">
-                  Billing Overview
-                </h3>
-
-                <div className="space-y-3 text-xs font-sans pb-4 border-b border-brand-border/40">
-                  <div className="flex justify-between text-brand-primary/70">
-                    <span>Total items ({totalItems})</span>
-                    <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
-                  </div>
-                  
-                  <div className="flex justify-between text-brand-secondary font-semibold">
-                    <span>Delivery & Hall Handoff</span>
-                    <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
-                  </div>
-
-                  {picFeeTotal > 0 ? (
-                    <div className="flex justify-between text-brand-secondary font-semibold">
-                      <span>
-                        Knotted Pic Request ({picFeeTotal / PIC_FEE})
-                      </span>
-                      <span className="font-sans text-sm">₦{picFeeTotal.toLocaleString()}</span>
-                    </div>
-                  ) : null}
-
-                  <div className="flex justify-between text-brand-primary/80 text-xs pt-1.5 border-t border-brand-border/40">
-                    <span className="font-semibold">Total Payable</span>
-                    <span className="font-sans font-bold text-base text-brand-primary">₦{totalAmountPayable.toLocaleString()}</span>
-                  </div>
-                </div>
-
-                {/* Main Call to Action Button inside sticky card */}
-                {checkoutStep === 'cart' ? (
-                  <button
-                    onClick={handleStartCheckout}
-                    className="w-full mt-4 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-98"
-                  >
-                    Proceed to Details
-                    <ArrowRight size={13} />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleInitiatePayment}
-                    disabled={isSubmitting}
-                    className="w-full mt-4 py-3.5 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 active:scale-98"
-                  >
-                    {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()} via Flutterwave`}
-                  </button>
-                )}
-
-                {/* Quick 1-Click Sample Test Button */}
-                {/* <button
-                  type="button"
-                  onClick={handleUseSampleAccount}
-                  className="w-full mt-2.5 py-2.5 px-3 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/25 text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  title="1-click fill verified Covenant student test profile"
-                >
-                  <Sparkles size={13} className="text-amber-600" />
-                  <span>⚡ Use Sample Account (1-Click Test)</span>
-                </button> */}
-
-                <div className="text-[10px] text-brand-primary/80 font-sans text-center mt-3 leading-relaxed">
-                  🔒 Encrypted connection · Student-verified handoffs
-                </div>
-              </div>
-
-              {/* TRUST REASSURANCE CARD */}
-              <div className="bg-brand-card/70 p-4 rounded-2xl border border-brand-border/60 text-[11px] font-sans leading-relaxed text-brand-primary/80 text-left space-y-1.5">
-                <p className="font-bold text-brand-primary flex items-center gap-1.5 text-xs">
-                  <ShieldCheck size={14} className="text-brand-secondary" />
-                  Low-Risk Student Guarantee
-                </p>
-                <p className="text-xs text-brand-primary/65 leading-relaxed">
-                  Direct delivery to your residence hall lobby on resumption week. Full cash refund or tie exchange directly at pickup if unsuited.
-                </p>
-              </div>
-
-            </div>
-          ) : (
-            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
-              <ReviewForm initialEmail={buyerEmail} />
-            </div>
-          )}
-
-        </div>
-      )}
-
-      {/* 3. JUMIA-STYLE TIES STRIP (Feature B): newest arrivals, one tap into the bag */}
       {checkoutStep !== 'success' && stripProducts.length > 0 && (
-        <section className="mt-12 border-t border-brand-border/40 pt-8 text-left" id="checkout-ties-strip">
+        <section className=" border-t border-brand-border/40 pt-1 text-left" id="checkout-ties-strip">
           <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
             <div>
               <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary select-none">
@@ -1475,6 +1367,106 @@ export default function CheckoutPage({
           </div>
         </section>
       )}
+            </AnimatePresence>
+            </div>
+            
+
+          {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY */}
+          {checkoutStep !== 'success' ? (
+            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
+              
+              <div className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 shadow-xs text-left">
+                <h3 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border/40">
+                  Billing Overview
+                </h3>
+
+                <div className="space-y-3 text-xs font-sans pb-4 border-b border-brand-border/40">
+                  <div className="flex justify-between text-brand-primary/70">
+                    <span>Total items ({totalItems})</span>
+                    <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="flex justify-between text-shadow-brand-accent font-semibold">
+                    <span>Delivery & Development</span>
+                    <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
+                    </div>
+                    <div className="email">
+                <p className='font-bold text-brand-gold text-base'>New:</p>
+                    </div>
+                    <div className="flex justify-between text-black font-semibold">
+                    <span>Email For Instant Restock Updates</span>
+                    <span className="font-sans text-sm">₦{EMAIL_UPDATES.toLocaleString()}</span>
+                    </div>
+
+                  <div className="flex justify-between text-brand-primary/80 text-xs pt-1.5 border-t border-brand-border/40">
+                    <span className="font-semibold">Total Payable</span>
+                    <span className="font-sans font-bold text-base text-brand-primary">₦{totalAmountPayable.toLocaleString()}</span>
+                  </div>
+                </div>
+
+                {/* Main Call to Action Button inside sticky card */}
+                {checkoutStep === 'cart' ? (
+                  <button
+                    onClick={handleStartCheckout}
+                    className="w-full mt-4 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-98"
+                  >
+                    Proceed to Details
+                    <ArrowRight size={13} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleInitiatePayment}
+                    disabled={isSubmitting}
+                    className="w-full mt-4 py-3.5 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 active:scale-98"
+                  >
+                    {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()} via Flutterwave`}
+                  </button>
+                )}
+
+                {/* Quick 1-Click Sample Test Button */}
+                {/* <button
+                  type="button"
+                  onClick={handleUseSampleAccount}
+                  className="w-full mt-2.5 py-2.5 px-3 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/25 text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  title="1-click fill verified Covenant student test profile"
+                >
+                  <Sparkles size={13} className="text-amber-600" />
+                  <span>⚡ Use Sample Account (1-Click Test)</span>
+                </button> */}
+
+                <div className="text-[10px] text-brand-primary/80 font-sans text-center mt-3 leading-relaxed">
+                  🔒 Encrypted connection · Student-verified handoffs
+                </div>
+              </div>
+
+              {/* TRUST REASSURANCE CARD */}
+              <div className="bg-brand-card/70 p-4 rounded-2xl border border-brand-border/60 text-[11px] font-sans leading-relaxed text-brand-primary/80 text-left space-y-1.5">
+                <p className="font-bold text-brand-primary flex items-center gap-1.5 text-xs">
+                  <ShieldCheck size={14} className="text-brand-secondary" />
+                  Low-Risk Student Guarantee
+                </p>
+                <p className="text-xs text-brand-primary/65 leading-relaxed">
+                    Direct delivery to your residence hall lobby on resumption week. Full cash refund after 24-48 hours or tie exchange directly at pickup if unsuited. 
+                    <p className='text-brand-gold font-bold'>
+                     Charges are Non-refundable!
+                    </p>
+                </p>
+              </div>
+
+              </div>
+              
+          ) : (
+            <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
+              <ReviewForm initialEmail={buyerEmail} />
+            </div>
+          )}
+
+        </div>
+      )}
+
+      {/* 3. JUMIA-STYLE TIES STRIP (Feature B): newest arrivals, one tap into the bag */}
+
  {/* <motion.div
               key="marketplace"
               initial={{ opacity: 0, y: 10 }}

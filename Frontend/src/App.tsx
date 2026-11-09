@@ -19,7 +19,6 @@ import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { authFetch, clearAuthSession, clearClientSessionState, clearProductCatalogCache, getStoredUser, persistAuthSession } from './lib/authStorage';
 import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
-import { getPicClientKey } from './lib/picRequests';
 
 
 function normalizeUser(user: any) {
@@ -280,9 +279,7 @@ useEffect(() => {
     const loadInventory = async () => {
       try {
         const [tiesResponse, paidUsersResponse] = await Promise.all([
-          // client_key lets the caller's OWN 24h pic hold still render as
-          // available stock (Feature C); everyone else's holds still count.
-          fetch(`${getBackendUrl()}/quantity/ties?client_key=${encodeURIComponent(getPicClientKey())}`),
+          fetch(`${getBackendUrl()}/quantity/ties`),
           fetch(`${getBackendUrl()}/quantity/paid-users`),
         ]);
 

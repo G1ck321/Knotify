@@ -10,8 +10,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
 from schemas import UserReviews
 from database import supabase
 from config import settings
-from routers.quantity import compute_order_total, disount_logic, get_tie_by_id, reserve_inventory
-from routers.pic_requests import collect_unpaid_pic_requests, pic_fee_total
+from routers.quantity import (
+    compute_order_total,
+    disount_logic,
+    get_tie_by_id,
+    release_superseded_holds,
+    reserve_inventory,
+)
 from utils.ratelimit import pay_rate_limit
 
 from typing import Optional, List, Any
@@ -104,27 +109,9 @@ async def initialize_payment(
                 else:
                     user_id = guest_uuid
 
-        # ---- Feature C: knotted-tie-pic fees ---------------------------------
-        # Every unpaid pic request this buyer owes is added HERE, server-side,
-        # exactly like the 350 delivery fee: the browser can neither add nor
-        # strip it. Matching runs on three identities (account id, checkout
-        # email, device key) so a guest who signs in mid-journey still carries
-        # their outstanding 100 NGN rows.
-        matching_keys = list(payload.pic_keys or [])
-        if payload.client_key and payload.client_key not in matching_keys:
-            matching_keys.append(payload.client_key)
-
-        pic_rows = collect_unpaid_pic_requests(
-            user_id=user_id,
-            email=payload.email,
-            client_keys=matching_keys,
-        )
-        pic_fees = pic_fee_total(pic_rows)
-        pic_refs = [str(row.get("tx_ref")) for row in pic_rows]
-
-        # Delivery fee (350) + pic fees, both computed on the server so the
-        # amount charged always equals the amount shown.
-        calculated_total = server_items_total + 350 + pic_fees
+        # Delivery fee (350) is added server-side so the amount charged always
+        # equals the amount shown.
+        calculated_total = server_items_total + 350
 
         db_payload = {
             "user_id": user_id,
@@ -137,10 +124,6 @@ async def initialize_payment(
             "currency": "NGN",
             "order_details": payload.order_summary,
             "cart_snapshot": normalized_items,
-            # Feature C: what this order covers, so the webhook can flip
-            # exactly those pic_requests to paid and nothing else.
-            "pic_fees": pic_fees,
-            "pic_refs": pic_refs,
             "delivery_address": payload.address,
             "room_number": payload.roomNumber,
             "email_snapshot": payload.email,
@@ -153,15 +136,13 @@ async def initialize_payment(
         order_insert = supabase.table("orders").insert(db_payload).execute()
         print(f"Order inserted: tx_ref={tx_ref}, rows={len(order_insert.data or [])}")
 
+        # A cancelled or abandoned earlier attempt leaves a 10-minute hold on
+        # these same ties. It belongs to this buyer, so drop it first: the
+        # newest attempt wins instead of failing with "no longer available".
+        release_superseded_holds(user_id, tx_ref)
+
         try:
-            reserve_inventory(
-                tx_ref,
-                normalized_items,
-                # Stamp ownership so the buyer's OWN 24h pic hold does not
-                # block this checkout, while everyone else's holds still do.
-                client_key=payload.client_key,
-                user_id=user_id,
-            )
+            reserve_inventory(tx_ref, normalized_items)
         except HTTPException:
             supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
             raise
@@ -213,7 +194,6 @@ async def initialize_payment(
             "customizations":{
                 "title":"KnotifyCu",
                 "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 350"
-                + (f" | Pic requests: NGN {pic_fees:.0f}" if pic_fees else "")
             }
         }
 

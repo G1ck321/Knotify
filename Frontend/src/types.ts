@@ -643,7 +643,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },
   {
     id: 'corp-plain-blue',
-    name: 'Plain Blue Corporate Tie',
+    name: 'Dark Plain Blue Corporate Tie',
     seller: 'Knotify Official',
     sellerRating: 4.9,
     sellerHall: 'Knotify Base',
@@ -1267,7 +1267,7 @@ export const INITIAL_PRODUCTS: Product[] = [
   },  
   {
     id: 'vnt-diamond-tie',
-    name: 'Floral Vintage Sequence Tie',
+    name: 'Diamond Vintage Sequence Tie',
     seller: 'Knotify Official',
     sellerRating: 4.8,
     sellerHall: 'Daniel Hall',
@@ -1285,5 +1285,25 @@ export const INITIAL_PRODUCTS: Product[] = [
     isFeatured: false,
     reviews: []
   },  
-
+{
+  //Nov 3
+      id: 'slim-plain-black',
+    name: 'Slim Black Tie',
+    seller: 'Knotify Official',
+    sellerRating: 4.7,
+    sellerHall: 'Knotify Base',
+    originalPrice: 2200,
+    condition: 'Student-Ready',
+    category: 'Corporate',
+    color: 'Black',
+    stock: 35,
+    description: "The extremely versatile Black Tie, But with a twist.",
+    materials: "The extremely versatile Black Tie, But with a twist.",
+    pickupProcess: 'Pay via transfer, pick up at school.',
+    image: '/ties/new ties/Plain Black Tie.png',
+    rating: 5.0,
+    reviewsCount: 31,
+    isFeatured: true,
+    reviews: []
+  },
 ];
