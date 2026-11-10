@@ -81,84 +81,251 @@ export default function Navbar({
             {/* FAR RIGHT — Store, Bag, and Sign Up */}
             <div className="flex items-center gap-2 sm:gap-4" id="navbar-actions">
               
-              {/* Store Button */}
-              <button
-                onClick={() => setCurrentTab('marketplace')}
-                className={`text-xs sm:text-sm font-sans transition-all cursor-pointer px-3.5 py-1.5 rounded-full ${
-                  currentTab === 'marketplace'
-                    ? 'bg-brand-secondary text-[#FFFEF2] font-bold shadow-sm ring-1 ring-brand-secondary/60'
-                    : 'text-brand-primary/80 hover:text-brand-secondary hover:bg-brand-secondary/10 font-medium'
-                }`}
-                aria-current={currentTab === 'marketplace' ? 'page' : undefined}
-              >
-                Store
-              </button>
-
-              <button
-                onClick={() => setCurrentTab('about')}
-                className={`text-xs sm:text-sm font-sans transition-all cursor-pointer px-3.5 py-1.5 rounded-full ${
-                  currentTab === 'about'
-                    ? 'bg-brand-secondary text-[#FFFEF2] font-bold shadow-sm ring-1 ring-brand-secondary/60'
-                    : 'text-brand-primary/80 hover:text-brand-secondary hover:bg-brand-secondary/10 font-medium'
-                }`}
-                aria-current={currentTab === 'about' ? 'page' : undefined}
-              >
-                About
-              </button>
-
-              {/* Bag Button */}
-              <button
-                onClick={onOpenCart}
-                className={`flex items-center gap-1.5 text-xs sm:text-sm font-sans font-medium text-brand-primary hover:text-brand-secondary transition-all cursor-pointer px-2.5 sm:px-3 py-1.5 rounded-full hover:bg-black/5 relative ${isBagHighlighted ? 'ring-2 ring-brand-secondary bg-brand-secondary/10 scale-105' : ''}`}
-                aria-label="Shopping Bag"
-                id="btn-cart"
-              >
-                <ShoppingBag size={17} strokeWidth={1.8} />
-                <span className="hidden sm:inline font-sans">Bag</span>
-                {cartCount > 0 && (
-                  <span className="bg-brand-secondary text-[#FFFEF2] text-[9px] font-mono font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-
-              {/* Sign Up / User Profile Button */}
-              {currentUser ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      setCurrentTab('dashboard');
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className="flex items-center gap-1.5 text-xs sm:text-sm font-sans font-semibold text-brand-secondary bg-brand-secondary/10 px-3 py-1.5 rounded-full hover:bg-brand-secondary/20 transition-all max-w-[130px] cursor-pointer"
-                    title="My account"
-                  >
-                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-brand-secondary text-[#FFFEF2] shrink-0">
-                      <User size={12} strokeWidth={2.4} />
-                    </span>
-                    <span className="hidden md:inline">{currentUser.name?.split(' ')[0]}</span>
-                  </button>
-                  <button
-                    onClick={onLogout}
-                    className="p-1.5 text-brand-primary/50 hover:text-brand-secondary transition-colors cursor-pointer"
-                    title="Log out"
-                  >
-                    <LogOut size={15} />
-                  </button>
-                </div>
-              ) : (
+              {/* DESKTOP NAV ACTIONS (Hidden on small screens < md to prevent cramming) */}
+              <div className="hidden md:flex items-center gap-3 lg:gap-4" id="navbar-actions-desktop">
+                {/* Store Button */}
                 <button
-                  onClick={onOpenAuth}
-                  className="text-xs sm:text-sm font-sans font-medium bg-brand-secondary text-[#FFFEF2] px-4 sm:px-5 py-2 rounded-full hover:bg-brand-accent transition-all duration-200 cursor-pointer shadow-xs hover:shadow-sm active:scale-98"
-                  id="btn-navbar-signup"
+                  onClick={() => setCurrentTab('marketplace')}
+                  className={`text-xs sm:text-sm font-sans font-medium transition-colors cursor-pointer px-3.5 py-1.5 rounded-full ${
+                    currentTab === 'marketplace'
+                      ? 'text-brand-secondary bg-brand-secondary/10 font-semibold'
+                      : 'text-brand-primary/80 hover:text-brand-secondary'
+                  }`}
                 >
-                  Sign up
+                  Store
                 </button>
-              )}
+
+                {/* About Button */}
+                <button
+                  onClick={() => setCurrentTab('about')}
+                  className={`text-xs sm:text-sm font-sans font-medium transition-colors cursor-pointer px-3.5 py-1.5 rounded-full ${
+                    currentTab === 'about'
+                      ? 'text-brand-secondary bg-brand-secondary/10 font-semibold'
+                      : 'text-brand-primary/80 hover:text-brand-secondary'
+                  }`}
+                  aria-current={currentTab === 'about' ? 'page' : undefined}
+                >
+                  About
+                </button>
+
+                {/* Bag Button */}
+                <button
+                  onClick={onOpenCart}
+                  className={`flex items-center gap-1.5 text-xs sm:text-sm font-sans font-medium text-brand-primary hover:text-brand-secondary transition-all cursor-pointer px-3 py-1.5 rounded-full hover:bg-black/5 relative ${isBagHighlighted ? 'ring-2 ring-brand-secondary bg-brand-secondary/10 scale-105' : ''}`}
+                  aria-label="Shopping Bag"
+                  id="btn-cart"
+                >
+                  <ShoppingBag size={17} strokeWidth={1.8} />
+                  <span className="font-sans">Bag</span>
+                  {cartCount > 0 && (
+                    <span className="bg-brand-secondary text-[#FFFEF2] text-[9px] font-mono font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Sign Up / User Profile Button */}
+                {currentUser ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setCurrentTab('dashboard');
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className="text-xs sm:text-sm font-sans font-medium text-brand-secondary bg-brand-secondary/10 px-3.5 py-1.5 rounded-full hover:bg-brand-secondary/15 transition-all max-w-[120px] truncate cursor-pointer"
+                    >
+                      {currentUser.name?.split(' ')[0]}
+                    </button>
+                    <button
+                      onClick={onLogout}
+                      className="p-1.5 text-brand-primary/50 hover:text-brand-secondary transition-colors cursor-pointer"
+                      title="Log out"
+                    >
+                      <LogOut size={15} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={onOpenAuth}
+                    className="text-xs sm:text-sm font-sans font-medium bg-brand-secondary text-[#FFFEF2] px-5 py-2 rounded-full hover:bg-brand-accent transition-all duration-200 cursor-pointer shadow-xs hover:shadow-sm active:scale-98"
+                    id="btn-navbar-signup"
+                  >
+                    Sign up
+                  </button>
+                )}
+              </div>
+
+              {/* MOBILE / COMPACT SCREEN ACTIONS: Quick Bag + Sandwich Menu Hamburger */}
+              <div className="flex md:hidden items-center gap-2" id="navbar-actions-mobile">
+                <button
+                  onClick={onOpenCart}
+                  className="relative p-2 rounded-full text-brand-primary hover:text-brand-secondary hover:bg-black/5 transition-colors cursor-pointer"
+                  aria-label="Shopping Bag"
+                >
+                  <ShoppingBag size={20} strokeWidth={1.8} />
+                  {cartCount > 0 && (
+                    <span className="absolute 1 top-0.5 right-0.5 bg-brand-secondary text-[#FFFEF2] text-[9px] font-mono font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                      {cartCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Hamburger / Sandwich Icon Button */}
+                <button
+                  onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+                  className="p-2 rounded-xl text-brand-primary hover:text-brand-secondary hover:bg-black/5 transition-colors cursor-pointer"
+                  aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+                  aria-expanded={isMobileMenuOpen}
+                >
+                  {isMobileMenuOpen ? (
+                    <X size={22} className="text-brand-secondary" />
+                  ) : (
+                    <Menu size={22} className="text-brand-primary" />
+                  )}
+                </button>
+              </div>
 
             </div>
           </div>
         </div>
+
+        {/* ── DROPDOWN SANDWICH MENU FOR COMPACT SCREENS ── */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="md:hidden border-b border-brand-border/40 bg-[#FFFEF2]/98 backdrop-blur-xl shadow-lg overflow-hidden"
+            >
+              <div className="px-5 py-4 space-y-3">
+                {currentUser && (
+                  <div className="flex items-center justify-between pb-3 border-b border-black/8">
+                    <div>
+                      <p className="text-xs font-mono uppercase tracking-wider text-brand-secondary/80">Signed in as</p>
+                      <p className="font-serif font-bold text-sm text-brand-primary">{currentUser.name || 'Student'}</p>
+                    </div>
+                    <span className="text-[10px] font-sans font-semibold bg-brand-secondary/10 text-brand-secondary px-2.5 py-1 rounded-full">
+                      {currentUser.hall || currentUser.residenceHall || 'CU Student'}
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-1">
+                  <button
+                    onClick={() => {
+                      setCurrentTab('home');
+                      setIsMobileMenuOpen(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`flex items-center gap-3 w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-sans font-medium transition-colors cursor-pointer ${
+                      currentTab === 'home'
+                        ? 'bg-brand-secondary/10 text-brand-secondary font-semibold'
+                        : 'text-brand-primary/80 hover:bg-black/5 hover:text-brand-primary'
+                    }`}
+                  >
+                    <Home size={18} />
+                    <span>Home</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setCurrentTab('marketplace');
+                      setIsMobileMenuOpen(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`flex items-center gap-3 w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-sans font-medium transition-colors cursor-pointer ${
+                      currentTab === 'marketplace'
+                        ? 'bg-brand-secondary/10 text-brand-secondary font-semibold'
+                        : 'text-brand-primary/80 hover:bg-black/5 hover:text-brand-primary'
+                    }`}
+                  >
+                    <Compass size={18} />
+                    <span>Explore Store</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setCurrentTab('about');
+                      setIsMobileMenuOpen(false);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`flex items-center gap-3 w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-sans font-medium transition-colors cursor-pointer ${
+                      currentTab === 'about'
+                        ? 'bg-brand-secondary/10 text-brand-secondary font-semibold'
+                        : 'text-brand-primary/80 hover:bg-black/5 hover:text-brand-primary'
+                    }`}
+                  >
+                    <Info size={18} />
+                    <span>About Knotify</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      onOpenCart();
+                    }}
+                    className="flex items-center justify-between w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-sans font-medium text-brand-primary/80 hover:bg-black/5 hover:text-brand-primary transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <ShoppingBag size={18} />
+                      <span>Shopping Bag</span>
+                    </div>
+                    {cartCount > 0 && (
+                      <span className="bg-brand-secondary text-[#FFFEF2] text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">
+                        {cartCount} item{cartCount > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </button>
+
+                  {currentUser ? (
+                    <>
+                      <button
+                        onClick={() => {
+                          setCurrentTab('dashboard');
+                          setIsMobileMenuOpen(false);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className={`flex items-center gap-3 w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-sans font-medium transition-colors cursor-pointer ${
+                          currentTab === 'dashboard'
+                            ? 'bg-brand-secondary/10 text-brand-secondary font-semibold'
+                            : 'text-brand-primary/80 hover:bg-black/5 hover:text-brand-primary'
+                        }`}
+                      >
+                        <User size={18} />
+                        <span>My Dashboard & Orders</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          onLogout();
+                        }}
+                        className="flex items-center gap-3 w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-sans font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer mt-1"
+                      >
+                        <LogOut size={18} />
+                        <span>Sign Out</span>
+                      </button>
+                    </>
+                  ) : (
+                    <div className="pt-2">
+                      <button
+                        onClick={() => {
+                          setIsMobileMenuOpen(false);
+                          onOpenAuth();
+                        }}
+                        className="w-full text-center text-sm font-sans font-medium bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] py-3 rounded-xl transition-all shadow-sm cursor-pointer"
+                      >
+                        Sign in / Create Account
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.header>
 
       {/* ── INTERACTIVE BOTTOM NAVBAR (For Mobile / Smaller Screens < 640px) ── */}
@@ -210,6 +377,7 @@ export default function Navbar({
             )}
           </button>
 
+          {/* 3. About Tab */}
           <button
             onClick={() => {
               setCurrentTab('about');
@@ -230,7 +398,7 @@ export default function Navbar({
             )}
           </button>
 
-          {/* 3. Bag Tab */}
+          {/* 4. Bag Tab */}
           <button
             onClick={onOpenCart}
             className={`flex flex-col items-center justify-center gap-1 py-1 px-3 rounded-xl transition-all cursor-pointer relative ${
@@ -255,7 +423,7 @@ export default function Navbar({
             )}
           </button>
 
-          {/* 4. Account Tab */}
+          {/* 5. Account Tab */}
           <button
             onClick={() => {
               if (currentUser) {

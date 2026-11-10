@@ -42,28 +42,29 @@ const HERO_MODELS = [
   { id: 2, src: '/models/model2.jpg', label: 'Regal Stripe', hall: 'Daniel Hall' },
   { id: 3, src: '/models/model3.jpg', label: 'The Resumption Fit', hall: 'Paul Hall' },
   { id: 4, src: '/models/model4.jpg', label: 'Dapper Senior', hall: 'PG Hall' },
-  { id: 5, src: '/models/model6.jpg', label: 'Chapel Standard', hall: 'Esther Hall' },
+  { id: 5, src: '/models/model6.jpg', label: 'Class & Chapel Standard', hall: 'Esther Hall' },
 ];
 
 // ── Showcase Ties for CTA Gallery Carousel (Reference Image 1) ──
 const CTA_GALLERY_TIES = [
-  { id: 'cta-1', name: 'Plain Black Tie', price: '₦2,100', image: '/ties/new ties/Plain Black Tie.png' },
+  { id: 'cta-5', name: 'Wine Striped Tie', price: '₦3,500', image: '/ties/new ties/Wine Striped Tie.png' },
   { id: 'cta-2', name: 'Plain Wine Tie', price: '₦2,200', image: '/ties/new ties/Plain Wine Tie.png' },
+  { id: 'cta-1', name: 'Plain Black Tie', price: '₦2,100', image: '/ties/new ties/Plain Black Tie.png' },
   { id: 'cta-3', name: 'Blue Regimental White Striped', price: '₦3,500', image: '/ties/new ties/Blue Regimental White Striped Tie.png' },
   { id: 'cta-4', name: 'Navy & Wine Striped Tie', price: '₦4,000', image: '/ties/new ties/Nave and WIne Striped Tie.png' },
-  { id: 'cta-5', name: 'Wine Striped Tie', price: '₦3,500', image: '/ties/new ties/Wine Striped Tie.png' },
   { id: 'cta-6', name: 'Blue Floral Corporate', price: '₦4,000', image: '/ties/Corporate Ties/Blue Floral Corporate Tie.jpg' },
   { id: 'cta-7', name: 'Floral Vintage Tie', price: '₦4,200', image: '/ties/Vintage Ties/Floral Vintage Tie.jpg' },
   { id: 'cta-8', name: 'Green Diamond Vintage Tie', price: '₦3,800', image: '/ties/Vintage Ties/Green Diamond Vintage Tie.jpg' },
 ];
 
 // Fallback in case products list is short, ensuring 2 full rows (6 ties)
+// First row strictly matches screenshot: Wine Striped Tie, Plain Wine Tie, Plain Black Tie
 const FALLBACK_TIES = [
-  { id: 'new-plain-black', name: 'Plain Black Tie', price: 2100, originalPrice: 2500, image: '/ties/new ties/Plain Black Tie.png', stock: 35 },
+  { id: 'new-wine-striped', name: 'Wine Striped Tie', price: 3500, originalPrice: 4000, image: '/ties/new ties/Wine Striped Tie.png', stock: 12 },
   { id: 'new-plain-wine', name: 'Plain Wine Tie', price: 2200, originalPrice: 2800, image: '/ties/new ties/Plain Wine Tie.png', stock: 22 },
+  { id: 'new-plain-black', name: 'Plain Black Tie', price: 2100, originalPrice: 2500, image: '/ties/new ties/Plain Black Tie.png', stock: 35 },
   { id: 'new-blue-regimental', name: 'Blue Regimental White Striped', price: 3500, originalPrice: 4000, image: '/ties/new ties/Blue Regimental White Striped Tie.png', stock: 15 },
   { id: 'new-navy-wine-striped', name: 'Navy & Wine Striped Tie', price: 4000, originalPrice: 4500, image: '/ties/new ties/Nave and WIne Striped Tie.png', stock: 18 },
-  { id: 'new-wine-striped', name: 'Wine Striped Tie', price: 3500, originalPrice: 4000, image: '/ties/new ties/Wine Striped Tie.png', stock: 12 },
   { id: 'corp-blue-floral', name: 'Blue Floral Corporate Tie', price: 4000, originalPrice: 4500, image: '/ties/Corporate Ties/Blue Floral Corporate Tie.jpg', stock: 30 },
 ];
 
@@ -108,22 +109,126 @@ export default function LandingPage({
     const timer = window.setTimeout(preload, 600);
     return () => window.clearTimeout(timer);
   }, []);
-  // GSAP Entrance
+
+  // GSAP & Anime.js Animations
   useEffect(() => {
+    // 1. GSAP Hero Entrance + Scroll-triggered reveals
     const ctx = gsap.context(() => {
+      // Hero Elements Staggered Fade Up with spring ease
       gsap.fromTo(
         '.hero-anim-item',
-        { y: 20, opacity: 0 },
+        { y: 32, opacity: 0, scale: 0.98 },
         {
           y: 0,
           opacity: 1,
-          duration: 0.65,
-          stagger: 0.1,
+          scale: 1,
+          duration: 0.9,
+          stagger: 0.12,
           ease: 'power3.out',
         }
       );
+
+      // Hero Model Fan floating ambient animation
+      gsap.to('.hero-model-card', {
+        y: '-=6',
+        duration: 2.4,
+        ease: 'sine.inOut',
+        repeat: -1,
+        yoyo: true,
+        stagger: 0.25,
+      });
+
+      // Best Sellers Section Header Scroll Animation
+      gsap.fromTo(
+        '#bestsellers .bestseller-header',
+        { y: 35, opacity: 0 },
+        {
+          scrollTrigger: {
+            trigger: '#bestsellers',
+            start: 'top 80%',
+          },
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          ease: 'power2.out',
+        }
+      );
+
+      // Best Sellers Cards ScrollTrigger Stagger
+      gsap.fromTo(
+        '#bestsellers .bestseller-tie-card',
+        { y: 40, opacity: 0 },
+        {
+          scrollTrigger: {
+            trigger: '#bestsellers',
+            start: 'top 75%',
+          },
+          y: 0,
+          opacity: 1,
+          duration: 0.7,
+          stagger: 0.12,
+          ease: 'power3.out',
+        }
+      );
+
+      // Value Pillars in About Section
+      gsap.fromTo(
+        '#about-section .about-card',
+        { y: 30, opacity: 0 },
+        {
+          scrollTrigger: {
+            trigger: '#about-section',
+            start: 'top 80%',
+          },
+          y: 0,
+          opacity: 1,
+          duration: 0.7,
+          stagger: 0.15,
+          ease: 'power2.out',
+        }
+      );
+
+      // CTA Carousel & Section Reveal
+      gsap.fromTo(
+        '#cta-section .cta-anim-item',
+        { y: 30, opacity: 0 },
+        {
+          scrollTrigger: {
+            trigger: '#cta-section',
+            start: 'top 80%',
+          },
+          y: 0,
+          opacity: 1,
+          duration: 0.8,
+          stagger: 0.15,
+          ease: 'power3.out',
+        }
+      );
+
+      // Hero badge pulse
+      gsap.to('.hero-badge-pulse', {
+        scale: 1.04,
+        opacity: 0.95,
+        duration: 1.2,
+        repeat: -1,
+        yoyo: true,
+        ease: 'power1.inOut',
+      });
+
+      // Stock badge float
+      gsap.to('.stock-badge-float', {
+        y: -3,
+        duration: 1.5,
+        repeat: -1,
+        yoyo: true,
+        ease: 'sine.inOut',
+        stagger: 0.2,
+      });
     }, heroRef);
-    return () => ctx.revert();
+
+    return () => {
+      ctx.revert();
+    };
   }, []);
 
   const handlePrevModel = () => {
@@ -137,8 +242,20 @@ export default function LandingPage({
   // ── Home showcase uses the STATIC catalog (INITIAL_PRODUCTS), never the
   // Supabase-synced `products` state. Prices here are display-only and are
   // intentionally NOT live-synced; real stock/price live on the collection page.
+  // Row order for the first row: Wine Striped Tie, Plain Wine Tie, Plain Black Tie
+  const PRIORITY_FIRST_ROW_IDS = ['new-wine-striped', 'new-plain-wine', 'new-plain-black'];
+
   const baseTiesList = INITIAL_PRODUCTS;
   const sortedProducts = [...baseTiesList].sort((a, b) => {
+    const aPriority = PRIORITY_FIRST_ROW_IDS.indexOf(a.id);
+    const bPriority = PRIORITY_FIRST_ROW_IDS.indexOf(b.id);
+
+    if (aPriority !== -1 && bPriority !== -1) {
+      return aPriority - bPriority;
+    }
+    if (aPriority !== -1) return -1;
+    if (bPriority !== -1) return 1;
+
     const aInStock = Number(a.stock) > 0;
     const bInStock = Number(b.stock) > 0;
     if (aInStock && !bInStock) return -1;
@@ -205,22 +322,22 @@ export default function LandingPage({
           </button>
         </div>
 
-        {/* ── ASCENDING MODEL CARD FAN WITH MANUAL CONTROLLERS & 4s ROTATION (Reference Image 2) ── */}
+        {/* ── ASCENDING MODEL CARD FAN WITH SMOOTH AUTO ROTATION ── */}
         <div 
-          className="hero-anim-item w-full max-w-4xl mx-auto mt-12 sm:mt-16 pt-2 relative select-none"
+          className="hero-anim-item w-full max-w-4xl mx-auto mt-10 sm:mt-14 pt-2 relative select-none"
           onMouseEnter={() => setIsCarouselPaused(true)}
           onMouseLeave={() => setIsCarouselPaused(false)}
         >
           {/* Card Fan Display */}
-          <div className="flex items-end justify-center gap-2 sm:gap-4 md:gap-5 px-1 sm:px-4">
+          <div className="flex items-end justify-center gap-1.5 sm:gap-4 md:gap-5 px-1 sm:px-4">
             {HERO_MODELS.map((model, index) => {
               const isActive = index === activeModelIndex;
               const distFromCenter = Math.abs(index - activeModelIndex);
               
               let heightClass = 'h-48 sm:h-64 md:h-76';
-              let widthClass = 'w-20 sm:w-36 md:w-44';
+              let widthClass = 'w-16 sm:w-36 md:w-44';
               let translateClass = 'translate-y-6 sm:translate-y-8';
-              let opacityClass = 'opacity-85 hover:opacity-100';
+              let opacityClass = 'opacity-80 hover:opacity-100';
 
               if (distFromCenter === 0) {
                 heightClass = 'h-64 sm:h-80 md:h-96';
@@ -229,7 +346,7 @@ export default function LandingPage({
                 opacityClass = 'opacity-100 ring-2 ring-brand-secondary/35 shadow-2xl';
               } else if (distFromCenter === 1) {
                 heightClass = 'h-56 sm:h-72 md:h-84';
-                widthClass = 'w-24 sm:w-40 md:w-48';
+                widthClass = 'w-20 sm:w-40 md:w-48';
                 translateClass = 'translate-y-3 sm:translate-y-4';
                 opacityClass = 'opacity-90 hover:opacity-100';
               }
@@ -239,64 +356,39 @@ export default function LandingPage({
                   key={model.id}
                   onClick={() => setActiveModelIndex(index)}
                   layout
-                  transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-                  className={`shrink-0 cursor-pointer rounded-2xl sm:rounded-3xl overflow-hidden bg-white shadow-lg border border-black/8 relative transition-all duration-300 ${heightClass} ${widthClass} ${translateClass} ${opacityClass}`}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 260,
+                    damping: 24,
+                    mass: 0.8,
+                  }}
+                  className={`shrink-0 cursor-pointer rounded-2xl sm:rounded-3xl overflow-hidden bg-white shadow-lg border border-black/8 relative transition-all duration-500 ease-out ${heightClass} ${widthClass} ${translateClass} ${opacityClass}`}
                 >
                   <img
                     src={model.src}
                     alt={model.label}
-                    className="w-full h-full object-cover object-top"
+                    className="w-full h-full object-cover object-top transition-transform duration-700 ease-out hover:scale-105"
                     loading="lazy"
                   />
                   
                   {isActive && (
-                    <div className="absolute inset-x-0 bottom-0 p-2 sm:p-3 bg-gradient-to-t from-black/80 via-black/30 to-transparent text-[#FFFEF2] text-left">
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="absolute inset-x-0 bottom-0 p-2 sm:p-3 bg-gradient-to-t from-black/80 via-black/30 to-transparent text-[#FFFEF2] text-left"
+                    >
                       <p className="font-serif font-bold text-[10px] sm:text-xs truncate">
                         {model.label}
                       </p>
                       <p className="font-sans text-[8px] sm:text-[9px] text-[#FFFEF2]/75">
                         {model.hall}
                       </p>
-                    </div>
+                    </motion.div>
                   )}
                 </motion.div>
               );
             })}
-          </div>
-
-          {/* Manual Controller Controls Bar (Previous, Next, Timer indicator) */}
-          <div className="flex items-center justify-center gap-3 sm:gap-4 mt-6">
-            <button
-              onClick={handlePrevModel}
-              className="w-9 h-9 rounded-full bg-[#F4F2E6] hover:bg-white border border-brand-secondary/20 flex items-center justify-center text-brand-primary transition-all hover:scale-105 cursor-pointer shadow-xs active:scale-95"
-              aria-label="Previous style"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F4F2E6] border border-brand-secondary/15">
-              {HERO_MODELS.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setActiveModelIndex(i)}
-                  className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                    i === activeModelIndex ? 'w-5 bg-brand-secondary' : 'w-1.5 bg-brand-secondary/20 hover:bg-brand-secondary/40'
-                  }`}
-                  aria-label={`Slide ${i + 1}`}
-                />
-              ))}
-              <span className="text-[10px] font-mono text-brand-secondary/60 ml-1.5 pl-1.5 border-l border-brand-secondary/20">
-                4s
-              </span>
-            </div>
-
-            <button
-              onClick={handleNextModel}
-              className="w-9 h-9 rounded-full bg-[#F4F2E6] hover:bg-white border border-brand-secondary/20 flex items-center justify-center text-brand-primary transition-all hover:scale-105 cursor-pointer shadow-xs active:scale-95"
-              aria-label="Next style"
-            >
-              <ChevronRight size={16} />
-            </button>
           </div>
 
         </div>
@@ -328,19 +420,19 @@ export default function LandingPage({
 
           {/* 3 Quick Value Pillars */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6">
-            <div className="bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-2xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-colors">
+            <div className="about-card bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-2xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-all duration-300 hover:-translate-y-1">
               <div className="w-10 h-10 rounded-xl bg-[#FFFEF2]/15 flex items-center justify-center mb-3.5">
                 <ShieldCheck size={20} className="text-emerald-300" />
               </div>
               <h3 className="font-serif font-bold text-base text-[#FFFEF2] mb-1">
-                100% Chapel Approved
+                100% CU Approved
               </h3>
               <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 leading-relaxed">
-                Every tie matches Covenant dress guidelines. No dress-code worries on Sunday mornings.
+                Every tie matches Covenant dress guidelines for both lectures and chapel. Wear them to class with complete confidence.
               </p>
             </div>
 
-            <div className="bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-2xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-colors">
+            <div className="about-card bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-2xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-all duration-300 hover:-translate-y-1">
               <div className="w-10 h-10 rounded-xl bg-[#FFFEF2]/15 flex items-center justify-center mb-3.5">
                 <MapPin size={20} className="text-emerald-300" />
               </div>
@@ -352,7 +444,7 @@ export default function LandingPage({
               </p>
             </div>
 
-            <div className="bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-colors">
+            <div className="about-card bg-[#FFFEF2]/10 border border-[#FFFEF2]/15 rounded-xl p-5 text-left hover:bg-[#FFFEF2]/15 transition-all duration-300 hover:-translate-y-1">
               <div className="w-10 h-10 rounded-xl bg-[#FFFEF2]/15 flex items-center justify-center mb-3.5">
                 <Sparkles size={20} className="text-emerald-300" />
               </div>
@@ -392,7 +484,7 @@ export default function LandingPage({
         <div className="max-w-6xl mx-auto">
           
           {/* Centralized Heading */}
-          <div className="text-center max-w-xl mx-auto mb-10 sm:mb-14">
+          <div className="bestseller-header text-center max-w-xl mx-auto mb-10 sm:mb-14">
             <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.3em] text-brand-secondary font-semibold block mb-2">
               Hall Favorites
             </span>
@@ -432,7 +524,7 @@ export default function LandingPage({
                 <div
                   key={tie.id}
                   onClick={() => onBrowseMarketplace()}
-                  className="bg-[#FBF9F3]/40 border border-black/8 hover:border-brand-secondary/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group cursor-pointer"
+                  className="bestseller-tie-card bg-[#FBF9F3]/40 border border-black/8 hover:border-brand-secondary/30 rounded-2xl p-4 sm:p-5 flex flex-col justify-between hover:shadow-lg transition-all duration-300 group cursor-pointer"
                 >
                   <div>
                     {/* Tie Image Canvas */}
@@ -444,6 +536,7 @@ export default function LandingPage({
                         loading="lazy"
                         decoding="async"
                       />
+
                     </div>
 
                     {/* Tie Details */}
@@ -490,20 +583,20 @@ export default function LandingPage({
         <div className="max-w-6xl mx-auto">
           
           {/* Eyebrow & Headline from Image 0 */}
-          <span className="text-[10px] sm:text-xs font-mono uppercase tracking-[0.35em] text-brand-secondary/70 block mb-2 font-semibold">
+          <span className="cta-anim-item text-[10px] sm:text-xs font-mono uppercase tracking-[0.35em] text-brand-secondary/70 block mb-2 font-semibold">
             JOIN THE SARTORIAL COMMUNITY
           </span>
 
-          <h2 className="font-display font-bold text-3xl sm:text-5xl md:text-6xl text-brand-primary tracking-tight leading-tight mb-3">
-            Walk into chapel with confidence.
+          <h2 className="cta-anim-item font-display font-bold text-3xl sm:text-5xl md:text-6xl text-brand-primary tracking-tight leading-tight mb-3">
+            Walk around with confidence and not just in chapel.
           </h2>
 
-          <p className="font-sans text-xs sm:text-sm md:text-base text-brand-primary/65 max-w-lg mx-auto mb-10 leading-relaxed">
-            Every tie is inspected, ironed, and ready for your first Sunday service and Monday 8:00 AM presentation.
+          <p className="cta-anim-item font-sans text-xs sm:text-sm md:text-base text-brand-primary/65 max-w-lg mx-auto mb-10 leading-relaxed">
+            Every tie is inspected, ironed, and ready for your lectures, halls, Sunday service, and Monday 8:00 AM presentations.
           </p>
 
           {/* ── TIE GALLERY CAROUSEL (Sweeping Panoramic Format from Reference Image 0) ── */}
-          <div className="relative w-full overflow-hidden py-4 my-6">
+          <div className="cta-anim-item relative w-full overflow-hidden py-4 my-6">
             <div 
               ref={galleryRef}
               className="flex items-center gap-4 sm:gap-6 overflow-x-auto scrollbar-none py-4 px-4 snap-x snap-mandatory"

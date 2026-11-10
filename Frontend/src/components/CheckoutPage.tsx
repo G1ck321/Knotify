@@ -20,17 +20,18 @@ import {
   MessageSquare,
   ExternalLink,
   Star,
-  Sparkles
+  Sparkles,
+  Printer,
+  Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, Product, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
 import { getAccessToken, persistAuthSession } from '../lib/authStorage';
-import { SAMPLE_PARENTS_PHONE, SAMPLE_PHONE } from '../lib/sampleData';
 import {
+  checkInventoryAvailability,
   clearPaymentReturnParams,
   clearPendingCheckout,
-  checkInventoryAvailability,
   fetchOrderStatus,
   getBackendUrl,
   loadPendingCheckout,
@@ -39,7 +40,6 @@ import {
   PAYMENT_SUCCESS_STATUSES,
   savePendingCheckout,
 } from '../lib/checkoutPayment';
-import Marketplace from './Marketplace';
 
 async function createCheckoutSession(payload: unknown) {
   const token = getAccessToken();
@@ -69,15 +69,11 @@ interface ReviewFormProps {
 function ReviewForm({ initialEmail }: ReviewFormProps) {
   const [email, setEmail] = useState(initialEmail);
   const [reviewText, setReviewText] = useState('');
-  const [trimmedReview, setTrimmedReview] = useState('');
   const [rating, setRating] = useState(5);
   const [hoveredRating, setHoveredRating] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
-  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   useEffect(() => {
     setEmail(initialEmail);
@@ -85,19 +81,12 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !trimmedReview) {
+    if (!email || !reviewText) {
       setSubmitError('Please fill in both your email and review.');
       return;
     }
-
-    if (trimmedReview.length < 8) {
-      setSubmitError('Your review must be at least 8 characters long.');
-      return;
-    }
-
     setIsSubmitting(true);
     setSubmitError('');
-
     try {
       const response = await fetch(`${getBackendUrl()}/api/reviews`, {
         method: 'POST',
@@ -106,7 +95,9 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
         },
         body: JSON.stringify({
           email: email.trim(),
-          review: trimmedReview,
+          review: reviewText.trim(),
+          // review_text: reviewText.trim(),
+          // text: reviewText.trim(),
           rating: Number(rating),
         }),
       });
@@ -118,7 +109,7 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
       setSubmitSuccess(true);
       setReviewText('');
     } catch (err) {
-      setSubmitError(`${err} Failed to submit review. Please try again.`);
+      setSubmitError('Failed to submit review. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -200,10 +191,7 @@ function ReviewForm({ initialEmail }: ReviewFormProps) {
               required
               rows={4}
               value={reviewText}
-              onChange={(e) => {
-                setReviewText(e.target.value);
-                setTrimmedReview(e.target.value.trim());
-              }}
+              onChange={(e) => setReviewText(e.target.value)}
               placeholder="Tell us what you think of your tie and reservation experience..."
               className="w-full px-3 py-2 bg-brand-bg border border-brand-border/50 focus:border-brand-secondary focus:ring-1 focus:ring-brand-secondary/20 text-brand-primary rounded-xl font-sans text-xs focus:outline-none transition-all resize-none"
             />
@@ -260,6 +248,9 @@ export default function CheckoutPage({
   onContinueShopping,
 }: CheckoutPageProps) {
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'form' | 'success'>('cart');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isPrintingReceipt, setIsPrintingReceipt] = useState(true);
+  const [shareFeedback, setShareFeedback] = useState('');
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
@@ -268,16 +259,19 @@ export default function CheckoutPage({
   const [copiedId, setCopiedId] = useState(false);
   const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
-  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
-  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
-  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedId, setGeneratedId]  = useState(
     () => localStorage.getItem("tx") || ""
   );
 
   const DELIVERY_FEE = 250;
-  const EMAIL_UPDATES = 100
+
+  // Ties held by another buyer's in-flight checkout, and the amber prompt that
+  // explains it. A signed-in buyer's OWN holds are already excluded server-side
+  // (see Backend/routers/quantity.py own_held_quantities).
+  const [unavailableItemIds, setUnavailableItemIds] = useState<string[]>([]);
+  const [showAvailabilityPrompt, setShowAvailabilityPrompt] = useState(false);
+  const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
 
   // Feature B: the Jumia-style ties strip at the bottom of checkout.
   // Newest arrivals first (ties with the latest `added_at` surface first),
@@ -295,49 +289,6 @@ export default function CheckoutPage({
       .slice(0, 10);
   }, [products, cartItems]);
 
-  const SAMPLE_USER = {
-    name: 'Daniel Adeleke',
-    phone: SAMPLE_PHONE,
-    email: 'daniel.adeleke@student.covenant.edu.ng',
-    hall: 'Daniel Hall',
-    room: 'B204',
-  };
-
-  const handleUseSampleAccount = () => {
-    // If bag is empty and catalog has items, queue up the first tie
-    if (cartItems.length === 0 && products.length > 0 && onAddToCart) {
-      onAddToCart(products[0], 1);
-    }
-
-    setBuyerName(SAMPLE_USER.name);
-    setBuyerPhone(SAMPLE_USER.phone);
-    setBuyerEmail(SAMPLE_USER.email);
-    setBuyerHall(SAMPLE_USER.hall);
-    setRoomNumber(SAMPLE_USER.room);
-
-    const sampleAuthUser = {
-      id: 'sample-student-daniel',
-      name: SAMPLE_USER.name,
-      full_name: SAMPLE_USER.name,
-      email: SAMPLE_USER.email,
-      telegramPhone: SAMPLE_USER.phone,
-      phone: SAMPLE_USER.phone,
-      whatsApp: SAMPLE_USER.phone,
-      parentsNumber: SAMPLE_PARENTS_PHONE,
-      address: SAMPLE_USER.hall,
-      roomNumber: SAMPLE_USER.room,
-    };
-
-    if (onSetCurrentUser) {
-      onSetCurrentUser(sampleAuthUser);
-    }
-    persistAuthSession(sampleAuthUser, 'sample_jwt_token_for_daniel');
-
-    setCheckoutStep('form');
-    setSubmitError('');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
   // Pre-fill user details if logged in
   useEffect(() => {
     if (currentUser) {
@@ -349,6 +300,7 @@ export default function CheckoutPage({
     }
   }, [currentUser]);
 
+  // Keep the bag in sync with live stock whenever it changes.
   useEffect(() => {
     let cancelled = false;
 
@@ -377,6 +329,17 @@ export default function CheckoutPage({
       cancelled = true;
     };
   }, [cartItems]);
+
+  // Trigger printing animation on success
+  useEffect(() => {
+    if (checkoutStep === 'success') {
+      setIsPrintingReceipt(true);
+      const timer = setTimeout(() => {
+        setIsPrintingReceipt(false);
+      }, 2600);
+      return () => clearTimeout(timer);
+    }
+  }, [checkoutStep]);
 
   useEffect(() => {
     const { status, txRef } = parsePaymentReturnParams();
@@ -426,18 +389,10 @@ export default function CheckoutPage({
 
     const handlePaymentReturn = async () => {
       if (txRef && PAYMENT_SUCCESS_STATUSES.has(status)) {
-        // Flutterwave can redirect before its webhook finishes updating Supabase.
-        // Poll briefly so a successful payment is not shown as a failed checkout.
-        for (let attempt = 0; attempt < 6; attempt += 1) {
-          const order = await fetchOrderStatus(txRef);
-          if (order?.status === 'paid') {
-            finalizePaidOrder(txRef);
-            return;
-          }
-
-          if (attempt < 5) {
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-          }
+        const order = await fetchOrderStatus(txRef);
+        if (order && (order.status === 'paid' || order.status === 'pending')) {
+          finalizePaidOrder(txRef);
+          return;
         }
 
         setSubmitError('We could not confirm your payment yet. Please contact support with your tx_ref.');
@@ -461,6 +416,7 @@ export default function CheckoutPage({
   }, []);
 
   // Pricing calculations
+  // Ties another buyer is holding are excluded from what we charge for.
   const checkoutItems = cartItems.filter((item) => !unavailableItemIds.includes(item.product.id));
   const totalItems = checkoutItems.reduce((acc, item) => acc + (item?.quantity ?? 0), 0);
   // ─────────────────────────────────────────────────────────────────────────────
@@ -489,14 +445,6 @@ export default function CheckoutPage({
   const getLiveUnitPrice = (item: CartItem): number => {
     const freshProduct = products.find((product) => product.id === item.product.id);
     return Number(freshProduct?.price ?? item.product.price ?? item.product.originalPrice ?? 0);
-  };
-
-  // Freshest stock for a cart line, same resolution as getLiveUnitPrice:
-  // App.tsx merges the backend's current quantity into `products` on load
-  // (GET /quantity/ties), so prefer the fresh product over the cart snapshot.
-  const getLiveStock = (item: CartItem): number => {
-    const freshProduct = products.find((product) => product.id === item.product.id);
-    return Number(freshProduct?.stock ?? item.product.stock ?? 0);
   };
 
   const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
@@ -554,13 +502,18 @@ export default function CheckoutPage({
     }
   };
 
-  const handleInitiatePayment = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleOpenConfirm = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!buyerName || !buyerPhone || !buyerEmail) {
       setSubmitError('Please fill in your name, contact phone, and email address.');
       return;
     }
+    setSubmitError('');
+    setShowConfirmModal(true);
+  };
 
+  const handleInitiatePayment = async () => {
+    setShowConfirmModal(false);
     setSubmitError('');
     setIsSubmitting(true);
 
@@ -621,9 +574,34 @@ export default function CheckoutPage({
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedTxRef);
+    navigator.clipboard.writeText(generatedId || generatedTxRef);
     setCopiedId(true);
     setTimeout(() => setCopiedId(false), 2000);
+  };
+
+  const handlePrintReceipt = () => {
+    window.print();
+  };
+
+  const handleShareReceipt = async () => {
+    const shareText = `Knotify Order Receipt\nReservation ID: ${generatedId || generatedTxRef}\nName: ${buyerName}\nHall: ${buyerHall}\nAmount: ₦${itemsTotal.toLocaleString()}\nStatus: Confirmed Ready`;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Knotify Order Receipt',
+          text: shareText,
+          url: window.location.href,
+        });
+        return;
+      } catch {
+        // User cancelled or unsupported
+      }
+    }
+    
+    // Fallback copy
+    navigator.clipboard.writeText(shareText);
+    setShareFeedback('Receipt copied to clipboard!');
+    setTimeout(() => setShareFeedback(''), 3000);
   };
 
   const handleFinished = () => {
@@ -632,40 +610,16 @@ export default function CheckoutPage({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-22 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
-
-      {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left) */}
-      <div className="mb-1 text-left">
-        <button
-          type="button"
-          onClick={onContinueShopping}
-          className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-green-200 bg-black px-1.5 py-2.5 hover:bg-amber-50 hover:text-brand-accent transition-colors cursor-pointer group "
-          id="btn-back-to-shop"
-        >
-          <ArrowLeft size={15} className="group-hover:-translate-x-1 transition-transform" />
-          <span className='text-3xl'>Back to Store</span>
-        </button>
-      </div>
-
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-24 sm:pt-32 pb-24 sm:pb-28 text-left animate-fadeIn" id="full-page-checkout">
+      
       {/* 1. PROGRESS BARS / HEADER */}
-      <div className="mb-3 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-2">
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-brand-border/40 pb-6">
         <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary tracking-tight">
-              Checkout
-            </h1>
-            {/* <button
-              type="button"
-              onClick={handleUseSampleAccount}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 text-[11px] font-sans font-medium border border-amber-500/25 transition-all cursor-pointer shadow-xs"
-              title="Click to test workflow with Daniel Adeleke's credentials"
-            >
-              <Sparkles size={12} className="text-amber-600" />
-              <span>Sample Account</span>
-            </button> */}
-          </div>
+          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-brand-primary tracking-tight">
+            Checkout
+          </h1>
           <p className="text-xs text-brand-primary/65 mt-1 font-sans">
-            Direct Covenant hall delivery · Reserve online via Flutterwave
+            Direct Covenant hall delivery · Reserve online securely
           </p>
         </div>
 
@@ -685,7 +639,7 @@ export default function CheckoutPage({
             </button>
             <div className="h-px w-4 bg-brand-border/60"></div>
             <button 
-              disabled={checkoutItems.length === 0 || isCheckingAvailability}
+              disabled={cartItems.length === 0}
               onClick={handleStartCheckout}
               className={`px-3 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
                 checkoutStep === 'form' 
@@ -705,6 +659,7 @@ export default function CheckoutPage({
         )}
       </div>
 
+      {/* 2. CHOSEN CONTENT GRID OR EMPTY STATE */}
       {showAvailabilityPrompt && unavailableItemIds.length > 0 && (
         <div className="mb-8 rounded-2xl border border-amber-300 bg-amber-50 p-5 text-left" role="alert">
           <h2 className="text-sm font-bold uppercase tracking-wider text-amber-900">Some ties are temporarily unavailable</h2>
@@ -737,7 +692,6 @@ export default function CheckoutPage({
         </div>
       )}
 
-      {/* 2. CHOSEN CONTENT GRID OR EMPTY STATE */}
       {cartItems.length === 0 && checkoutStep !== 'success' ? (
         <div className="flex flex-col items-center justify-center py-16 text-center bg-brand-card border border-brand-border/80 rounded-3xl p-8 max-w-xl mx-auto shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-brand-bg border border-brand-border flex items-center justify-center text-brand-secondary mb-4">
@@ -745,7 +699,7 @@ export default function CheckoutPage({
           </div>
           <h3 className="font-serif font-bold text-base text-brand-primary">Your Bag is Empty</h3>
           <p className="text-xs text-brand-primary/70 mt-1.5 max-w-sm leading-relaxed font-sans">
-            {/* You don't have any reservations queued up yet. Browse our collection or use the sample account to test the full checkout workflow. */}
+            You don't have any reservations queued up yet. Browse our collection to select your ties.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
             <button
@@ -754,21 +708,13 @@ export default function CheckoutPage({
             >
               Explore Collection
             </button>
-            {/* <button
-              onClick={handleUseSampleAccount}
-              className="px-5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/30 font-sans text-xs font-semibold rounded-full transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <Sparkles size={13} className="text-amber-600" />
-              <span>⚡ Test with Sample Account</span>
-            </button> */}
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
           {/* LEFT SIDE CONTENT: Step screens */}
-            <div className="lg:col-span-8 space-y-6">
-              
+          <div className="lg:col-span-8 space-y-6">
             <AnimatePresence mode="wait">
               
               {/* SCREEN 1: SHOPPING BAG ITEMS LIST */}
@@ -779,9 +725,9 @@ export default function CheckoutPage({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 15 }}
                   transition={{ duration: 0.25 }}
-                  className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 sm:p-8 shadow-xs"
+                  className="bg-transparent border border-brand-border/40 rounded-3xl p-6 sm:p-8"
                 >
-                  <div className="flex items-center justify-between mb-6 border-b border-brand-border/40 pb-2">
+                  <div className="flex items-center justify-between mb-6 border-b border-brand-border/40 pb-4">
                     <h2 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-secondary flex items-center gap-2">
                       <ShoppingBag size={14} className="text-brand-secondary" />
                       Bag Items ({cartItems.length})
@@ -798,7 +744,7 @@ export default function CheckoutPage({
                     {cartItems.map((item) => {
                       const unitPrice = getLiveUnitPrice(item);
                       return (
-                        <div key={item.product.id} className="flex py-3 gap-3 sm:gap-5 text-left items-start sm:items-center" id={`page-cart-item-${item.product.id}`}>
+                        <div key={item.product.id} className="flex py-5 gap-4 sm:gap-5 text-left items-start sm:items-center" id={`page-cart-item-${item.product.id}`}>
                           <div className="h-20 w-16 sm:h-24 sm:w-20 shrink-0 overflow-hidden rounded-2xl border border-brand-border/80 bg-brand-bg shadow-xs">
                             {item.product.image ? (
                               <img
@@ -831,13 +777,9 @@ export default function CheckoutPage({
                                     <span className="text-[10px] text-amber-800 font-semibold font-sans">
                                       ● Temporarily Unavailable
                                     </span>
-                                  ) : getLiveStock(item) > 0 ? (
+                                  ) : (
                                     <span className="text-[10px] text-emerald-800 font-semibold font-sans">
                                       ● In Stock
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] text-red-700 font-semibold font-sans">
-                                      ● Out of Stock
                                     </span>
                                   )}
                                 </div>
@@ -904,13 +846,8 @@ export default function CheckoutPage({
                       <ArrowLeft size={14} />
                       Back to Shop
                     </button>
-                    <span className="text-[11px] text-brand-primary/70 font-sans  ">
-                        Complete checkout using the summary on the <b>
-                        right →
-                        </b>
-                        <b>
-                        / bottom ↓
-                        </b>
+                    <span className="text-[11px] text-brand-primary/50 font-sans hidden sm:inline">
+                      Complete checkout using the summary on the right →
                     </span>
                   </div>
                 </motion.div>
@@ -924,7 +861,7 @@ export default function CheckoutPage({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 15 }}
                   transition={{ duration: 0.25 }}
-                  className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 sm:p-8 shadow-xs"
+                  className="bg-transparent border border-brand-border/40 rounded-3xl p-6 sm:p-8"
                 >
                   <div className="mb-6 border-b border-brand-border/60 pb-4">
                     <button 
@@ -942,22 +879,7 @@ export default function CheckoutPage({
                     </p>
                   </div>
 
-                  {/* Sample Account Quick Fill Banner */}
-                    {/* <div className="mb-6 p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-left">
-                    <div className="flex items-center gap-2 text-xs font-sans text-amber-950 font-medium">
-                      <Sparkles size={15} className="text-amber-600 shrink-0" />
-                      <span>Testing? Quick-fill a verified Covenant student profile.</span>
-                    </div>
-                    {/* <button
-                      type="button"
-                      onClick={handleUseSampleAccount}
-                      className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-sans font-semibold tracking-wide transition-colors cursor-pointer shrink-0 text-center shadow-xs"
-                    >
-                      Fill Daniel Adeleke
-                    </button> 
-                  </div> */}
-
-                  <form onSubmit={handleInitiatePayment} className="space-y-5">
+                  <form onSubmit={handleOpenConfirm} className="space-y-5">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       
                       {/* Name input */}
@@ -992,7 +914,7 @@ export default function CheckoutPage({
                           <input
                             type="tel"
                             required
-                            placeholder="e.g. 0123456789"
+                            placeholder="e.g. 08012345678"
                             value={buyerPhone}
                             onChange={(e) => setBuyerPhone(e.target.value)}
                             className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
@@ -1007,7 +929,7 @@ export default function CheckoutPage({
                       {/* Email input */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          STUDENT EMAIL *
+                          EMAIL *
                         </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
@@ -1016,7 +938,7 @@ export default function CheckoutPage({
                           <input
                             type="email"
                             required
-                            placeholder="e.g. daniel@student.covenant.edu.ng"
+                            placeholder="e.g. daniel@example.com"
                             value={buyerEmail}
                             onChange={(e) => setBuyerEmail(e.target.value)}
                             className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
@@ -1092,17 +1014,14 @@ export default function CheckoutPage({
                         Review Bag Items
                       </button>
 
-                      <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto">
-
-                        <button
-                          type="submit"
-                          disabled={isSubmitting}
-                          className="px-7 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
-                        >
-                          {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()} VIA FLUTTERWAVE`}
-                          <ArrowRight size={14} />
-                        </button>
-                      </div>
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full sm:w-auto px-7 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
+                      >
+                        {isSubmitting ? 'CONNECTING GATEWAY...' : `PAY ₦${totalAmountPayable.toLocaleString()}`}
+                        <ArrowRight size={14} />
+                      </button>
                     </div>
                   </form>
                 </motion.div>
@@ -1121,71 +1040,158 @@ export default function CheckoutPage({
                   <div className="absolute top-0 right-0 w-64 h-64 bg-brand-secondary/[0.03] rounded-full filter blur-[80px] pointer-events-none" />
 
                   {/* Header confirmation */}
-          <div className="text-center max-w-lg mx-auto space-y-4">
-            <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
-              <CheckCircle size={28} />
-            </div>
+                  <div className="text-center max-w-lg mx-auto space-y-3">
+                    <div className="w-14 h-14 rounded-full bg-brand-secondary/10 border border-brand-secondary/30 flex items-center justify-center text-brand-secondary mx-auto">
+                      <CheckCircle size={28} />
+                    </div>
 
-            <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
-              Tie is Reserved
-            </h2>
-            
-            <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
-              Congratulations <strong>{buyerName}</strong>! Your tie reservation has been logged under our student guild registry.
-            </p>
-          </div>
-
-                  {/* High-End Coordinates Panel */}
-                  <div className="bg-brand-bg border border-brand-border rounded-2xl p-6 space-y-5 relative z-10">
+                    <h2 className="font-display font-black text-2xl sm:text-3xl uppercase text-brand-primary tracking-tight">
+                      Order Reserved
+                    </h2>
                     
-                    {/* Unique reservation ID header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-brand-border pb-4 gap-3">
-                      <div>
-                        <span className="text-[9px] font-sans text-brand-primary/50 block tracking-widest uppercase font-semibold">REGISTRATION NUMBER</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="font-sans text-base font-bold text-brand-primary tracking-wider">{generatedId}</span>
-                          <button 
-                            onClick={copyToClipboard}
-                            className="p-1.5 bg-brand-card border border-brand-border rounded-lg hover:text-brand-secondary hover:bg-brand-bg transition-colors text-brand-primary cursor-pointer"
-                            title="Copy ID"
-                          >
-                            {copiedId ? <Check size={13} className="text-emerald-700" /> : <Clipboard size={13} />}
-                          </button>
+                    <p className="text-xs sm:text-sm text-brand-primary/80 font-sans leading-relaxed">
+                      Congratulations <strong>{buyerName}</strong>! Your order has been placed and confirmed for hall delivery.
+                    </p>
+                  </div>
+
+                  {/* ── PRINTING RECEIPT ANIMATION SLOT ── */}
+                  <div className="relative max-w-lg mx-auto">
+                    {/* Printer Slot Hardware Device Top */}
+                    <div className="bg-[#11261B] text-[#FFFEF2] rounded-t-2xl px-5 py-3 border-b-4 border-amber-500/80 shadow-md flex items-center justify-between relative z-20">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="font-mono text-[10px] tracking-widest uppercase font-bold text-[#FFFEF2]/90">
+                          {isPrintingReceipt ? '🖨️ Printing Receipt...' : 'Receipt Printed Ready'}
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-mono text-emerald-300 uppercase tracking-widest font-semibold">
+                        Knotify Register #01
+                      </span>
+                    </div>
+
+                    {/* The Physical Receipt Slip (with roll-out slide animation) */}
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ 
+                        height: 'auto', 
+                        opacity: 1,
+                        transition: { duration: 1.6, ease: [0.16, 1, 0.3, 1] } 
+                      }}
+                      className="overflow-hidden bg-[#FFFEF2] border-x border-b border-black/15 rounded-b-2xl shadow-xl relative z-10 text-left p-6 sm:p-7 space-y-5"
+                      id="order-printable-receipt"
+                    >
+                      {/* Receipt Header */}
+                      <div className="text-center pb-4 border-b border-dashed border-black/20">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <img src="/logo-k.svg" alt="Knotify" className="h-6 w-auto" />
+                          <span className="font-serif font-black text-lg tracking-wider text-brand-primary uppercase">Knotify Ties</span>
+                        </div>
+                        <p className="text-[10px] font-mono tracking-widest uppercase text-brand-primary/60">Covenant University · Resumption Batch</p>
+                        <p className="text-[9px] font-mono text-brand-primary/50 mt-0.5">
+                          Date: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+
+                      {/* Unique reservation ID barcode look */}
+                      <div className="bg-brand-bg border border-brand-border rounded-xl p-3.5 flex items-center justify-between">
+                        <div>
+                          <span className="text-[9px] font-mono tracking-widest uppercase text-brand-primary/50 block font-semibold">ORDER / RES ID</span>
+                          <span className="font-mono text-sm sm:text-base font-bold text-brand-primary tracking-wider">{generatedId || generatedTxRef || 'KNT-CONFIRMED'}</span>
+                        </div>
+                        <button 
+                          onClick={copyToClipboard}
+                          className="px-2.5 py-1.5 bg-brand-card hover:bg-brand-bg border border-brand-border rounded-lg text-xs font-mono font-medium text-brand-primary transition-colors flex items-center gap-1 cursor-pointer"
+                          title="Copy ID"
+                        >
+                          {copiedId ? <Check size={12} className="text-emerald-700" /> : <Clipboard size={12} />}
+                          <span>{copiedId ? 'Copied' : 'Copy'}</span>
+                        </button>
+                      </div>
+
+                      {/* Customer info table */}
+                      <div className="space-y-1.5 text-xs font-sans border-b border-dashed border-black/20 pb-4">
+                        <div className="flex justify-between">
+                          <span className="text-brand-primary/60">Customer Name:</span>
+                          <span className="font-semibold text-brand-primary">{buyerName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-brand-primary/60">Contact Phone:</span>
+                          <span className="font-semibold text-brand-primary">{buyerPhone}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-brand-primary/60">Delivery Hall:</span>
+                          <span className="font-semibold text-brand-primary">{buyerHall}{roomNumber ? ` · Room ${roomNumber}` : ''}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-brand-primary/60">Assigned Station:</span>
+                          <span className="font-semibold text-brand-secondary">{getAssignedPickupPoint(buyerHall)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-brand-primary/60">Payment Status:</span>
+                          <span className="font-semibold text-emerald-800 uppercase tracking-wider">● Confirmed Paid</span>
                         </div>
                       </div>
 
-                      <div className="bg-brand-secondary/10 border border-brand-secondary/20 text-brand-secondary px-4 py-2 rounded-xl text-center">
-                        <span className="text-[9px] font-sans block tracking-wider uppercase font-semibold">DEPOSIT RECEIVED</span>
-                        <span className="font-sans text-base font-extrabold">₦{itemsTotal.toLocaleString()}</span>
+                      {/* Amount Breakdown */}
+                      <div className="space-y-2 text-xs font-sans pb-4 border-b border-dashed border-black/20">
+                        <div className="flex justify-between text-brand-primary/70">
+                          <span>Items Total ({totalItems || 1}):</span>
+                          <span className="font-mono">₦{itemsTotal.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-brand-primary/70">
+                          <span>Hall Delivery Handoff:</span>
+                          <span className="font-mono">₦{DELIVERY_FEE.toLocaleString()}</span>
+                        </div>
+                        <div className="flex justify-between text-brand-primary font-bold text-sm pt-2 border-t border-brand-border">
+                          <span>Total Paid:</span>
+                          <span className="font-mono text-brand-secondary font-black">₦{totalAmountPayable.toLocaleString()}</span>
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Meta coordinates breakdown */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4.5 text-xs font-sans uppercase text-brand-secondary">
-                      <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">RESIDENCE COORD</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">{buyerHall}</p>
-                      </div>
-
-                      <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">ASSIGNED PICKUP POINT</p>
-                        <p className="text-brand-secondary font-bold text-xs mt-1 leading-tight truncate" title="">
-                          Shared Near Resumption Date
+                      {/* Jagged / Tear Bottom Edge */}
+                      <div className="text-center pt-1">
+                        <p className="text-[10px] font-mono uppercase tracking-widest text-brand-primary/50">
+                          *** THANK YOU FOR DRESSING SHARP ***
                         </p>
                       </div>
+                    </motion.div>
+                  </div>
 
-                      <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">OUTSTANDING (AT PICKUP)</p>
-                        <p className="text-brand-primary font-bold text-xs mt-1">₦{totalAmountPayable.toLocaleString()}</p>
+                  {/* ── ACTION BUTTON OPTIONS: GO BACK, PRINT, SHARE RECEIPT ── */}
+                  <div className="max-w-lg mx-auto space-y-3 pt-2">
+                    {shareFeedback && (
+                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl font-sans text-center animate-fadeIn">
+                        {shareFeedback}
                       </div>
+                    )}
 
-                      <div className="bg-brand-card p-3.5 rounded-xl border border-brand-border text-left">
-                        <p className="text-[9px] text-brand-primary/50 tracking-wider font-semibold">TICKET STATUS</p>
-                        <p className="text-emerald-800 font-bold text-xs mt-1 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                          CONFIRMED READY
-                        </p>
-                      </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      {/* Go Back Option */}
+                      <button
+                        onClick={handleFinished}
+                        className="py-3 px-4 bg-brand-bg hover:bg-brand-card text-brand-primary border border-brand-border font-sans font-bold text-xs rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+                      >
+                        <ArrowLeft size={14} />
+                        <span>Go Back</span>
+                      </button>
+
+                      {/* Print Receipt Option */}
+                      <button
+                        onClick={handlePrintReceipt}
+                        className="py-3 px-4 bg-brand-bg hover:bg-brand-card text-brand-primary border border-brand-border font-sans font-bold text-xs rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+                      >
+                        <Printer size={14} className="text-brand-secondary" />
+                        <span>Print Receipt</span>
+                      </button>
+
+                      {/* Share Receipt Option */}
+                      <button
+                        onClick={handleShareReceipt}
+                        className="py-3 px-4 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] font-sans font-bold text-xs rounded-full transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs active:scale-98"
+                      >
+                        <Share2 size={14} />
+                        <span>Share Receipt</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1199,7 +1205,7 @@ export default function CheckoutPage({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-[11.5px] font-sans text-brand-primary/80 leading-tight">
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
                         <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
-                        <span><strong>Screenshot this page</strong> right now to keep your unique ID handy.</span>
+                        <span><strong>Print or screenshot</strong> your receipt to keep your unique ID handy.</span>
                       </div>
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
                         <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
@@ -1211,13 +1217,9 @@ export default function CheckoutPage({
                       </div>
                       <div className="flex items-start gap-2.5 bg-brand-bg p-3 rounded-xl border border-brand-border">
                         <Check size={14} className="text-brand-secondary mt-0.5 shrink-0" />
-                        <span>Pay your remaining balance via cash or transfer directly at pickup.</span>
+                        <span>Your order is already recorded under your profile page.</span>
                       </div>
                     </div>
-
-                    <p className="text-[10px] text-brand-primary/50 italic text-center pt-2 leading-tight">
-                      Lost your ID? Don't worry, your reservation is also synced directly to your account.
-                    </p>
                   </div>
 
                   {/* Community Channels */}
@@ -1243,139 +1245,131 @@ export default function CheckoutPage({
                         <div className="w-9 h-9 rounded-full bg-emerald-600/10 border border-emerald-600/20 flex items-center justify-center shrink-0">
                           <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-emerald-600">
                             <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-mono text-emerald-600 font-bold tracking-widest uppercase">WhatsApp</p>
-                          <p className="text-xs font-sans text-brand-primary font-semibold group-hover:text-emerald-700 transition-colors">Join Community</p>
-                        </div>
-                        <ExternalLink size={11} className="ml-auto text-brand-primary/30 group-hover:text-emerald-600 transition-colors shrink-0" />
-                      </a>
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-mono text-emerald-600 font-bold tracking-widest uppercase">WhatsApp</p>
+                        <p className="text-xs font-sans text-brand-primary font-semibold group-hover:text-emerald-700 transition-colors">Join Community</p>
+                      </div>
+                      <ExternalLink size={11} className="ml-auto text-brand-primary/30 group-hover:text-emerald-600 transition-colors shrink-0" />
+                    </a>
 
-                      {/* Telegram */}
-                      <a
-                        href="https://t.me/+go-lAiSrbJ5hNGVk"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 bg-brand-card border border-brand-border hover:border-sky-500/40 hover:bg-sky-900/5 p-4 rounded-xl transition-all group cursor-pointer"
-                        id="success-telegram-link"
-                      >
-                        <div className="w-9 h-9 rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
-                          <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-sky-500">
-                            <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-mono text-sky-500 font-bold tracking-widest uppercase">Telegram</p>
-                          <p className="text-xs font-sans text-brand-primary font-semibold group-hover:text-sky-600 transition-colors">Subscribe to Channel</p>
-                        </div>
-                        <ExternalLink size={11} className="ml-auto text-brand-primary/30 group-hover:text-sky-500 transition-colors shrink-0" />
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="pt-4 text-center relative z-10">
-                    <button
-                      onClick={handleFinished}
-                      className="px-12 py-4 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-widest uppercase text-xs font-bold rounded-full transition-all cursor-pointer shadow-sm inline-block"
+                    {/* Telegram */}
+                    <a
+                      href="https://t.me/+go-lAiSrbJ5hNGVk"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 bg-brand-card border border-brand-border hover:border-sky-500/40 hover:bg-sky-900/5 p-4 rounded-xl transition-all group cursor-pointer"
+                      id="success-telegram-link"
                     >
-                      Return to Marketplace
-                    </button>
+                      <div className="w-9 h-9 rounded-full bg-sky-500/10 border border-sky-500/20 flex items-center justify-center shrink-0">
+                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-sky-500">
+                          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                        </svg>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-mono text-sky-500 font-bold tracking-widest uppercase">Telegram</p>
+                        <p className="text-xs font-sans text-brand-primary font-semibold group-hover:text-sky-600 transition-colors">Subscribe to Channel</p>
+                      </div>
+                      <ExternalLink size={11} className="ml-auto text-brand-primary/30 group-hover:text-sky-500 transition-colors shrink-0" />
+                    </a>
                   </div>
-                </motion.div>
-              )}
-      {checkoutStep !== 'success' && stripProducts.length > 0 && (
-        <section className=" border-t border-brand-border/40 pt-1 text-left" id="checkout-ties-strip">
-          <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
-            <div>
-              <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary select-none">
-                Just added to the catalog
-              </span>
-              <h2 className="font-serif font-bold text-lg sm:text-xl text-brand-primary tracking-tight">
-                Complete the look
-              </h2>
-            </div>
-            <button
-              type="button"
-              onClick={onContinueShopping}
-              className="text-[10px] font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer border-b border-brand-border hover:border-brand-secondary pb-0.5"
-            >
-              View all ties
-            </button>
-          </div>
-
-          <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" id="checkout-ties-strip-list">
-            {stripProducts.map((product) => {
-              const price = product.price ?? product.originalPrice;
-              const discountPercent =
-                product.originalPrice > 0 && product.originalPrice > price
-                  ? Math.round(((product.originalPrice - price) / product.originalPrice) * 100)
-                  : 0;
-
-              return (
-                <div key={product.id} className="w-36 sm:w-40 shrink-0" id={`strip-${product.id}`}>
-                  <div className="aspect-[3/4] w-full rounded-xl overflow-hidden bg-brand-card border border-brand-border/70 relative">
-                    {product.image ? (
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <TiePlaceholder
-                        color={product.color}
-                        category={product.category}
-                        name={product.name}
-                        className="w-full h-full"
-                      />
-                    )}
-
-                    {discountPercent > 0 && (
-                      <span className="absolute top-2 left-2 bg-brand-secondary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded">
-                        -{discountPercent}%
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="mt-2 text-[11px] font-sans text-brand-primary leading-snug line-clamp-2">
-                    {product.name}
-                  </p>
-
-                  <div className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-xs font-sans font-bold text-brand-primary">₦{price.toLocaleString()}</span>
-                    {discountPercent > 0 && (
-                      <span className="text-[9px] font-sans text-brand-secondary/50 line-through">
-                        ₦{product.originalPrice.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  {onAddToCart && (
-                    <button
-                      type="button"
-                      onClick={() => onAddToCart(product, 1)}
-                      className="mt-2 w-full py-2 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-mono text-[9px] tracking-widest uppercase font-bold rounded-full transition-colors cursor-pointer"
-                    >
-                      + Add to bag
-                    </button>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              </motion.div>
+            )}
+
             </AnimatePresence>
-            </div>
-            
+
+            {checkoutStep !== 'success' && stripProducts.length > 0 && (
+              <section className="border-t border-brand-border/40 pt-6 text-left" id="checkout-ties-strip">
+                <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+                  <div>
+                    <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary select-none">
+                      Just added to the catalog
+                    </span>
+                    <h2 className="font-serif font-bold text-lg sm:text-xl text-brand-primary tracking-tight">
+                      Complete the look
+                    </h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onContinueShopping}
+                    className="text-[10px] font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer border-b border-brand-border hover:border-brand-secondary pb-0.5"
+                  >
+                    View all ties
+                  </button>
+                </div>
+
+                <div className="flex gap-4 overflow-x-auto pb-3 -mx-1 px-1" id="checkout-ties-strip-list">
+                  {stripProducts.map((product) => {
+                    const price = product.price ?? product.originalPrice;
+                    const discountPercent =
+                      product.originalPrice > 0 && product.originalPrice > price
+                        ? Math.round(((product.originalPrice - price) / product.originalPrice) * 100)
+                        : 0;
+
+                    return (
+                      <div key={product.id} className="w-36 sm:w-40 shrink-0" id={`strip-${product.id}`}>
+                        <div className="aspect-[3/4] w-full rounded-xl overflow-hidden bg-brand-card border border-brand-border/70 relative">
+                          {product.image ? (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <TiePlaceholder
+                              color={product.color}
+                              category={product.category}
+                              name={product.name}
+                              className="w-full h-full"
+                            />
+                          )}
+
+                          {discountPercent > 0 && (
+                            <span className="absolute top-2 left-2 bg-brand-secondary text-brand-bg font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold rounded">
+                              -{discountPercent}%
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="mt-2 text-[11px] font-sans text-brand-primary leading-snug line-clamp-2">
+                          {product.name}
+                        </p>
+
+                        <div className="mt-1 flex items-baseline gap-1.5">
+                          <span className="text-xs font-sans font-bold text-brand-primary">₦{price.toLocaleString()}</span>
+                          {discountPercent > 0 && (
+                            <span className="text-[9px] font-sans text-brand-secondary/50 line-through">
+                              ₦{product.originalPrice.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+
+                        {onAddToCart && (
+                          <button
+                            type="button"
+                            onClick={() => onAddToCart(product, 1)}
+                            className="mt-2 w-full py-2 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-mono text-[9px] tracking-widest uppercase font-bold rounded-full transition-colors cursor-pointer"
+                          >
+                            + Add to bag
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+          </div>
 
           {/* RIGHT SIDE CONTENT: STICKY BILLING SUMMARY */}
           {checkoutStep !== 'success' ? (
             <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
               
-              <div className="bg-brand-card/70 border border-brand-border/60 rounded-3xl p-6 shadow-xs text-left">
+              <div className="bg-transparent border border-brand-border/40 rounded-3xl p-6 text-left">
                 <h3 className="text-xs font-sans tracking-wider uppercase font-semibold text-brand-primary/60 mb-4 pb-2 border-b border-brand-border/40">
                   Billing Overview
                 </h3>
@@ -1386,17 +1380,10 @@ export default function CheckoutPage({
                     <span className="font-sans font-bold text-brand-primary">₦{itemsTotal.toLocaleString()}</span>
                   </div>
                   
-                  <div className="flex justify-between text-shadow-brand-accent font-semibold">
-                    <span>Delivery & Development</span>
+                  <div className="flex justify-between text-brand-secondary font-semibold">
+                    <span>Delivery & Hall Handoff</span>
                     <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
-                    </div>
-                    <div className="email">
-                <p className='font-bold text-brand-gold text-base'>New:</p>
-                    </div>
-                    <div className="flex justify-between text-black font-semibold">
-                    <span>Email For Instant Restock Updates</span>
-                    <span className="font-sans text-sm">₦{EMAIL_UPDATES.toLocaleString()}</span>
-                    </div>
+                  </div>
 
                   <div className="flex justify-between text-brand-primary/80 text-xs pt-1.5 border-t border-brand-border/40">
                     <span className="font-semibold">Total Payable</span>
@@ -1408,54 +1395,40 @@ export default function CheckoutPage({
                 {checkoutStep === 'cart' ? (
                   <button
                     onClick={handleStartCheckout}
-                    className="w-full mt-4 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-98"
+                    disabled={isCheckingAvailability || checkoutItems.length === 0}
+                    className="w-full mt-4 py-3.5 bg-brand-primary hover:bg-brand-secondary text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-98 disabled:opacity-50"
                   >
-                    Proceed to Details
+                    {isCheckingAvailability ? 'Checking availability...' : 'Proceed to Details'}
                     <ArrowRight size={13} />
                   </button>
                 ) : (
                   <button
                     type="button"
-                    onClick={handleInitiatePayment}
+                    onClick={() => handleOpenConfirm()}
                     disabled={isSubmitting}
                     className="w-full mt-4 py-3.5 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 active:scale-98"
                   >
-                    {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()} via Flutterwave`}
+                    {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()}`}
                   </button>
                 )}
 
-                {/* Quick 1-Click Sample Test Button */}
-                {/* <button
-                  type="button"
-                  onClick={handleUseSampleAccount}
-                  className="w-full mt-2.5 py-2.5 px-3 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-500/25 text-[11px] font-sans font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                  title="1-click fill verified Covenant student test profile"
-                >
-                  <Sparkles size={13} className="text-amber-600" />
-                  <span>⚡ Use Sample Account (1-Click Test)</span>
-                </button> */}
-
-                <div className="text-[10px] text-brand-primary/80 font-sans text-center mt-3 leading-relaxed">
-                  🔒 Encrypted connection · Student-verified handoffs
+                <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
+                  🔒 Encrypted connection · Direct hall delivery
                 </div>
               </div>
 
               {/* TRUST REASSURANCE CARD */}
-              <div className="bg-brand-card/70 p-4 rounded-2xl border border-brand-border/60 text-[11px] font-sans leading-relaxed text-brand-primary/80 text-left space-y-1.5">
+              <div className="bg-transparent p-5 rounded-2xl border border-brand-border/40 text-[11px] font-sans leading-relaxed text-brand-primary/80 text-left space-y-1.5">
                 <p className="font-bold text-brand-primary flex items-center gap-1.5 text-xs">
                   <ShieldCheck size={14} className="text-brand-secondary" />
                   Low-Risk Student Guarantee
                 </p>
                 <p className="text-xs text-brand-primary/65 leading-relaxed">
-                    Direct delivery to your residence hall lobby on resumption week. Full cash refund after 24-48 hours or tie exchange directly at pickup if unsuited. 
-                    <p className='text-brand-gold font-bold'>
-                     Charges are Non-refundable!
-                    </p>
+                  Direct delivery to your residence hall lobby on resumption week. Full cash refund or tie exchange directly at pickup if unsuited.
                 </p>
               </div>
 
-              </div>
-              
+            </div>
           ) : (
             <div className="lg:col-span-4 lg:sticky lg:top-28 space-y-6">
               <ReviewForm initialEmail={buyerEmail} />
@@ -1465,34 +1438,89 @@ export default function CheckoutPage({
         </div>
       )}
 
-      {/* 3. JUMIA-STYLE TIES STRIP (Feature B): newest arrivals, one tap into the bag */}
-
- {/* <motion.div
-              key="marketplace"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
+      {/* ── CONFIRM ORDER MODAL (Step before payment gateway) ── */}
+      <AnimatePresence>
+        {showConfirmModal && (
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-xs">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="w-full max-w-md bg-[#FFFEF2] rounded-3xl p-6 sm:p-7 shadow-2xl border border-black/10 text-left space-y-5 relative"
             >
-              <Marketplace
-                products={products}
-                onOpenProductDetail={handleProductClick}
-                onBackToShop={() => {
-                  setCurrentTab('home');
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                onToggleWishlist={handleToggleWishlist}
-                onAddToCart={(product, event) => {
-                  event.stopPropagation();
-                  handleAddToCart(product, 1);
-                }}
-                isInWishlist={isInWishlist}
-                initialSearchQuery={sharedSearchQuery}
-                initialCategory={sharedCategory}
-                onSearchQueryChange={setSharedSearchQuery}
-                onCategoryChange={setSharedCategory}
-              />
-            </motion.div> */}
+              {/* Close Button */}
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/5 hover:bg-black/10 flex items-center justify-center text-brand-primary/60 cursor-pointer transition-colors"
+                aria-label="Close"
+              >
+                <X size={15} />
+              </button>
+
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono tracking-widest uppercase text-brand-secondary font-bold">Step 3 of 3</span>
+                <h3 className="font-serif font-bold text-xl sm:text-2xl text-brand-primary">Confirm Your Order</h3>
+                <p className="text-xs text-brand-primary/65 font-sans leading-relaxed">
+                  Please review your details before proceeding to pay.
+                </p>
+              </div>
+
+              {/* Order Info Summary */}
+              <div className="bg-[#F8F6EC] rounded-2xl p-4 border border-brand-secondary/15 space-y-3 text-xs font-sans">
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-brand-primary/60">Recipient:</span>
+                  <span className="font-semibold text-brand-primary">{buyerName}</span>
+                </div>
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-brand-primary/60">Phone:</span>
+                  <span className="font-semibold text-brand-primary">{buyerPhone}</span>
+                </div>
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-brand-primary/60">Email:</span>
+                  <span className="font-semibold text-brand-primary truncate max-w-[180px]">{buyerEmail}</span>
+                </div>
+                <div className="flex justify-between border-b border-black/5 pb-2">
+                  <span className="text-brand-primary/60">Hall & Room:</span>
+                  <span className="font-semibold text-brand-primary">{buyerHall}{roomNumber ? `, ${roomNumber}` : ''}</span>
+                </div>
+                <div className="flex justify-between pt-1">
+                  <span className="font-semibold text-brand-primary">Total Payable:</span>
+                  <span className="font-bold text-sm text-brand-secondary">₦{totalAmountPayable.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmModal(false)}
+                  className="w-full sm:w-1/3 py-3 rounded-full border border-brand-border text-brand-primary text-xs font-sans font-bold hover:bg-black/5 transition-colors cursor-pointer text-center"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleInitiatePayment}
+                  disabled={isSubmitting}
+                  className="w-full sm:w-2/3 py-3 rounded-full bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] text-xs font-sans font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-50 active:scale-98"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Pay ₦{totalAmountPayable.toLocaleString()}</span>
+                      <ArrowRight size={13} />
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
