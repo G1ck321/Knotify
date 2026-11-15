@@ -1506,7 +1506,7 @@ export default function CheckoutPage({
 
                   {updatesFee > 0 && (
                     <div className="flex justify-between text-brand-primary/70">
-                      <span>Priority alerts add-on</span>
+                      <span>Email for future updates</span>
                       <span className="font-sans font-bold text-brand-primary">{formatNaira(updatesFee)}</span>
                     </div>
                   )}
@@ -1553,7 +1553,7 @@ export default function CheckoutPage({
                       />
                       <span className="text-[10px] font-sans leading-relaxed text-brand-primary/70">
                         <span className="font-semibold text-brand-primary">
-                          Priority alerts +{formatNaira(UPDATES_FEE)}
+                          Email updates +{formatNaira(UPDATES_FEE)}
                         </span>{" "}
                         included — untick to remove it.
                         <span className="mt-0.5 block text-brand-primary/45">
