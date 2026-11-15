@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-import traceback
 import uvicorn
 
 from config import auth_secret
@@ -49,13 +48,16 @@ async def health():
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
-    """Generic 500: fixed body for the client, full traceback in the server log.
+    """Generic 500: fixed body for the client, traceback still in the server log.
 
     Exception text can carry table names, connection strings, SQL fragments and
-    file paths, so it must never be echoed back to the browser.
+    file paths, so it must never be echoed back to the browser. The stack trace
+    does not need to be printed here: Starlette's ServerErrorMiddleware re-raises
+    the original exception after this response is sent, and the ASGI server
+    (uvicorn / gunicorn) logs the full traceback from that.
     """
-    print(f"--- Unhandled error: {request.method} {request.url.path} ---")
-    traceback.print_exc()
+    print(f"--- Unhandled error: {request.method} {request.url.path} "
+          f"({type(exc).__name__}) ---")
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 @app.exception_handler(RequestValidationError)

@@ -8,7 +8,7 @@ from config import settings
 from database import supabase
 from dependencies import require_auth_secret
 from services.auth_service import authenticate_user, register_user
-from utils.ratelimit import login_rate_limit, reset_login_rate_limit
+from utils.ratelimit import login_rate_limit, reset_login_rate_limit, reset_login_rate_limit_for_ip
 from utils.tokens import create_access_token
 
 
@@ -94,7 +94,7 @@ class LoginRequest(BaseModel):
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(payload: SignupRequest):
+async def signup(payload: SignupRequest, request: Request):
     """Create a new student account and persist only the fields the backend stores."""
 
     repository = _user_repo()
@@ -113,6 +113,10 @@ async def signup(payload: SignupRequest):
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
         ) from exc
+
+    # A brand-new account must be able to log in immediately, even when the
+    # shared source IP was just blocked by someone else's failed logins.
+    reset_login_rate_limit_for_ip(request)
 
     return {
         "message": "Account created",
