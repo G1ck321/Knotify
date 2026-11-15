@@ -3,7 +3,7 @@
 No database is touched: pic_requests.supabase is monkeypatched with a fake
 chain. These tests lock in the three rules that are easy to regress:
 
-  * every pic request carries a 100 NGN obligation, and the fee total is a
+  * every pic request carries a 200 NGN obligation, and the fee total is a
     server-side sum - nothing the browser sends can change it;
   * one buyer matched through several identities (account id, email, device
     key) is still charged ONCE, not three times;
@@ -28,7 +28,7 @@ def _row(**overrides):
         "client_key": "device-key-0123456789",
         "status": "requested",
         "fee_status": "unpaid",
-        "price": 100,
+        "price": 200,
     }
     row.update(overrides)
     return row
@@ -105,8 +105,9 @@ def fake_rows(monkeypatch):
     return rows
 
 
-def test_pic_fee_total_is_one_hundred_per_unpaid_request():
-    assert pic_fee_total([_row(), _row(tx_ref="pic_b")]) == 200
+def test_pic_fee_total_is_two_hundred_per_unpaid_request():
+    # 200 NGN covers delivery of the knotted-tie photo plus the service behind it.
+    assert pic_fee_total([_row(), _row(tx_ref="pic_b")]) == 400
     assert pic_fee_total([]) == 0
 
 
@@ -121,13 +122,13 @@ def test_matching_identities_are_deduped_so_the_buyer_is_charged_once(fake_rows)
     tx_refs = [row["tx_ref"] for row in collected]
     assert tx_refs.count("pic_one") == 1
     assert "pic_paid" not in tx_refs  # already paid -> never recharged
-    assert pic_fee_total(collected) == 100
+    assert pic_fee_total(collected) == 200
 
 
 def test_email_match_covers_a_guest_who_never_sends_a_device_key(fake_rows):
     collected = pic_requests.collect_unpaid_pic_requests(email="Jane@Example.com")
     assert [row["tx_ref"] for row in collected] == ["pic_two"]
-    assert pic_fee_total(collected) == 100
+    assert pic_fee_total(collected) == 200
 
 
 def test_derived_tx_ref_is_deterministic_per_device_and_tie():

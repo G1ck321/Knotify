@@ -28,19 +28,21 @@ def _paid_users(n):
 
 
 # ---------------------------------------------------------------------------
-# disount_logic with discounts disabled
+# Per-tie discounts come from `ties.discount_price` (see _valid_discount_price)
 # ---------------------------------------------------------------------------
-def test_promo_tie_uses_regular_price(monkeypatch):
+def test_promo_tie_is_charged_its_discount_price(monkeypatch):
     monkeypatch.setattr(quantity, "_paid_user_metrics", _paid_users(2))
-    assert quantity.disount_logic(_row(), "Plain Black Tie") == 2100
+    # Row: price 2100, discount_price 1700 -> the discount is what is charged.
+    assert quantity.disount_logic(_row(), "Plain Black Tie") == 1700
 
 
-def test_non_promo_tie_never_discounted(monkeypatch):
+def test_any_tie_can_carry_its_own_discount(monkeypatch):
     monkeypatch.setattr(quantity, "_paid_user_metrics", _paid_users(0))
+    # Discounts are per row now, not restricted to a hard-coded promo list.
     assert quantity.disount_logic(
         _row(tie_id="corp-blue-floral", tie_name="Blue Floral Corporate Tie"),
         "Blue Floral Corporate Tie",
-    ) == 2100
+    ) == 1700
 
 
 def test_missing_discount_price_falls_back_to_regular(monkeypatch):
@@ -56,9 +58,9 @@ def test_missing_all_prices_returns_zero(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# compute_order_total uses the regular price while discounts are disabled
+# compute_order_total charges exactly what the storefront displays
 # ---------------------------------------------------------------------------
-def test_compute_order_total_uses_regular_price(monkeypatch):
+def test_compute_order_total_uses_the_discounted_price(monkeypatch):
     monkeypatch.setattr(quantity, "_paid_user_metrics", _paid_users(2))
     monkeypatch.setattr(
         quantity,
@@ -66,7 +68,7 @@ def test_compute_order_total_uses_regular_price(monkeypatch):
         lambda tie_id: _row(tie_id=tie_id),
     )
     cart = [{"tie_id": "new-plain-black", "quantity": 2}]
-    assert quantity.compute_order_total(cart) == 2100 * 2
+    assert quantity.compute_order_total(cart) == 1700 * 2
 
 
 # ---------------------------------------------------------------------------

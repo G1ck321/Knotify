@@ -239,13 +239,13 @@ export default function LandingPage({
     setActiveModelIndex((prev) => (prev + 1) % HERO_MODELS.length);
   };
 
-  // ── Home showcase uses the STATIC catalog (INITIAL_PRODUCTS), never the
-  // Supabase-synced `products` state. Prices here are display-only and are
-  // intentionally NOT live-synced; real stock/price live on the collection page.
+  // ── The showcase renders the same live `products` the collection page gets,
+  // so a hard-coded price can never appear here. Ties without a row in the
+  // `ties` table are already filtered out upstream (App.tsx).
   // Row order for the first row: Wine Striped Tie, Plain Wine Tie, Plain Black Tie
   const PRIORITY_FIRST_ROW_IDS = ['new-wine-striped', 'new-plain-wine', 'new-plain-black'];
 
-  const baseTiesList = INITIAL_PRODUCTS;
+  const baseTiesList = products.length > 0 ? products : INITIAL_PRODUCTS;
   const sortedProducts = [...baseTiesList].sort((a, b) => {
     const aPriority = PRIORITY_FIRST_ROW_IDS.indexOf(a.id);
     const bPriority = PRIORITY_FIRST_ROW_IDS.indexOf(b.id);

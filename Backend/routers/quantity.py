@@ -3,11 +3,16 @@ from __future__ import annotations
 from typing import Any, Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import hmac
+from typing import Optional as _Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
+from config import settings
 from database import supabase
 from dependencies import get_optional_current_user
+from pricing import MAX_PER_TIE
 
 
 router = APIRouter(prefix="/quantity", tags=["Inventory and paid user metrics"])
@@ -18,6 +23,9 @@ class TieInventoryResponse(BaseModel):
     tie_name: str
     image_url: Optional[str] = None
     price: float = Field(ge=0)
+    # The pre-discount price, only present when `discount_price` is actually
+    # applied. The storefront uses it for the strike-through.
+    list_price: Optional[float] = Field(default=None, ge=0)
     quantity: int = Field(ge=0)
     is_active: bool = True
     is_sold_out: bool = False
@@ -58,6 +66,33 @@ def _paid_user_metrics() -> tuple[int, int]:
     return int(response.count or len(rows) or 0), len(unique_users)
 
 
+def _valid_discount_price(row: dict[str, Any]) -> Optional[float]:
+    """The per-tie discount, when the row carries a sane one.
+
+    Set `ties.discount_price` to discount one tie without touching code. It is
+    ignored (never trusted blindly) when it is not a number, is not positive,
+    or is not actually below the list price: a bad import must never turn a
+    tie into a free one.
+    """
+    raw = row.get("discount_price")
+    if raw in (None, ""):
+        return None
+
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+
+    if value <= 0:
+        return None
+
+    list_price = float(row.get("price") or row.get("unit_price") or 0)
+    if list_price > 0 and value >= list_price:
+        return None
+
+    return value
+
+
 def disount_logic(row: dict[str, Any], tie_name: str) -> float:
     """
     Decide the price a customer should SEE and PAY for a tie.
@@ -67,8 +102,9 @@ def disount_logic(row: dict[str, Any], tie_name: str) -> float:
     all call it, so the price shown on the frontend checkout always equals the
     amount actually charged.
 
-    Discounts are currently disabled. The promotion code is kept below for
-    future use, while all ties use their regular price.
+    A tie is charged at its `discount_price` when that column holds a sane
+    value (see _valid_discount_price); otherwise it is charged its list
+    `price`. The launch-window promotion below stays disabled on purpose.
 
     NOTE: each call queries Supabase for the paid-user count so the rule stays
     live. If a caller needs many prices in one request, hoist
@@ -81,7 +117,10 @@ def disount_logic(row: dict[str, Any], tie_name: str) -> float:
     #     # missing/zero discount_price never turns into a free tie.
     #     return float(row.get("discount_price") or row.get("price") or 0)
 
-    return float(row.get("price") or row.get("unit_price") or 0)
+    # A per-tie `discount_price` wins over the list price. /api/pay, checkout
+    # totals and /quantity/ties all funnel through here, so the price shown and
+    # the price charged stay identical.
+    return _valid_discount_price(row) or float(row.get("price") or row.get("unit_price") or 0)
 
 
 #change logic for checkout to add recieve_discount true/false to db. 
@@ -92,6 +131,9 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
     # The backend decides the price here (launch discount applied to the two
     # promo ties), and the frontend displays/charges exactly this value.
     price = disount_logic(row, tie_name)
+    # Only expose a list price when a discount is really applied, so the
+    # strike-through appears exactly when there is a saving to show.
+    list_price = float(row.get("price") or 0) if _valid_discount_price(row) else None
     quantity = int(row.get("quantity") or 0)
     is_active = bool(row.get("is_active", True))
 
@@ -100,6 +142,7 @@ def _normalize_inventory_row(row: dict[str, Any]) -> TieInventoryResponse:
         tie_name=tie_name,
         image_url=str(row.get("image_url") or row.get("image") or "").strip() or None,
         price=price,
+        list_price=list_price,
         quantity=quantity,
         is_active=is_active,
         is_sold_out=quantity <= 0 or not is_active,
@@ -142,7 +185,7 @@ def get_tie_by_id(tie_id: str) -> Optional[dict[str, Any]]:
     return response.data[0]
 
 
-def get_all_ties() -> list[TieInventoryResponse]:
+def get_all_ties(include_archived: bool = False) -> list[TieInventoryResponse]:
     # Newest first (Feature B): ties added later sit at the top of the catalog.
     # tie_name only breaks ties between rows inserted in the same instant.
     try:
@@ -158,6 +201,11 @@ def get_all_ties() -> list[TieInventoryResponse]:
         # catalog in the old order rather than taking the whole store down.
         response = supabase.table("ties").select("*").order("tie_name", desc=False).execute()
     rows = response.data or []
+    # Archived ties stay in the table (so order history, holds and pic refs keep
+    # resolving) but are never served to the storefront. `is_active` is missing
+    # on legacy rows -> treat as live.
+    if not include_archived:
+        rows = [row for row in rows if bool(row.get("is_active", True))]
     held_quantities = _active_hold_quantities()
     normalized_rows = []
     for row in rows:
@@ -373,8 +421,11 @@ def compute_order_total(cart_snapshot: list[dict[str, Any]]) -> float:
 @router.get("/ties", response_model=list[TieInventoryResponse])
 async def list_tie_quantities(
     only_active: bool = Query(False, description="Return only active ties with stock"),
+    include_archived: bool = Query(
+        False, description="Admin view: also return archived (is_active=false) ties"
+    ),
 ):
-    ties = get_all_ties()
+    ties = get_all_ties(include_archived=include_archived)
     if only_active:
         ties = [tie for tie in ties if tie.is_active and tie.quantity > 0]
     return ties
@@ -401,5 +452,113 @@ async def read_inventory_availability(
 @router.get("/paid-users", response_model=PaidUsersResponse)
 async def read_paid_user_count():
     return get_paid_user_totals()
+
+
+# ---------------------------------------------------------------------------
+# Catalog maintenance (used by the admin dashboard prototype)
+# ---------------------------------------------------------------------------
+# There is no admin role in the auth model yet, so these routes are gated by a
+# shared secret header instead. With ADMIN_API_KEY unset they fail CLOSED with
+# 503 rather than being open to anyone who finds the URL - the same rule the
+# Telegram webhook follows.
+
+MAX_TIE_STOCK = 500
+
+
+class TieAdminUpdate(BaseModel):
+    quantity: _Optional[int] = Field(default=None, ge=0, le=MAX_TIE_STOCK)
+    is_active: _Optional[bool] = None
+
+
+def require_admin_key(x_admin_key: _Optional[str] = Header(None, alias="X-Admin-Key")) -> None:
+    expected = (settings.ADMIN_API_KEY or "").strip()
+    if not expected:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin actions are not configured on this server.",
+        )
+    received = (x_admin_key or "").strip()
+    if not received or not hmac.compare_digest(received, expected):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin key.",
+        )
+
+
+def _set_archived(tie_id: str, archived: bool) -> TieInventoryResponse:
+    """Archive = hide from the storefront, never delete.
+
+    Deleting would break `orders.cart_snapshot`, `inventory_holds` and pic rows
+    that still point at the tie, and the paid-order webhook would 404 while
+    decrementing stock for a tie that just disappeared.
+    """
+    payload: dict[str, Any] = {"is_active": not archived}
+    if archived:
+        payload["archived_at"] = datetime.now(timezone.utc).isoformat()
+
+    try:
+        updated = supabase.table("ties").update(payload).eq("tie_id", tie_id).execute()
+    except Exception:
+        # archived_at column not migrated yet: archiving still has to work.
+        updated = (
+            supabase.table("ties")
+            .update({"is_active": not archived})
+            .eq("tie_id", tie_id)
+            .execute()
+        )
+
+    if not updated.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{tie_id}' was not found"
+        )
+    return _normalize_inventory_row(updated.data[0])
+
+
+@router.post(
+    "/ties/{tie_id}/archive",
+    response_model=TieInventoryResponse,
+    dependencies=[Depends(require_admin_key)],
+)
+async def archive_tie(tie_id: str):
+    """Hide a tie from the storefront. History and holds stay intact."""
+    return _set_archived(tie_id, True)
+
+
+@router.post(
+    "/ties/{tie_id}/restore",
+    response_model=TieInventoryResponse,
+    dependencies=[Depends(require_admin_key)],
+)
+async def restore_tie(tie_id: str):
+    return _set_archived(tie_id, False)
+
+
+@router.patch(
+    "/ties/{tie_id}",
+    response_model=TieInventoryResponse,
+    dependencies=[Depends(require_admin_key)],
+)
+async def update_tie_inventory(tie_id: str, payload: TieAdminUpdate):
+    """Restock or re-price a tie from the admin dashboard.
+
+    A restock must set `is_active` back to true: selling the last unit flips it
+    false automatically, so raising `quantity` alone leaves the tie hidden.
+    """
+    changes = payload.model_dump(exclude_none=True)
+    if not changes:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Send at least one of quantity or is_active.",
+        )
+
+    if changes.get("is_active") is None and "quantity" in changes:
+        changes["is_active"] = int(changes["quantity"]) > 0
+
+    updated = supabase.table("ties").update(changes).eq("tie_id", tie_id).execute()
+    if not updated.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Tie '{tie_id}' was not found"
+        )
+    return _normalize_inventory_row(updated.data[0])
 
 

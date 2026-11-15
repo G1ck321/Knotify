@@ -15,11 +15,14 @@ import AuthModal from './components/AuthModal';
 import Dashboard from './components/Dashboard';
 import SellPage from './components/SellPage';
 import AboutPage from './components/AboutPage';
+import AdminDashboard from './components/AdminDashboard';
 
 import { INITIAL_PRODUCTS, Product, CartItem, Reservation } from './types';
 import { authFetch, clearAuthSession, clearClientSessionState, clearProductCatalogCache, getStoredUser, persistAuthSession } from './lib/authStorage';
 import { getAccessToken } from './lib/authStorage';
 import { getBackendUrl } from './lib/checkoutPayment';
+import { applyLiveTie, productFromTie } from './lib/catalog';
+import { MAX_PER_TIE } from './lib/pricing';
 
 
 function normalizeUser(user: any) {
@@ -49,6 +52,17 @@ type InventorySummary = {
   paidUsers: number;
 };
 
+/**
+ * Ties that are rendered but have no `ties` row and can never be bought.
+ *
+ * The catalogue is Supabase-driven, and a product without a row would fall back
+ * to its hard-coded types.ts price - that is where the wrong prices came from.
+ * These ids are the only exception, kept by explicit opt-in so a display-only
+ * entry (the blue floral meme tie) still appears in the store.
+ * Buying is blocked server-side by NON_PURCHASABLE_TIE_IDS in orders.py.
+ */
+const DISPLAY_ONLY_TIE_IDS = new Set<string>(['corp-blue-floral']);
+
 interface Toast {
   id: string;
   message: string;
@@ -76,6 +90,11 @@ type OrderHistoryRow = {
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<'home' | 'about' | 'marketplace' | 'sell' | 'checkout' | 'wishlist' | 'dashboard'>('home');
+  // The admin prototype is reachable at /?view=admin and is deliberately not in
+  // the storefront nav (which is typed against the tab union above).
+  const [isAdminView] = useState(
+    () => new URLSearchParams(window.location.search).get('view') === 'admin'
+  );
   const [currentUser, setCurrentUser] = useState<any>(() => {
     const parsed = getStoredUser();
     return parsed ? normalizeUser(parsed) : null;
@@ -85,6 +104,7 @@ export default function App() {
     availableTies: 0,
     paidUsers: 0,
   });
+  const [inventoryRows, setInventoryRows] = useState<InventoryRow[]>([]);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
     type: 'add_to_cart' | 'buy_now' | 'checkout';
@@ -317,23 +337,43 @@ export default function App() {
 
         if (cancelled) return;
 
-        const tieMap = new Map(ties.map((row) => [row.tie_id, row]));
+        // The `ties` table IS the catalogue:
+        //   * a tie WITH a row is patched with live price/stock/image,
+        //   * a tie WITH a row that is archived (is_active = false) is hidden,
+        //   * a tie WITHOUT a row is HIDDEN too. Its price/stock would come from
+        //     the hard-coded types.ts entry, which drifts from what the backend
+        //     charges - that is where the wrong prices came from,
+        //   * a DB-only tie is ADDED, so one uploaded in Supabase appears
+        //     without hand-editing types.ts.
+        setProducts((previousProducts) => {
+          const liveById = new Map(
+            ties.filter((row) => row?.tie_id).map((row) => [row.tie_id, row] as const)
+          );
 
-        setProducts((previousProducts) =>
-          previousProducts.map((product) => {
-            const liveTie = tieMap.get(product.id);
-            if (!liveTie) return product;
+          // Empty response = the query failed or the table is unreachable. Keep
+          // the cached catalogue rather than blanking the store.
+          if (liveById.size === 0) return previousProducts;
 
-            return {
-              ...product,
-              name: liveTie.tie_name || product.name,
-              image: liveTie.image_url || product.image,
-              price: Number(liveTie.price ?? product.originalPrice),
-              stock: Number(liveTie.quantity ?? product.stock),
-              addedAt: liveTie.added_at || product.addedAt,
-            };
-          })
-        );
+          const merged = previousProducts.flatMap((product) => {
+            const liveTie = liveById.get(product.id);
+            if (!liveTie) {
+              // No Supabase row -> not for sale -> hidden, EXCEPT the explicit
+              // display-only allowlist above.
+              return DISPLAY_ONLY_TIE_IDS.has(product.id) ? [product] : [];
+            }
+            if (liveTie.is_active === false) return [];
+            return [applyLiveTie(product, liveTie)];
+          });
+
+          const knownIds = new Set(previousProducts.map((product) => product.id));
+          const discovered = ties
+            .filter((row) => row?.tie_id && row.is_active !== false && !knownIds.has(row.tie_id))
+            .map(productFromTie);
+
+          return discovered.length ? [...discovered, ...merged] : merged;
+        });
+
+        setInventoryRows(ties);
 
         setInventorySummary({
           totalQuantity: ties.reduce((total, tie) => total + Number(tie.quantity || 0), 0),
@@ -464,10 +504,10 @@ export default function App() {
       const maxStock = Number(product.stock) || 0;
       const existing = previous.find((item) => item.product.id === product.id);
       if (existing) {
-        const newQuantity = Math.min(existing.quantity + safeQuantity, maxStock);
+        const newQuantity = Math.min(existing.quantity + safeQuantity, maxStock, MAX_PER_TIE);
         return previous.map((item) => (item.product.id === product.id ? { ...item, quantity: newQuantity } : item));
       }
-      return [...previous, { product, quantity: Math.min(safeQuantity, maxStock) }];
+      return [...previous, { product, quantity: Math.min(safeQuantity, maxStock, MAX_PER_TIE) }];
     });
     addToast(`"${product.name}" added to bag!`, 'cart');
     setIsBagHighlighted(true);
@@ -505,7 +545,9 @@ export default function App() {
 
     setCartItems((previous) =>
       previous.map((item) =>
-        item.product.id === productId ? { ...item, quantity: Math.min(Number(quantity) || 0, Number(targetProduct.stock) || 0) } : item
+        item.product.id === productId
+          ? { ...item, quantity: Math.min(Number(quantity) || 0, Number(targetProduct.stock) || 0, MAX_PER_TIE) }
+          : item
       )
     );
   };
@@ -586,7 +628,23 @@ export default function App() {
 
       <main className="flex-grow">
         <AnimatePresence mode="wait">
-          {currentTab === 'home' ? (
+          {/* Admin is checked FIRST: currentTab still defaults to 'home', so a
+              later branch would never be reached. */}
+          {isAdminView ? (
+            <motion.div
+              key="admin"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              <AdminDashboard
+                ties={inventoryRows}
+                paidUsers={inventorySummary.paidUsers}
+                onRefresh={refreshCatalog}
+              />
+            </motion.div>
+          ) : currentTab === 'home' ? (
             <motion.div
               key="landing"
               initial={{ opacity: 0, y: 10 }}

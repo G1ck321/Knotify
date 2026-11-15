@@ -22,16 +22,18 @@ import {
   Star,
   Sparkles,
   Printer,
-  Share2
+  Share2,
+  ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CartItem, Product, COVENANT_HALLS } from '../types';
 import TiePlaceholder from './TiePlaceholder';
-import { getAccessToken, persistAuthSession } from '../lib/authStorage';
+import { persistAuthSession } from '../lib/authStorage';
 import {
   checkInventoryAvailability,
   clearPaymentReturnParams,
   clearPendingCheckout,
+  createCheckoutSession,
   fetchOrderStatus,
   getBackendUrl,
   loadPendingCheckout,
@@ -40,31 +42,23 @@ import {
   PAYMENT_SUCCESS_STATUSES,
   savePendingCheckout,
 } from '../lib/checkoutPayment';
-
-async function createCheckoutSession(payload: unknown) {
-  const token = getAccessToken();
-
-  const response = await fetch(`${getBackendUrl()}/api/pay`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const data = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    throw new Error(data?.detail || data?.message || 'Could not create payment session');
-  }
-
-  return data as { checkout_url?: string; tx_ref?: string };
-}
+import { DELIVERY_FEE, formatNaira, MAX_PER_TIE, PIC_FEE, UPDATES_FEE } from '../lib/pricing';
 
 interface ReviewFormProps {
   initialEmail: string;
 }
+
+/**
+ * Per-field validation messages for the details form. They render UNDER the
+ * field that is wrong (not in a single banner at the bottom), because on a
+ * phone the banner sits below the fold and the buyer never sees it.
+ */
+type CheckoutFieldErrors = {
+  name?: string;
+  phone?: string;
+  email?: string;
+  hall?: string;
+};
 
 function ReviewForm({ initialEmail }: ReviewFormProps) {
   const [email, setEmail] = useState(initialEmail);
@@ -254,17 +248,25 @@ export default function CheckoutPage({
   const [buyerName, setBuyerName] = useState('');
   const [buyerPhone, setBuyerPhone] = useState('');
   const [buyerEmail, setBuyerEmail] = useState('');
-  const [buyerHall, setBuyerHall] = useState(COVENANT_HALLS[0] || 'Daniel Hall');
+  // Optional ₦100 email/Telegram updates opt-in. Checked by default. The email
+  // field itself is REQUIRED (receipts), so this only controls the add-on.
+  // The ₦100 priority-alerts add-on is ADDED AT CHECKOUT by default and can be
+  // removed with the tick box under the Pay button. The required email
+  // (receipts, delivery notices) is free either way, so this is purely a
+  // purchasable extra the buyer can drop before paying.
+  const [emailUpdates, setEmailUpdates] = useState(true);
+  // No default hall: the buyer must pick one, because delivery routing depends
+  // on it and a pre-filled hall silently sends ties to the wrong lobby.
+  const [buyerHall, setBuyerHall] = useState('');
   const [roomNumber, setRoomNumber] = useState('');
   const [copiedId, setCopiedId] = useState(false);
   const [generatedTxRef, setGeneratedTxRef] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<CheckoutFieldErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedId, setGeneratedId]  = useState(
     () => localStorage.getItem("tx") || ""
   );
-
-  const DELIVERY_FEE = 250;
 
   // Ties held by another buyer's in-flight checkout, and the amber prompt that
   // explains it. A signed-in buyer's OWN holds are already excluded server-side
@@ -448,7 +450,8 @@ export default function CheckoutPage({
   };
 
   const itemsTotal = checkoutItems.reduce((acc, item) => acc + getLiveUnitPrice(item) * (item?.quantity ?? 0), 0);
-  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE : 0;
+  const updatesFee = emailUpdates ? UPDATES_FEE : 0;
+  const totalAmountPayable = itemsTotal > 0 ? itemsTotal + DELIVERY_FEE + updatesFee : 0;
   const loadgeneratedId = () => {
     
     const tx = localStorage.getItem("tx");
@@ -502,13 +505,52 @@ export default function CheckoutPage({
     }
   };
 
+  const clearFieldError = (field: keyof CheckoutFieldErrors) => {
+    setFieldErrors((previous) =>
+      previous[field] ? { ...previous, [field]: undefined } : previous
+    );
+  };
+
   const handleOpenConfirm = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!buyerName || !buyerPhone || !buyerEmail) {
-      setSubmitError('Please fill in your name, contact phone, and email address.');
+
+    // Validate everything at once and show each message under its own field.
+    const errors: CheckoutFieldErrors = {};
+
+    if (!buyerName.trim()) {
+      errors.name = 'Enter the full name this order should be recorded under.';
+    }
+
+    const phone = buyerPhone.trim();
+    // 08012345678 is only the example shown in the field. It is rejected so a
+    // buyer cannot submit the placeholder instead of a number we can reach.
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (!phone) {
+      errors.phone = 'Enter your own phone or Telegram number — we need it to reach you.';
+    } else if (phoneDigits === '08012345678' || phoneDigits =='0987654321') {
+      errors.phone = 'That is the example number. Enter your own phone or Telegram number.';
+    } else if (!/^\+?[0-9][0-9\s-]{6,19}$/.test(phone) || phoneDigits.length < 10 || phoneDigits.length > 14) {
+      errors.phone = 'Enter a complete number, like 0803 123 4567.';
+    }
+
+    const email = buyerEmail.trim();
+    if (!email) {
+      errors.email = 'Email is required — your receipt and order updates go here.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors.email = 'That email address does not look right. Please check it.';
+    }
+
+    if (!buyerHall) {
+      errors.hall = 'Select your residence hall so we route your delivery correctly.';
+    }
+
+    setFieldErrors(errors);
+    setSubmitError('');
+
+    if (Object.keys(errors).length > 0) {
       return;
     }
-    setSubmitError('');
+
     setShowConfirmModal(true);
   };
 
@@ -531,10 +573,10 @@ export default function CheckoutPage({
 
       const response = await createCheckoutSession({
         name: buyerName,
-        email: buyerEmail,
+        email: buyerEmail.trim(),
+        email_updates: emailUpdates,
         telegramPhone: buyerPhone,
         parentsNumber: currentUser?.parentsNumber || buyerPhone,
-        whatsApp: currentUser?.whatsApp || buyerPhone,
         address: buyerHall,
         roomNumber: roomNumber || 'N/A',
         items: orderItems,
@@ -816,7 +858,9 @@ export default function CheckoutPage({
                                   </span>
                                   <button
                                     onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                                    className="w-6 h-6 flex items-center justify-center font-sans text-xs text-brand-primary hover:bg-brand-card rounded-full transition-colors cursor-pointer"
+                                    disabled={item.quantity >= MAX_PER_TIE || item.quantity >= Number(item.product.stock)}
+                                    title={item.quantity >= MAX_PER_TIE ? `Maximum ${MAX_PER_TIE} per order` : undefined}
+                                    className="w-6 h-6 flex items-center justify-center font-sans text-xs text-brand-primary hover:bg-brand-card rounded-full transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                                     aria-label="Increase quantity"
                                   >
                                     +
@@ -845,10 +889,16 @@ export default function CheckoutPage({
                     >
                       <ArrowLeft size={14} />
                       Back to Shop
-                    </button>
-                    <span className="text-[11px] text-brand-primary/50 font-sans hidden sm:inline">
-                      Complete checkout using the summary on the right →
-                    </span>
+                      </button>
+                      <span className="text-[11px] text-brand-primary/50 font-sans">
+                      Complete checkout using the summary on the   
+                    <span className="pl-0.5 text-[11px] text-brand-primary/50 font-sans hidden sm:inline">
+                       right → <ArrowRight style={{display:'ínline'}} size={12}/>
+                      </span>
+                      <span className='pl-0.5 text-[11px] text-brand-primary/50 font-sans block lg:hidden'>
+/bottom <ArrowDown style={{display:'ínline'}} size={12} />
+                      </span>
+                      </span>
                   </div>
                 </motion.div>
               )}
@@ -896,16 +946,26 @@ export default function CheckoutPage({
                             required
                             placeholder="e.g. Daniel Adeleke"
                             value={buyerName}
-                            onChange={(e) => setBuyerName(e.target.value)}
-                            className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
+                            onChange={(e) => {
+                              setBuyerName(e.target.value);
+                              clearFieldError('name');
+                            }}
+                            aria-invalid={Boolean(fieldErrors.name)}
+                            className={`w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border ${fieldErrors.name ? 'border-red-400' : 'border-brand-border'} focus:border-brand-secondary focus:outline-none transition-all`}
                           />
                         </div>
+                        {fieldErrors.name && (
+                          <p role="alert" className="mt-1.5 flex items-start gap-1 text-[10px] font-sans leading-relaxed text-red-600">
+                            <Info size={11} className="mt-0.5 shrink-0" />
+                            {fieldErrors.name}
+                          </p>
+                        )}
                       </div>
 
                       {/* Phone input */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          PHONE / WHATSAPP NUMBER *
+                          PHONE / TELEGRAM NUMBER *
                         </label>
                         <div className="relative">
                           <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
@@ -913,39 +973,32 @@ export default function CheckoutPage({
                           </span>
                           <input
                             type="tel"
+                            inputMode="tel"
+                            autoComplete="tel"
                             required
-                            placeholder="e.g. 08012345678"
+                            placeholder="08012345678"
                             value={buyerPhone}
-                            onChange={(e) => setBuyerPhone(e.target.value)}
-                            className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
+                            onChange={(e) => {
+                              setBuyerPhone(e.target.value);
+                              clearFieldError('phone');
+                            }}
+                            aria-invalid={Boolean(fieldErrors.phone)}
+                            aria-describedby={fieldErrors.phone ? 'checkout-phone-error' : undefined}
+                            className={`w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border ${fieldErrors.phone ? 'border-red-400' : 'border-brand-border'} focus:border-brand-secondary focus:outline-none transition-all`}
                           />
                         </div>
+                        {fieldErrors.phone && (
+                          <p id="checkout-phone-error" role="alert" className="mt-1.5 flex items-start gap-1 text-[10px] font-sans leading-relaxed text-red-600">
+                            <Info size={11} className="mt-0.5 shrink-0" />
+                            {fieldErrors.phone}
+                          </p>
+                        )}
                       </div>
 
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                       
-                      {/* Email input */}
-                      <div>
-                        <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
-                          EMAIL *
-                        </label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
-                            <Mail size={13} />
-                          </span>
-                          <input
-                            type="email"
-                            required
-                            placeholder="e.g. daniel@example.com"
-                            value={buyerEmail}
-                            onChange={(e) => setBuyerEmail(e.target.value)}
-                            className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
-                          />
-                        </div>
-                      </div>
-
                       {/* Residence Hall Selector */}
                       <div>
                         <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
@@ -957,9 +1010,17 @@ export default function CheckoutPage({
                           </span>
                           <select
                             value={buyerHall}
-                            onChange={(e) => setBuyerHall(e.target.value)}
-                            className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all cursor-pointer"
+                            onChange={(e) => {
+                              setBuyerHall(e.target.value);
+                              clearFieldError('hall');
+                            }}
+                            required
+                            aria-invalid={Boolean(fieldErrors.hall)}
+                            className={`w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border ${fieldErrors.hall ? 'border-red-400' : 'border-brand-border'} focus:border-brand-secondary focus:outline-none transition-all cursor-pointer`}
                           >
+                            <option value="" disabled>
+                              Select your residence hall
+                            </option>
                             {COVENANT_HALLS.map((hall) => (
                               <option key={hall} value={hall}>
                                 {hall}
@@ -967,12 +1028,17 @@ export default function CheckoutPage({
                             ))}
                           </select>
                         </div>
+                        {fieldErrors.hall && (
+                          <p role="alert" className="mt-1.5 flex items-start gap-1 text-[10px] font-sans leading-relaxed text-red-600">
+                            <Info size={11} className="mt-0.5 shrink-0" />
+                            {fieldErrors.hall}
+                          </p>
+                        )}
                       </div>
 
-                    </div>
-
-                    {/* Room number optional */}
-                    <div>
+                      {/* Room number optional — paired with the hall so the
+                          add-on below can run full width. */}
+                      <div>
                       <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
                         ROOM / WING NUMBER (OPTIONAL)
                       </label>
@@ -988,6 +1054,53 @@ export default function CheckoutPage({
                           className="w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border border-brand-border focus:border-brand-secondary focus:outline-none transition-all"
                         />
                       </div>
+                      </div>
+
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-sans font-bold text-brand-secondary uppercase tracking-widest mb-1.5">
+                        EMAIL *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-brand-primary/45">
+                          <Mail size={13} />
+                        </span>
+                        <input
+                          type="email"
+                          inputMode="email"
+                          autoComplete="email"
+                          required
+                          placeholder="e.g. daniel@example.com"
+                          value={buyerEmail}
+                          onChange={(e) => {
+                            setBuyerEmail(e.target.value);
+                            clearFieldError('email');
+                          }}
+                          aria-invalid={Boolean(fieldErrors.email)}
+                          aria-describedby={fieldErrors.email ? 'checkout-email-error' : undefined}
+                          className={`w-full pl-9 pr-4 py-3 bg-brand-bg text-brand-primary font-sans text-xs rounded-xl border ${fieldErrors.email ? 'border-red-400' : 'border-brand-border'} focus:border-brand-secondary focus:outline-none transition-all`}
+                        />
+                      </div>
+                      {fieldErrors.email ? (
+                        <p id="checkout-email-error" role="alert" className="mt-1.5 flex items-start gap-1 text-[10px] font-sans leading-relaxed text-red-600">
+                          <Info size={11} className="mt-0.5 shrink-0" />
+                          {fieldErrors.email}
+                        </p>
+                      ) : (
+                        <p className="mt-1.5 text-[10px] font-sans leading-relaxed text-brand-primary/55">
+                          Your receipt and order updates are sent here. Required — and free.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl border border-brand-border bg-brand-card/50 px-4 py-3 text-[10px] font-sans leading-relaxed text-brand-primary/70">
+                      <strong className="text-brand-primary">Service charges are non-refundable.</strong>{" "}
+                      The ₦{UPDATES_FEE} alerts add-on is already in your total — untick it under the Pay button to
+                      remove it. It and the ₦{PIC_FEE} knotted-tie photo charge pay for the platform, hosting and
+                      delivery of that service. The work is done the moment it is sent, so those charges cannot be
+                      refunded. Your receipt email is free. The ties themselves stay refundable under our normal
+                      pickup policy.
                     </div>
 
                     <div className="bg-brand-bg p-4 rounded-2xl border border-brand-border text-[11px] text-brand-primary/80 font-sans leading-relaxed">
@@ -1281,15 +1394,21 @@ export default function CheckoutPage({
             </AnimatePresence>
 
             {checkoutStep !== 'success' && stripProducts.length > 0 && (
-              <section className="border-t border-brand-border/40 pt-6 text-left" id="checkout-ties-strip">
+              <section
+                className="rounded-3xl border border-brand-border/60 bg-brand-card/55 p-5 sm:p-6 text-left shadow-xs"
+                id="checkout-ties-strip"
+              >
                 <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
                   <div>
                     <span className="text-[9px] font-mono uppercase tracking-[0.25em] text-brand-secondary select-none">
-                      Just added to the catalog
+                      Pairs with your order
                     </span>
-                    <h2 className="font-serif font-bold text-lg sm:text-xl text-brand-primary tracking-tight">
+                    <h2 className="font-serif font-bold text-xl sm:text-2xl text-brand-primary tracking-tight">
                       Complete the look
                     </h2>
+                    <p className="mt-1 text-[11px] font-sans text-brand-primary/60">
+                      In stock now — add one before you pay.
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -1309,7 +1428,7 @@ export default function CheckoutPage({
                         : 0;
 
                     return (
-                      <div key={product.id} className="w-36 sm:w-40 shrink-0" id={`strip-${product.id}`}>
+                      <div key={product.id} className="w-40 sm:w-44 shrink-0" id={`strip-${product.id}`}>
                         <div className="aspect-[3/4] w-full rounded-xl overflow-hidden bg-brand-card border border-brand-border/70 relative">
                           {product.image ? (
                             <img
@@ -1382,8 +1501,15 @@ export default function CheckoutPage({
                   
                   <div className="flex justify-between text-brand-secondary font-semibold">
                     <span>Delivery & Hall Handoff</span>
-                    <span className="font-sans text-sm">₦{DELIVERY_FEE.toLocaleString()}</span>
+                    <span className="font-sans text-sm">{formatNaira(DELIVERY_FEE)}</span>
                   </div>
+
+                  {updatesFee > 0 && (
+                    <div className="flex justify-between text-brand-primary/70">
+                      <span>Priority alerts add-on</span>
+                      <span className="font-sans font-bold text-brand-primary">{formatNaira(updatesFee)}</span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between text-brand-primary/80 text-xs pt-1.5 border-t border-brand-border/40">
                     <span className="font-semibold">Total Payable</span>
@@ -1402,14 +1528,40 @@ export default function CheckoutPage({
                     <ArrowRight size={13} />
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenConfirm()}
-                    disabled={isSubmitting}
-                    className="w-full mt-4 py-3.5 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 active:scale-98"
-                  >
-                    {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()}`}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenConfirm()}
+                      disabled={isSubmitting}
+                      className="w-full mt-4 py-3.5 bg-brand-secondary hover:bg-brand-accent text-brand-bg font-sans tracking-wider uppercase text-xs font-bold rounded-full transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 active:scale-98"
+                    >
+                      {isSubmitting ? 'Connecting Gateway...' : `Pay ₦${totalAmountPayable.toLocaleString()}`}
+                    </button>
+
+                    {/* The ₦100 alerts add-on is pre-added to the total; this is the
+                        tick box under the Pay button that removes it. */}
+                    <label
+                      htmlFor="checkout-alerts-addon"
+                      className="mt-3 flex items-start gap-2.5 rounded-xl border border-brand-border/60 bg-brand-bg/50 px-3 py-2.5 text-left cursor-pointer"
+                    >
+                      <input
+                        id="checkout-alerts-addon"
+                        type="checkbox"
+                        checked={emailUpdates}
+                        onChange={(event) => setEmailUpdates(event.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-brand-secondary cursor-pointer shrink-0"
+                      />
+                      <span className="text-[10px] font-sans leading-relaxed text-brand-primary/70">
+                        <span className="font-semibold text-brand-primary">
+                          Priority alerts +{formatNaira(UPDATES_FEE)}
+                        </span>{" "}
+                        included — untick to remove it.
+                        <span className="mt-0.5 block text-brand-primary/45">
+                          Receipt emails stay free either way.
+                        </span>
+                      </span>
+                    </label>
+                  </>
                 )}
 
                 <div className="text-[10px] text-brand-primary/50 font-sans text-center mt-3 leading-relaxed">
@@ -1424,7 +1576,7 @@ export default function CheckoutPage({
                   Low-Risk Student Guarantee
                 </p>
                 <p className="text-xs text-brand-primary/65 leading-relaxed">
-                  Direct delivery to your residence hall lobby on resumption week. Full cash refund or tie exchange directly at pickup if unsuited.
+                  Direct delivery to your residence hall lobby on resumption week. Ties can be refunded or exchanged at pickup if unsuited btw 24-48hrs. <b> The optional ₦{UPDATES_FEE} alerts add-on and the ₦{DELIVERY_FEE} delivery &amp; packaging fee are non-refundable service fees, and receipt emails are always free. <br></br>Thank you.</b>
                 </p>
               </div>
 
@@ -1477,8 +1629,18 @@ export default function CheckoutPage({
                 </div>
                 <div className="flex justify-between border-b border-black/5 pb-2">
                   <span className="text-brand-primary/60">Email:</span>
-                  <span className="font-semibold text-brand-primary truncate max-w-[180px]">{buyerEmail}</span>
+                  <span className="font-semibold text-brand-primary truncate max-w-[180px]">
+                    {buyerEmail}
+                  </span>
                 </div>
+                {emailUpdates && (
+                  <div className="flex justify-between border-b border-black/5 pb-2">
+                    <span className="text-brand-primary/60">Updates:</span>
+                    <span className="font-semibold text-brand-primary">
+                      Added (+{formatNaira(UPDATES_FEE)})
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between border-b border-black/5 pb-2">
                   <span className="text-brand-primary/60">Hall & Room:</span>
                   <span className="font-semibold text-brand-primary">{buyerHall}{roomNumber ? `, ${roomNumber}` : ''}</span>

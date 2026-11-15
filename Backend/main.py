@@ -34,6 +34,19 @@ _require_dedicated_auth_secret()
 
 app = FastAPI(title="Knotify Covenant University", version="2026.1.0")
 
+
+@app.get("/health")
+async def health():
+    """Readiness probe: can this instance resolve and reach Supabase?
+
+    Logic lives in health.py so it can be tested without booting the app (which
+    refuses to start without AUTH_SECRET_KEY). Never returns a key or a
+    connection string.
+    """
+    from health import build_health_report
+
+    return build_health_report()
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
     """Generic 500: fixed body for the client, full traceback in the server log.
@@ -64,6 +77,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3003",
         "http://localhost:3001",
+        # Vite picks the next free port when 3001 is already in use.
+        "http://localhost:3002",
         "https://knotifycu.vercel.app",
                    "https://knotifycu.knotifycu.workers.dev"],
 )

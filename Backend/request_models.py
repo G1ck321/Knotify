@@ -10,13 +10,18 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from pricing import MAX_PER_TIE
+
 
 class OrderItemInput(BaseModel):
     """One purchasable line item in a checkout request."""
 
     tie_id: str = Field(..., alias="item_id", min_length=1)
     name: str = Field(..., min_length=1)
-    quantity: int = Field(..., gt=0)
+    # One order may not take more than MAX_PER_TIE of a single tie: a single
+    # buyer otherwise clears the shelf and the per-line stock check stops being
+    # meaningful. The same cap is enforced in the checkout UI.
+    quantity: int = Field(..., gt=0, le=MAX_PER_TIE)
     unit_price: float = Field(..., gt=0)
     image_url: Optional[str] = None
 
@@ -42,6 +47,7 @@ class CheckoutRequest(BaseModel):
     """Normalized checkout payload for one payment session."""
 
     name: str = Field(..., min_length=1)
+    # Email is REQUIRED: it is the receipt and order-update address.
     email: EmailStr
     telegramPhone: str
     parentsNumber: str
@@ -52,6 +58,11 @@ class CheckoutRequest(BaseModel):
     items: list[OrderItemInput] = Field(default_factory=list, min_length=1)
     order_details: Optional[str] = Field(default=None, alias="orderDetails")
     amount: float = Field(..., gt=0)
+    # 100 NGN priority-alerts add-on, ticked by default at checkout and removable
+    # there. When true, routers/orders.py adds pricing.UPDATES_FEE once per order.
+    # The receipt email itself is required and free, so this flag is a purchase
+    # decision, not the consent that lets us email the buyer.
+    email_updates: bool = False
     # Feature C: the device's unguessable key (localStorage) and the pic
     # requests the buyer opened. The SERVER decides the fee from its own
     # pic_requests rows - these only help match a guest to their obligations.

@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     # X-Telegram-Bot-Api-Secret-Token on every update, so the /webhook/telegram
     # endpoint can reject anyone else who finds its URL.
     TELEGRAM_WEBHOOK_SECRET: str = ""
+    # Shared secret for the admin-only catalog routes (archive / restock /
+    # broadcast). The API has no admin role yet, so these routes fail CLOSED
+    # with 503 when this is empty instead of being open to anyone.
+    ADMIN_API_KEY: str = ""
     # RESEND_API_KEY: str
     @field_validator("FW_SECRET_KEY", mode="before")
     @classmethod
