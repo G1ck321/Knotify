@@ -10,8 +10,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status, Header
 from schemas import UserReviews
 from database import supabase
 from config import settings
-from routers.quantity import compute_order_total, disount_logic, get_tie_by_id, reserve_inventory
-from routers.pic_requests import collect_unpaid_pic_requests, pic_fee_total
+from pricing import DELIVERY_FEE, UPDATES_FEE
+from routers.quantity import (
+    compute_order_total,
+    disount_logic,
+    get_tie_by_id,
+    release_inventory_hold,
+    release_superseded_holds,
+    reserve_inventory,
+)
 from utils.ratelimit import pay_rate_limit
 
 from typing import Optional, List, Any
@@ -79,7 +86,9 @@ async def initialize_payment(
         user_id = current_user.get("id") if current_user else None
 
         if not user_id:
-            cleaned_email = payload.email.strip().lower()
+            # Guest checkout: email is required by the schema, so a users row can
+            # always be created or matched for the foreign key.
+            cleaned_email = str(payload.email).strip().lower()
             existing_user = supabase.table("users").select("id").eq("email", cleaned_email).limit(1).execute()
             if existing_user.data and len(existing_user.data) > 0:
                 user_id = existing_user.data[0]["id"]
@@ -104,27 +113,10 @@ async def initialize_payment(
                 else:
                     user_id = guest_uuid
 
-        # ---- Feature C: knotted-tie-pic fees ---------------------------------
-        # Every unpaid pic request this buyer owes is added HERE, server-side,
-        # exactly like the 350 delivery fee: the browser can neither add nor
-        # strip it. Matching runs on three identities (account id, checkout
-        # email, device key) so a guest who signs in mid-journey still carries
-        # their outstanding 100 NGN rows.
-        matching_keys = list(payload.pic_keys or [])
-        if payload.client_key and payload.client_key not in matching_keys:
-            matching_keys.append(payload.client_key)
-
-        pic_rows = collect_unpaid_pic_requests(
-            user_id=user_id,
-            email=payload.email,
-            client_keys=matching_keys,
-        )
-        pic_fees = pic_fee_total(pic_rows)
-        pic_refs = [str(row.get("tx_ref")) for row in pic_rows]
-
-        # Delivery fee (350) + pic fees, both computed on the server so the
-        # amount charged always equals the amount shown.
-        calculated_total = server_items_total + 350 + pic_fees
+        # Every add-on is priced HERE, server-side, so the amount charged always
+        # equals the amount shown at checkout. The client `amount` is never used.
+        updates_fee = UPDATES_FEE if payload.email_updates else 0.0
+        calculated_total = server_items_total + DELIVERY_FEE + updates_fee
 
         db_payload = {
             "user_id": user_id,
@@ -135,15 +127,12 @@ async def initialize_payment(
             "items_total": server_items_total,
             "item_count": len(payload.items),
             "currency": "NGN",
-            "order_details": payload.order_summary,
+            "order_details": payload.order_summary
+            + (f" | Updates: email/Telegram (+NGN {UPDATES_FEE:.0f})" if updates_fee else ""),
             "cart_snapshot": normalized_items,
-            # Feature C: what this order covers, so the webhook can flip
-            # exactly those pic_requests to paid and nothing else.
-            "pic_fees": pic_fees,
-            "pic_refs": pic_refs,
             "delivery_address": payload.address,
             "room_number": payload.roomNumber,
-            "email_snapshot": payload.email,
+            "email_snapshot": str(payload.email),
             "phone_snapshot": payload.telegramPhone,
             "parentsNumber":payload.parentsNumber
         }
@@ -153,15 +142,13 @@ async def initialize_payment(
         order_insert = supabase.table("orders").insert(db_payload).execute()
         print(f"Order inserted: tx_ref={tx_ref}, rows={len(order_insert.data or [])}")
 
+        # A cancelled or abandoned earlier attempt leaves a 10-minute hold on
+        # these same ties. It belongs to this buyer, so drop it first: the
+        # newest attempt wins instead of failing with "no longer available".
+        release_superseded_holds(user_id, tx_ref)
+
         try:
-            reserve_inventory(
-                tx_ref,
-                normalized_items,
-                # Stamp ownership so the buyer's OWN 24h pic hold does not
-                # block this checkout, while everyone else's holds still do.
-                client_key=payload.client_key,
-                user_id=user_id,
-            )
+            reserve_inventory(tx_ref, normalized_items)
         except HTTPException:
             supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
             raise
@@ -199,7 +186,7 @@ async def initialize_payment(
             "customer":{
                 "name": payload.name,
                 "phone_number": payload.telegramPhone,
-                "email":payload.email
+                "email": str(payload.email),
             },
             "meta":{
                 "user_id": user_id or "guest",
@@ -212,17 +199,40 @@ async def initialize_payment(
             "payment_options":"card, ussd, banktransfer, opay",
             "customizations":{
                 "title":"KnotifyCu",
-                "description": f"Ties NGN {server_items_total:.2f} | Delivery Fee: NGN 350"
-                + (f" | Pic requests: NGN {pic_fees:.0f}" if pic_fees else "")
+                "description": f"Ties NGN {server_items_total:.2f} | Delivery: NGN {DELIVERY_FEE:.0f}"
+                + (f" | Updates: NGN {updates_fee:.0f}" if updates_fee else "")
             }
         }
 
         #Ask flutterwave for the checkout link
         print("Reaching out to Flutterwave..")
         async with httpx.AsyncClient() as client:
-            response = await client.post(flutterwave_api_url, json=flutter_payload, headers=headers)
-            print(response.json())
-            flw_data = response.json()
+            try:
+                response = await client.post(flutterwave_api_url, json=flutter_payload, headers=headers)
+            except httpx.RequestError as error:
+                # DNS or connection failure: Windows errno 11001
+                # ("getaddrinfo failed"), a timeout, or a TLS handshake problem.
+                # The order row and its 10-minute inventory holds already exist,
+                # so release them and mark the attempt failed instead of leaving
+                # a pending order pointing at a checkout page that never came.
+                print(f"Flutterwave unreachable ({flutterwave_api_url}): {error!r}")
+                try:
+                    release_inventory_hold(tx_ref)
+                except Exception as release_error:  # pragma: no cover
+                    print(f"Could not release holds for {tx_ref}: {release_error}")
+                supabase.table("orders").update({"status": "failed"}).eq("tx_ref", tx_ref).execute()
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=(
+                        "We could not reach the payment gateway. Nothing was charged — "
+                        "check your connection and try again."
+                    ),
+                ) from error
+
+            # A non-JSON error body (gateway maintenance page, WAF block) must
+            # not turn into an unhandled JSONDecodeError -> opaque 500.
+            flw_data = response.json() if response.content else {}
+            print(f"Flutterwave response {response.status_code}: {flw_data}")
 
             if response.status_code == 200 and flw_data.get("status") == "success":
                 hosted_checkout_url = flw_data.get("data",{}).get("link")
@@ -230,10 +240,13 @@ async def initialize_payment(
                 return {"checkout_url": hosted_checkout_url, "tx_ref": tx_ref, "order": order_insert.data[0] if order_insert.data else db_payload}
 
             else:
-                print(f"Flutterwave rejected request with status {response.status_code}")
+                gateway_message = flw_data.get("message") or "the payment gateway rejected the request"
+                print(f"Flutterwave rejected request with status {response.status_code}: {gateway_message}")
+                # 502: the failure is upstream, not a bug in this app, and the
+                # client can safely retry.
                 raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Gateway Error {flw_data.get("message")}"
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail=f"Gateway error: {gateway_message}",
                 )
 
     except HTTPException:

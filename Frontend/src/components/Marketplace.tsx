@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product } from '../types';
+import { stockLabel } from '../lib/pricing';
 import TiePlaceholder from './TiePlaceholder';
 
 function SkeletonCard() {
@@ -32,6 +33,14 @@ function SkeletonCard() {
 function hasStock(stock: Product['stock']) {
   return Number(stock) > 0;
 }
+
+/**
+ * How many sold-out ties may appear in the grid.
+ *
+ * They stay discoverable (people like to see the sold-out design), but an
+ * unbounded tail of dead stock pushes the live catalogue below the fold.
+ */
+const MAX_SOLD_OUT_CARDS = 5;
 
 // ── Feature B: curated catalog ordering ───────────────────────────────────────────────────────
 // Row 1 is fixed: the plain black tie, the plain wine tie, then two vintage
@@ -195,7 +204,7 @@ export default function Marketplace({
 
   // Live Filtering Logic
   const filteredProducts = useMemo(() => {
-    return products
+    const matching = products
       .filter((product) => {
         const matchesSearch = 
           product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -228,6 +237,18 @@ export default function Marketplace({
         // type bucket.
         return (catalogOrder.get(a.id) ?? 0) - (catalogOrder.get(b.id) ?? 0);
       });
+
+    // Partition explicitly rather than trusting the sort above. The comparator
+    // does rank availability first (aAvailable/aAvailable), but a cap that
+    // depends on comparator behaviour is one refactor away from silently
+    // dropping an in-stock tie. Slicing the sold-out bucket can only ever
+    // remove sold-out cards: every in-stock match is kept, in sorted order.
+    const inStock = matching.filter((product) => hasStock(product.stock));
+    const soldOut = matching
+      .filter((product) => !hasStock(product.stock))
+      .slice(0, MAX_SOLD_OUT_CARDS);
+
+    return [...inStock, ...soldOut];
   }, [products, productSignature, catalogOrder, searchQuery, selectedCategory, selectedCondition, selectedColor, maxPrice, minRating, onlyInStock, sortBy]);
 
   return (
@@ -235,7 +256,7 @@ export default function Marketplace({
       
       {/* 0. BOLD BACK-TO-SHOP ANCHOR (top-left, keeps users oriented) */}
       {onBackToShop && (
-        <div className="mb-2 text-left">
+        <div className="mb-1 mt-16  text-left">
           <button
             onClick={onBackToShop}
             className="inline-flex items-center gap-2 text-xs font-mono font-bold tracking-widest uppercase text-brand-primary hover:text-brand-secondary transition-colors cursor-pointer group"
@@ -363,6 +384,10 @@ export default function Marketplace({
                 const isHot = discountPercent > 27;
                 const isWishlisted = isInWishlist(product.id);
                 const isOutOfStock = !hasStock(product.stock);
+                // Bucketed on purpose: legacy rows carry absurd counts (one static
+                // entry claims 2800), so shoppers see availability + scarcity, not
+                // a raw number they would read as an inventory promise.
+                const stockState = stockLabel(product.stock);
 
                 return (
                   <motion.div
@@ -406,6 +431,12 @@ export default function Marketplace({
                           </span>
                         ) : null}
                       
+                        {!isOutOfStock && (
+                          <span className="bg-brand-bg text-brand-primary font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold border border-brand-border rounded">
+                            {stockState.label}
+                          </span>
+                        )}
+
                         {product.condition === 'Student-Ready' && !isOutOfStock && (
                           <span className="bg-brand-bg text-brand-primary font-mono text-[8px] tracking-widest uppercase px-2 py-0.5 font-bold border border-brand-border rounded">
                             NEW

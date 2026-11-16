@@ -1,8 +1,8 @@
-"""Feature C - "Request knotted tie pic" (150 NGN, 48-hour inventory hold).
+"""Feature C - "Request knotted tie pic" (200 NGN, 48-hour inventory hold).
 
 Rules this module enforces (see DEPLOYMENT_NOTES.md Part 3, Feature C):
 
-* A request creates a 150 NGN obligation the moment it exists - `fee_status`
+* A request creates a 200 NGN obligation the moment it exists - `fee_status`
   starts as `unpaid` and only a confirmed Flutterwave payment flips it. Not
   paying never erases the obligation, it only leaves it outstanding.
 * The 48-hour hold is a real `inventory_holds` row created through the
@@ -33,6 +33,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from config import settings
 from database import supabase
+from pricing import PIC_FEE
 from dependencies import get_optional_current_user
 from routers.quantity import get_tie_by_id, release_inventory_hold, reserve_inventory
 from utils.ratelimit import caller_key, rate_limit
@@ -40,7 +41,6 @@ from utils.ratelimit import caller_key, rate_limit
 
 router = APIRouter(prefix="/api/pic-requests", tags=["Knotted tie pic requests"])
 
-PIC_FEE = 150.0
 # The promise shown to the buyer is "24-48 hours": hold to the upper bound so
 # a pic that takes a while to shoot still arrives while the tie is reserved.
 HOLD_HOURS = 48
@@ -246,7 +246,7 @@ async def create_pic_request(
     request: Request,
     current_user: Optional[dict] = Depends(get_optional_current_user),
 ):
-    """Create a knotted-tie-pic request: 150 NGN owed + a 48-hour hold."""
+    """Create a knotted-tie-pic request: 200 NGN owed + a 48-hour hold."""
     rate_limit(keys=[f"pic:ip:{caller_key(request)}"], limit=10, window_seconds=300)
 
     tie_row = get_tie_by_id(payload.tie_id)
@@ -317,7 +317,7 @@ async def create_pic_request(
 
     created = (inserted.data or [row])[0]
 
-    # Real inventory hold: 24h, tagged as a pic hold and owned by this buyer.
+    # Real inventory hold: 48h, tagged as a pic hold and owned by this buyer.
     try:
         reserve_inventory(
             tx_ref,
@@ -328,7 +328,7 @@ async def create_pic_request(
         )
     except HTTPException:
         # Someone else holds the last unit - roll the row back so no orphan
-        # 100 NGN obligation survives a failed hold.
+        # 200 NGN obligation survives a failed hold.
         try:
             supabase.table("pic_requests").delete().eq("tx_ref", tx_ref).execute()
         except Exception as cleanup_error:  # pragma: no cover
@@ -378,7 +378,7 @@ def collect_unpaid_pic_requests(
     email: Optional[str] = None,
     client_keys: Optional[list[str]] = None,
 ) -> list[dict[str, Any]]:
-    """Every outstanding 100 NGN obligation this buyer could be charged for.
+    """Every outstanding 200 NGN obligation this buyer could be charged for.
 
     Three identities are matched server-side so the fee cannot be stripped by
     editing the request body: signed-in user id, the checkout email, and the
@@ -430,7 +430,7 @@ def pic_fee_total(rows: list[dict[str, Any]]) -> float:
 
 
 def mark_pic_requests_paid(tx_refs: list[str]) -> None:
-    """Flip the 100 NGN rows an order actually paid for."""
+    """Flip the 200 NGN rows an order actually paid for."""
     for tx_ref in tx_refs or []:
         try:
             supabase.table("pic_requests").update(
@@ -445,7 +445,7 @@ def mark_pic_requests_paid(tx_refs: list[str]) -> None:
 
 
 def release_pic_holds_for_paid_order(order_record: dict[str, Any]) -> None:
-    """Once the buyer purchases the tie, their 24h pic hold has no purpose.
+    """Once the buyer purchases the tie, their 48h pic hold has no purpose.
 
     Without this, a stock-1 vintage tie stays invisible to other buyers for
     the rest of the window even though it was just sold.

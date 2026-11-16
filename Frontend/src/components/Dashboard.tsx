@@ -308,35 +308,56 @@ export default function Dashboard({
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <h1 className="font-display font-bold text-xl sm:text-3xl text-[#FFFEF2] tracking-tight">
-                      {currentUser.name || currentUser.full_name || 'Covenant Student'}
+                      {currentUser.name || currentUser.full_name || 'Account Profile'}
                     </h1>
-                    <span className="inline-flex items-center gap-1 bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#F5E6B3] text-[10px] sm:text-xs font-medium px-2.5 py-0.5 rounded-full">
-                      <ShieldCheck size={12} className="text-[#D4AF37]" />
-                      {currentUser.isSeller ? 'Tie Merchant' : 'Verified Student'}
-                    </span>
+                    {currentUser.isSeller && (
+                      <span className="inline-flex items-center gap-1 bg-[#D4AF37]/20 border border-[#D4AF37]/40 text-[#F5E6B3] text-[10px] sm:text-xs font-medium px-2.5 py-0.5 rounded-full">
+                        <ShieldCheck size={12} className="text-[#D4AF37]" />
+                        Tie Merchant
+                      </span>
+                    )}
                   </div>
 
-                  {/* Contact pills */}
-                  <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-[#FFFEF2]/80">
-                    <span className="inline-flex items-center gap-1.5">
-                      <MapPin size={13} className="text-[#D4AF37] shrink-0" />
-                      <span>{currentUser.residenceHall || currentUser.address || 'Daniel Hall'}, Room {currentUser.roomNumber || '302'}</span>
-                    </span>
-                    <span className="hidden sm:inline text-white/30">•</span>
-                    <span className="inline-flex items-center gap-1.5">
-                      <Phone size={13} className="text-[#D4AF37] shrink-0" />
-                      <span>{currentUser.telegramPhone || currentUser.phone || 'No phone set'}</span>
-                    </span>
-                    {currentUser.email && (
-                      <>
+                  {/* Contact pills: only display if the person actually entered data */}
+                  {Boolean(
+                    currentUser.residenceHall ||
+                    currentUser.address ||
+                    currentUser.roomNumber ||
+                    currentUser.telegramPhone ||
+                    currentUser.phone ||
+                    currentUser.email
+                  ) && (
+                    <div className="flex flex-wrap items-center gap-y-1 gap-x-3 text-xs text-[#FFFEF2]/80">
+                      {(currentUser.residenceHall || currentUser.address || currentUser.roomNumber) && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <MapPin size={13} className="text-[#D4AF37] shrink-0" />
+                          <span>
+                            {[currentUser.residenceHall || currentUser.address, currentUser.roomNumber ? `Room ${currentUser.roomNumber}` : null]
+                              .filter(Boolean)
+                              .join(', ')}
+                          </span>
+                        </span>
+                      )}
+                      {(currentUser.residenceHall || currentUser.address || currentUser.roomNumber) && (currentUser.telegramPhone || currentUser.phone || currentUser.email) && (
+                        <span className="hidden sm:inline text-white/30">•</span>
+                      )}
+                      {(currentUser.telegramPhone || currentUser.phone) && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <Phone size={13} className="text-[#D4AF37] shrink-0" />
+                          <span>{currentUser.telegramPhone || currentUser.phone}</span>
+                        </span>
+                      )}
+                      {(currentUser.telegramPhone || currentUser.phone) && currentUser.email && (
                         <span className="hidden md:inline text-white/30">•</span>
+                      )}
+                      {currentUser.email && (
                         <span className="inline-flex items-center gap-1.5">
                           <Mail size={13} className="text-[#D4AF37] shrink-0" />
                           <span className="truncate max-w-[200px]">{currentUser.email}</span>
                         </span>
-                      </>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -874,7 +895,7 @@ export default function Dashboard({
                       value={currentUser?.email || ''}
                       className="w-full px-4 py-2.5 bg-neutral-100 border border-black/10 text-neutral-500 rounded-xl text-xs sm:text-sm cursor-not-allowed"
                     />
-                    <p className="text-[11px] text-neutral-400 mt-1">Your student account email address (used for order receipts).</p>
+                    <p className="text-[11px] text-neutral-400 mt-1">Your registered email address (used for order receipts).</p>
                   </div>
 
                   <div>

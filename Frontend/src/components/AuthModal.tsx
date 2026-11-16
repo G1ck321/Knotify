@@ -9,11 +9,13 @@ import {
   EyeOff, 
   AlertCircle,
   X,
-  Sparkles
+  MapPin,
+  Building,
+  Check
 } from 'lucide-react';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import { persistAuthSession } from '../lib/authStorage';
-import { SAMPLE_PARENTS_PHONE, SAMPLE_PHONE } from '../lib/sampleData';
+import { COVENANT_HALLS } from '../types';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -72,6 +74,16 @@ export default function AuthModal({
   const [whatsApp, setWhatsApp] = useState('');
   const [parentsNumber, setParentsNumber] = useState('');
 
+  // Post-Signup Onboarding States
+  const [isOnboarding, setIsOnboarding] = useState(false);
+  const [pendingUser, setPendingUser] = useState<any>(null);
+  // JWT from the auto-login that follows signup; handed to onSuccess once
+  // onboarding finishes so protected calls are authenticated straight away.
+  const [pendingToken, setPendingToken] = useState<string | undefined>(undefined);
+  const [onboardingHall, setOnboardingHall] = useState(COVENANT_HALLS[0]);
+  const [onboardingRoom, setOnboardingRoom] = useState('');
+  const [onboardingWhatsApp, setOnboardingWhatsApp] = useState('');
+
   // Login Form States
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -111,7 +123,7 @@ export default function AuthModal({
       onSuccess(normalizedUser, response.access_token);
       setIsLogin(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid student email or password');
+      setError(err instanceof Error ? err.message : 'Invalid email or password');
     } finally {
       setLoading(false);
     }
@@ -154,9 +166,11 @@ export default function AuthModal({
       }
 
       const normalizedUser = normalizeUser(sessionUser);
-      localStorage.setItem('knotify_current_user', JSON.stringify(normalizedUser));
-      onSuccess(normalizedUser, accessToken);
-      setIsLogin(true);
+      // Start onboarding to collect profile details for delivery and profile page
+      setPendingUser(normalizedUser);
+      setPendingToken(accessToken);
+      setOnboardingWhatsApp(whatsApp.trim() || normalizedUser.whatsApp || '');
+      setIsOnboarding(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create account');
     } finally {
@@ -164,22 +178,32 @@ export default function AuthModal({
     }
   };
 
-  const handleUseSampleAccount = () => {
-    const sampleUser = {
-      id: 'sample-student-daniel',
-      name: 'Daniel Adeleke',
-      full_name: 'Daniel Adeleke',
-      email: 'daniel.adeleke@student.covenant.edu.ng',
-      telegramPhone: SAMPLE_PHONE,
-      phone: SAMPLE_PHONE,
-      whatsApp: SAMPLE_PHONE,
-      parentsNumber: SAMPLE_PARENTS_PHONE,
-      address: 'Daniel Hall',
-      roomNumber: 'B204',
+  const handleCompleteOnboarding = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!pendingUser) return;
+
+    const finalUser = {
+      ...pendingUser,
+      residenceHall: onboardingHall,
+      address: onboardingHall,
+      roomNumber: onboardingRoom.trim() || undefined,
+      whatsApp: onboardingWhatsApp.trim() || pendingUser.whatsApp || pendingUser.telegramPhone,
     };
-    persistAuthSession(sampleUser, 'sample_jwt_token_for_daniel');
-    onSuccess(sampleUser);
-    onClose();
+
+    localStorage.setItem('knotify_current_user', JSON.stringify(finalUser));
+    persistAuthSession(finalUser, pendingToken);
+    onSuccess(finalUser, pendingToken);
+    setIsOnboarding(false);
+    setIsLogin(true);
+  };
+
+  const handleSkipOnboarding = () => {
+    if (!pendingUser) return;
+    localStorage.setItem('knotify_current_user', JSON.stringify(pendingUser));
+    persistAuthSession(pendingUser, pendingToken);
+    onSuccess(pendingUser, pendingToken);
+    setIsOnboarding(false);
+    setIsLogin(true);
   };
 
   return (
@@ -218,17 +242,21 @@ export default function AuthModal({
             {/* Heading & Subtitle */}
             <div className="mb-5">
               <h2 className="font-display font-bold text-2xl sm:text-3xl text-brand-primary tracking-tight">
-                {isLogin ? 'Welcome back!' : 'Create your account'}
+                {isOnboarding
+                  ? 'Complete your profile'
+                  : isLogin
+                  ? 'Welcome back!'
+                  : 'Create your account'}
               </h2>
               <p className="text-xs sm:text-sm text-brand-primary/60 font-sans mt-1">
-                {isLogin 
-                  ? 'Please enter your account details to continue.' 
-                  : 'Join Covenant students getting chapel-ready ties without hassle.'}
+                {isOnboarding
+                  ? 'Add your hall and room number so your profile and order handoffs are set up.'
+                  : isLogin
+                  ? 'Please enter your account details to continue.'
+                  : 'Join Covenant students getting dress-compliant ties without hassle.'}
               </p>
             </div>
 
-            {/* Quick Sample Account Button for testing */}
-            
 
             {/* Error Message Alert */}
             {error && (
@@ -240,7 +268,79 @@ export default function AuthModal({
 
             {/* ── FORMS SWITCH ── */}
             <AnimatePresence mode="wait">
-              {isLogin ? (
+              {isOnboarding ? (
+                /* ── POST-SIGNUP ONBOARDING FORM ── */
+                <motion.form
+                  key="onboarding"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -8 }}
+                  transition={{ duration: 0.2 }}
+                  onSubmit={handleCompleteOnboarding}
+                  className="space-y-4"
+                >
+                  <div>
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1.5">
+                      Hall of Residence
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={onboardingHall}
+                        onChange={(e) => setOnboardingHall(e.target.value)}
+                        className="w-full px-3.5 py-3 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all cursor-pointer"
+                      >
+                        {COVENANT_HALLS.map((hall) => (
+                          <option key={hall} value={hall}>
+                            {hall}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1.5">
+                      Room Number (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. B204 or Room 302"
+                      value={onboardingRoom}
+                      onChange={(e) => setOnboardingRoom(e.target.value)}
+                      className="w-full px-3.5 py-3 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all placeholder:text-brand-primary/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1.5">
+                      WhatsApp Number (Optional)
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="e.g. 08012345678"
+                      value={onboardingWhatsApp}
+                      onChange={(e) => setOnboardingWhatsApp(e.target.value)}
+                      className="w-full px-3.5 py-3 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all placeholder:text-brand-primary/30"
+                    />
+                  </div>
+
+                  <div className="pt-2 flex flex-col gap-2">
+                    <button
+                      type="submit"
+                      className="w-full py-3.5 bg-brand-secondary hover:bg-brand-accent text-[#FFFEF2] font-sans font-semibold text-xs sm:text-sm rounded-full transition-all duration-200 shadow-sm hover:shadow cursor-pointer min-h-[44px] active:scale-98"
+                    >
+                      Save & Enter Profile
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSkipOnboarding}
+                      className="w-full py-2 text-xs font-sans text-brand-primary/60 hover:text-brand-primary cursor-pointer transition-colors"
+                    >
+                      I'll add these later
+                    </button>
+                  </div>
+                </motion.form>
+              ) : isLogin ? (
                 /* ── LOGIN FORM ── */
                 <motion.form
                   key="login"
@@ -253,13 +353,13 @@ export default function AuthModal({
                 >
                   <div>
                     <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1.5">
-                      Student email
+                      Email
                     </label>
                     <div className="relative">
                       <input
                         type="email"
                         required
-                        placeholder="e.g. name@student.covenant.edu.ng"
+                        placeholder="e.g. name@example.com"
                         value={loginUsername}
                         onChange={(e) => setLoginUsername(e.target.value)}
                         className="w-full pl-3.5 pr-10 py-3 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all placeholder:text-brand-primary/30"
@@ -336,12 +436,12 @@ export default function AuthModal({
 
                   <div>
                     <label className="block text-[11px] font-sans font-medium text-brand-primary/75 mb-1">
-                      Student email
+                      Email
                     </label>
                     <input
                       type="email"
                       required
-                      placeholder="e.g. daniel@student.covenant.edu.ng"
+                      placeholder="e.g. daniel@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs sm:text-sm rounded-xl focus:outline-none transition-all"
@@ -372,7 +472,7 @@ export default function AuthModal({
                       <input
                         type="tel"
                         required
-                        placeholder={SAMPLE_PHONE}
+                        placeholder="08012345678"
                         value={telegramPhone}
                         onChange={(e) => setTelegramPhone(e.target.value)}
                         className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"
@@ -384,7 +484,7 @@ export default function AuthModal({
                       </label>
                       <input
                         type="tel"
-                        placeholder={SAMPLE_PHONE}
+                        placeholder="08012345678"
                         value={whatsApp}
                         onChange={(e) => setWhatsApp(e.target.value)}
                         className="w-full px-3 py-2.5 bg-[#F8F6EC]/60 border border-brand-border/30 focus:border-brand-secondary focus:bg-white text-brand-primary font-sans text-xs rounded-xl focus:outline-none transition-all"
@@ -404,17 +504,19 @@ export default function AuthModal({
             </AnimatePresence>
 
             {/* Toggle Sign In / Sign Up */}
-            <div className="text-center mt-5 pt-3 border-t border-black/5">
-              <p className="text-xs text-brand-primary/65 font-sans">
-                {isLogin ? "Don't have an account? " : "Already have an account? "}
-                <button
-                  onClick={handleToggleMode}
-                  className="text-brand-secondary font-semibold hover:underline cursor-pointer"
-                >
-                  {isLogin ? 'Sign up' : 'Sign in'}
-                </button>
-              </p>
-            </div>
+            {!isOnboarding && (
+              <div className="text-center mt-5 pt-3 border-t border-black/5">
+                <p className="text-xs text-brand-primary/65 font-sans">
+                  {isLogin ? "Don't have an account? " : "Already have an account? "}
+                  <button
+                    onClick={handleToggleMode}
+                    className="text-brand-secondary font-semibold hover:underline cursor-pointer"
+                  >
+                    {isLogin ? 'Sign up' : 'Sign in'}
+                  </button>
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Modal Footer Links */}
@@ -435,36 +537,15 @@ export default function AuthModal({
 
         </div>
 
-        {/* ── RIGHT COLUMN: CREAM WHITE DESIGN PANEL WITH LOGO ── */}
+        {/* ── RIGHT COLUMN: CLEAN LOGO PANEL ── */}
         <div className="hidden md:flex md:w-[46%] bg-[#F8F6EC] p-8 lg:p-12 relative flex-col items-center justify-center text-center overflow-hidden border-l border-brand-secondary/10">
-          
-          {/* Subtle concentric ambient rings */}
-          <div className="absolute w-[420px] h-[420px] rounded-full border border-brand-secondary/10 pointer-events-none" />
-          <div className="absolute w-[300px] h-[300px] rounded-full border border-brand-secondary/8 pointer-events-none" />
-          <div className="absolute w-[180px] h-[180px] rounded-full border border-brand-secondary/6 pointer-events-none" />
-
-          {/* Centerpiece Vector Logo Presentation */}
-          <div className="relative z-10 flex flex-col items-center">
-            
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-[#FFFEF2] border border-brand-secondary/15 shadow-lg flex items-center justify-center p-6 mb-6">
-              <img
-                src="/logo-k.svg"
-                alt="Knotify Emblem"
-                className="w-full h-full object-contain"
-              />
-            </div>
-
-            <span className="text-[10px] font-mono tracking-[0.3em] uppercase text-brand-secondary/60 block mb-1">
-              ESTABLISHED 2026
-            </span>
-            <h3 className="font-serif font-bold text-xl text-brand-secondary tracking-tight">
-              Knotify Ties
-            </h3>
-            <p className="font-serif italic text-xs text-brand-primary/65 mt-2 max-w-xs leading-relaxed">
-              "Dignitas et Elegantia in Omnia — The Covenant standard for effortless resumption neckwear."
-            </p>
+          <div className="relative z-10 flex flex-col items-center justify-center">
+            <img
+              src="/logo-k.svg"
+              alt="Knotify Logo"
+              className="w-36 h-36 lg:w-44 lg:h-44 object-contain drop-shadow-sm"
+            />
           </div>
-
         </div>
 
       </motion.div>

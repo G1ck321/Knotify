@@ -2,11 +2,11 @@ import { getAccessToken } from './authStorage';
 import { getBackendUrl } from './checkoutPayment';
 
 /**
- * Feature C — "Request knotted tie pic" (+₦150, 48-hour inventory hold).
+ * Feature C — "Request knotted tie pic" (+₦200, 48-hour inventory hold).
  *
  * Two client-side responsibilities, nothing more:
  *   1. keep the per-device `client_key` stable. It is an unguessable bearer
- *      secret that lets a GUEST's outstanding ₦150 rows be matched at checkout
+ *      secret that lets a GUEST's outstanding ₦200 rows be matched at checkout
  *      and lets their own 48h hold be ignored by the availability check.
  *   2. remember which pic requests this device opened, so checkout can SHOW
  *      the fee line. The amount actually charged is always decided server-side
@@ -16,7 +16,10 @@ import { getBackendUrl } from './checkoutPayment';
  * t.me deep link and that is all the browser ever sees.
  */
 
-export const PIC_FEE = 150;
+// One copy of the fee: lib/pricing mirrors Backend/pricing.py.
+import { PIC_FEE } from './pricing';
+
+export { PIC_FEE };
 
 const CLIENT_KEY_STORAGE = 'knotify_pic_client_key';
 const LOCAL_REQUESTS_STORAGE = 'knotify_pic_requests';
@@ -74,7 +77,7 @@ function rememberPicRequest(txRef: string) {
   }
 }
 
-/** Outstanding ₦150 rows this device opened. Display only; server re-decides. */
+/** Outstanding ₦200 rows this device opened. Display only; server re-decides. */
 export function getOutstandingPicFee(): number {
   return getLocalPicRequests().length * PIC_FEE;
 }

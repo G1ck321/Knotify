@@ -96,6 +96,18 @@ def reset_login_rate_limit(email: str | None) -> None:
         reset(f"login:email:{email.strip().lower()}")
 
 
+def reset_login_rate_limit_for_ip(request: Request) -> None:
+    """Clear the per-source-IP login counter after a successful signup.
+
+    A legitimate brand-new account can be created from an IP that was just
+    blocked by someone else's failed logins (shared campus NAT), so once the
+    account exists the IP should start with a clean slate. The per-account
+    counter still guards each individual account, so this cannot be abused to
+    unlock unlimited guesses against a target.
+    """
+    reset(f"login:ip:{caller_key(request)}")
+
+
 def pay_rate_limit(request: Request) -> None:
     """Cap payment-session creation: each hit inserts an order + a hold."""
     rate_limit(keys=[f"pay:ip:{caller_key(request)}"], limit=15, window_seconds=300)

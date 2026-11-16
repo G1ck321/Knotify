@@ -12,13 +12,7 @@ from datetime import timezone, datetime
 from routers.quantity import (
     consume_inventory_hold,
     decrement_stock_for_order,
-    get_tie_by_id,
     release_inventory_hold,
-)
-from routers.pic_requests import (
-    mark_pic_requests_paid,
-    release_pic_holds_for_paid_order,
-    start_chat_for_token,
 )
 
 
@@ -150,12 +144,6 @@ async def flutterwave_webhook(
             if cart_snapshot:
                 background_tasks.add_task(decrement_stock_for_order, cart_snapshot)
             background_tasks.add_task(consume_inventory_hold, tx_ref)
-            # Feature C: settle exactly the pic fees this order paid for, and
-            # free the buyer's 24h pic holds on ties they just purchased.
-            background_tasks.add_task(
-                mark_pic_requests_paid, order_record.get("pic_refs") or []
-            )
-            background_tasks.add_task(release_pic_holds_for_paid_order, order_record)
         else:
             print("DEBUG: Supabase update failed or returned empty data.")
 
@@ -195,47 +183,11 @@ async def handle_telegram_requests(
         raw_text = str(payload["message"]["text"] or "").strip()
         incoming_text = raw_text.lower()
 
-        # ---- Feature C: the deep link the "Request knotted pic" button opens
-        # t.me/<bot>?start=pic_<token> arrives as "/start pic_<token>".
-        # (The raw, case-sensitive token is kept separately: lowering it
-        # would corrupt the url-safe base64 token.)
+        # Pic requests are off on this branch, so /start just greets the user.
+        # (Feature C used to resolve t.me?start=pic_<token> here, which required
+        # the pic_requests table and 500'd whenever that table was missing.)
         if incoming_text.startswith("/start"):
-            parts = incoming_text.split(maxsplit=1)
-            argument = parts[1] if len(parts) > 1 else ""
-            reply_text = ""
-
-            if argument.startswith("pic_"):
-                token = raw_text.split(maxsplit=1)[1][4:] if " " in raw_text else ""
-                record = start_chat_for_token(token, chat_id)
-
-                if record:
-                    tie_row = get_tie_by_id(str(record.get("tie_id") or ""))
-                    tie_name = (
-                        str(tie_row.get("tie_name") or tie_row.get("name"))
-                        if tie_row
-                        else str(record.get("tie_id"))
-                    )
-                    hold_until = str(record.get("hold_until") or "")
-                    reply_text = (
-                        f"Knotify knotted-pic request\n\n"
-                        f"Tie: {tie_name}\n"
-                        f"Draft: \"I'd like to view this tie knotted on someone "
-                        f"before I buy.\"\n\n"
-                        f"Your tie is held for 24 hours (until {hold_until}). "
-                        f"A 100 NGN pic fee is added to your next checkout.\n"
-                        f"Tell us the occasion / preferred knot and we'll send "
-                        f"the photo."
-                    )
-                else:
-                    reply_text = (
-                        "This pic link is no longer valid. Open the product page "
-                        "and tap \"Request knotted pic\" again."
-                    )
-            else:
-                reply_text = (
-                    "Welcome to Knotify. Browse ties at the shop, or tap "
-                    "\"Request knotted pic\" on a tie to preview it knotted."
-                )
+            reply_text = "Welcome to Knotify. Browse ties at the shop to find your knot."
 
             if reply_text:
                 telegram_api_url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"

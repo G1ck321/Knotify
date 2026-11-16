@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-import traceback
 import uvicorn
 
 from config import auth_secret
@@ -34,15 +33,31 @@ _require_dedicated_auth_secret()
 
 app = FastAPI(title="Knotify Covenant University", version="2026.1.0")
 
+
+@app.get("/health")
+async def health():
+    """Readiness probe: can this instance resolve and reach Supabase?
+
+    Logic lives in health.py so it can be tested without booting the app (which
+    refuses to start without AUTH_SECRET_KEY). Never returns a key or a
+    connection string.
+    """
+    from health import build_health_report
+
+    return build_health_report()
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request, exc):
-    """Generic 500: fixed body for the client, full traceback in the server log.
+    """Generic 500: fixed body for the client, traceback still in the server log.
 
     Exception text can carry table names, connection strings, SQL fragments and
-    file paths, so it must never be echoed back to the browser.
+    file paths, so it must never be echoed back to the browser. The stack trace
+    does not need to be printed here: Starlette's ServerErrorMiddleware re-raises
+    the original exception after this response is sent, and the ASGI server
+    (uvicorn / gunicorn) logs the full traceback from that.
     """
-    print(f"--- Unhandled error: {request.method} {request.url.path} ---")
-    traceback.print_exc()
+    print(f"--- Unhandled error: {request.method} {request.url.path} "
+          f"({type(exc).__name__}) ---")
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 @app.exception_handler(RequestValidationError)
@@ -64,6 +79,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3003",
         "http://localhost:3001",
+        # Vite picks the next free port when 3001 is already in use.
+        "http://localhost:3002",
         "https://knotifycu.vercel.app",
                    "https://knotifycu.knotifycu.workers.dev"],
 )
