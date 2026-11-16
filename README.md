@@ -30,7 +30,7 @@ Knotify replaces all of that with a clean, fast, and verified marketplace.
 
 1. **Browse** — Students browse a curated catalog of available ties (plain, striped, vintage, corporate) filtered by type and price.
 2. **Reserve** — A small deposit is paid online via Flutterwave to lock in the tie.
-3. **Pick Up** — The buyer collects the tie at an assigned hall lobby pickup point (e.g. near Daniel, Peter, Esther, or Lydia Hall) and pays the remaining balance on the spot.
+3. **Pick Up** — The buyer collects the tie at an assigned hall lobby pickup point (e.g. near Daniel, Peter, Joshua, or Lydia Hall) and pays the remaining balance on the spot.
 4. **Sell** — Graduating students or anyone with spare ties can list them for sale directly through the platform.
 
 ---

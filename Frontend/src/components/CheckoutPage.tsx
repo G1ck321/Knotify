@@ -467,8 +467,8 @@ export default function CheckoutPage({
       return 'Pickup Point A (Near Joseph Hall)';
     } else if (hall === 'Peter Hall' || hall === 'Paul Hall') {
       return 'Pickup Point B (Near Paul Hall)';
-    } else if (hall === 'Esther Hall') {
-      return 'Pickup Point C (Near Esther Hall Entrance)';
+    } else if (hall === 'Joshua Hall') {
+      return 'Pickup Point C (Near Joshua Hall Entrance)';
     } else if (hall === 'Lydia Hall' || hall === 'Mary Hall') {
       return 'Pickup Point D (Near Lydia Hall Entrance)';
     }

@@ -80,7 +80,7 @@ export default function Footer({ setCurrentTab, onOpenBecomeSeller, onResetLocal
             Administrative Standard
           </h4>
           <p className="text-xs text-brand-primary/65 font-sans leading-relaxed">
-            All listed neckwear conforms to Peter, Paul, Daniel, PG, Esther, and Lydia Hall sartorial guidelines and university chapel dress codes. Hand-verified by student coordinators before lobby delivery.
+            All listed neckwear conforms to Peter, Paul, Daniel, PG, Joshua, and Lydia Hall sartorial guidelines and university chapel dress codes. Hand-verified by student coordinators before lobby delivery.
           </p>
         </div>
 

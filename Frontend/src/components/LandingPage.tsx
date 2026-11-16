@@ -42,7 +42,7 @@ const HERO_MODELS = [
   { id: 2, src: '/models/model2.jpg', label: 'Regal Stripe', hall: 'Daniel Hall' },
   { id: 3, src: '/models/model3.jpg', label: 'The Resumption Fit', hall: 'Paul Hall' },
   { id: 4, src: '/models/model4.jpg', label: 'Dapper Senior', hall: 'PG Hall' },
-  { id: 5, src: '/models/model6.jpg', label: 'Class & Chapel Standard', hall: 'Esther Hall' },
+  { id: 5, src: '/models/model6.jpg', label: 'Class & Chapel Standard', hall: 'Joshua Hall' },
 ];
 
 // ── Showcase Ties for CTA Gallery Carousel (Reference Image 1) ──
@@ -440,7 +440,7 @@ export default function LandingPage({
                 Hostel Lobby Pickup
               </h3>
               <p className="font-sans text-xs sm:text-sm text-[#FFFEF2]/75 leading-relaxed">
-                Pick up your packaged tie right in your hall lobby (Peter, Paul, Daniel, PG, Esther, or Lydia).
+                Pick up your packaged tie right in your hall lobby (Peter, Paul, Daniel, PG, Joshua, or Lydia).
               </p>
             </div>
 
